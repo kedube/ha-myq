@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.2.12 (2026-11-09)
+
+Add a garage sidebar panel and dashboard card
+
+- Show every MyQ garage door as a realistic door in its trim, with open and close controls, status, camera snapshots, and live video.
+- Let administrators change each door's size, style, color, windows, glass, hardware, and trim color; the look is shared by everyone.
+- Offer the same door as a dashboard card (custom:myq-door-card), with an optional compact layout.
+- Show how long a door has been open and highlight doors left open past a set time.
+- Check a door's state on demand, list its recent activity, and show a fresh camera snapshot after it moves.
+- Configure the sidebar panel's title, icon, and audience in the integration options.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v0.2.11 (2026-11-08)
 
 Reduce MyQ cloud request volume
