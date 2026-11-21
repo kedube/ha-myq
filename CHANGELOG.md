@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.01] - 2026-11-21
+
 First public release. Nothing in it has been tested against a
 real MyQ account yet; see the [README](https://github.com/kedube/ha-myq/blob/main/README.md) for what that means.
 

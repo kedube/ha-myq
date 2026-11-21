@@ -15,7 +15,7 @@ CLIENT_ID = "ANDROID_CGI_MYQ"
 SCOPE = "MyQ_Residential offline_access"
 REDIRECT_URI = "com.myqops://android"
 # Keep equal to manifest.json and pyproject.toml; tests/test_metadata.py enforces it.
-VERSION = "0.00"
+VERSION = "0.01"
 USER_AGENT = f"ha-myq/{VERSION}"
 # y92/b.s -> ft0/i0: native metadata, not browser navigation headers.
 NATIVE_HEADERS = {"BrandId": "1", "App-Version": "5.324.0.1132442"}
