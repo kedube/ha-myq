@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.02] - 2026-11-21
+
 ### Fixed
 
 - Adding the integration failed with "Config flow could not be loaded: 500
