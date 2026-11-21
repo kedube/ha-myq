@@ -4,7 +4,7 @@ version = "0.01"
 description = "Experimental MyQ integration derived from the Android app protocol"
 requires-python = ">=3.13"
 license = "AGPL-3.0-only"
-dependencies = ["aiohttp>=3.12", "aiortc==1.14.0"]
+dependencies = ["aiohttp>=3.12", "aiortc==1.16.0"]
 
 # For the desktop sign-in helper and research tools, which import the installed package.
 [project.optional-dependencies]
@@ -17,7 +17,7 @@ curl = ["certifi>=2025.1.31", "curl_cffi>=0.15,<0.16"]
 # in particular) gives custom_components a path entry Home Assistant's loader cannot read.
 [dependency-groups]
 test = [
-    "aiortc==1.14.0",
+    "aiortc==1.16.0",
     "certifi>=2025.1.31",
     "curl_cffi>=0.15,<0.16",
     "homeassistant==2026.2.3",

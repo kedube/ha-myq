@@ -10,7 +10,7 @@ negotiated only with permission, from the first viewer, and stays muted until en
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from fractions import Fraction
-from typing import Any, cast
+from typing import Any
 
 import aiohttp
 import av
@@ -59,7 +59,11 @@ def _offer_kinds(offer_sdp: str) -> list[str]:
 
 def encode_jpeg(frame: av.VideoFrame) -> bytes:
     """Encode one decoded live frame as a JPEG with FFmpeg's MJPEG encoder."""
-    codec = cast(av.VideoCodecContext, av.CodecContext.create("mjpeg", "w"))
+    codec = av.CodecContext.create("mjpeg", "w")
+    # A check rather than a cast: PyAV 19's stubs already return VideoCodecContext here,
+    # PyAV 16's return CodecContext, and Home Assistant ships either depending on version.
+    if not isinstance(codec, av.VideoCodecContext):
+        raise ProtocolError("Could not encode the live frame")
     codec.width, codec.height = frame.width, frame.height
     codec.pix_fmt = "yuvj420p"
     codec.time_base = Fraction(1, 30)

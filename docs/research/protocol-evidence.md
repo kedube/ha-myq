@@ -397,7 +397,10 @@ the receiving camera peer uses the returned ICE servers and sends native-style
 SDP/ICE signaling; its tracks feed a browser-facing, send-only peer. No browser
 microphone track is sent to the camera. A loopback test transports a real
 generated H.264 frame through this bridge. The dependency is pinned to aiortc
-1.14.0, compatible with the tested HA version's PyAV 16.0.1 requirement.
+1.16.0. Home Assistant pins PyAV for its stream integration (16.0.1 in 2026.2,
+17.0.1 from 2026.7, 19.0.0 from 2026.10), and aiortc 1.16.0 accepts PyAV 14 to
+19. aiortc 1.14.0 accepted only up to 16, so HA 2026.7 and later could not
+install it and the config flow failed with a 500 error.
 
 Views are limited to one viewer per camera and ten minutes, with explicit stop
 and cleanup on cancellation, error, off/offline/removal and integration unload.

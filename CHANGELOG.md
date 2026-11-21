@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Adding the integration failed with "Config flow could not be loaded: 500
+  Internal Server Error" on Home Assistant 2026.7 and later. Those versions pin
+  a newer PyAV than aiortc 1.14.0 allows, so the requirement could not be
+  installed. The integration now requires aiortc 1.16.0.
+
 ## [0.01] - 2026-11-21
 
 First public release. Nothing in it has been tested against a
