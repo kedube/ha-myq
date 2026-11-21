@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.03] - 2026-11-21
+
 ### Changed
 
 - Connect MyQ now opens directly to email and password. Setup and reauthentication

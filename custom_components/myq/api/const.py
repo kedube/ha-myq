@@ -15,7 +15,7 @@ CLIENT_ID = "ANDROID_CGI_MYQ"
 SCOPE = "MyQ_Residential offline_access"
 REDIRECT_URI = "com.myqops://android"
 # Keep equal to manifest.json and pyproject.toml; tests/test_metadata.py enforces it.
-VERSION = "0.02"
+VERSION = "0.03"
 USER_AGENT = f"ha-myq/{VERSION}"
 # y92/b.s -> ft0/i0: model + "/Android " + release. This selected compatibility
 # profile uses the documented emulator identity, not an attested device claim.
