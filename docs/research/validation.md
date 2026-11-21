@@ -165,7 +165,7 @@ code unused and that concurrent completions, server rejections and cancellation
 after sending cannot replay it. Native headers are checked on token/API requests
 and excluded from browser navigation and camera requests.
 
-HA flow tests cover the browser handoff, retention of the private verifier in
+At that checkpoint, HA flow tests covered the browser handoff, retention of the private verifier in
 HA, rejected/stale handoffs, proof replacement without code consumption,
 discovery retry without repeated exchange, same-account reauthentication, and
 saving only the OAuth session and verified identity. A cleanup test exposed an
@@ -177,8 +177,10 @@ All credentials and responses used in these tests are synthetic. No live MyQ
 login or physical command was attempted. There is still no working native
 App Check producer or supplied genuine token, so server acceptance of the new
 metadata/proof combination remains unverified. The providers consume external
-proof; they do not mint it. See [browser-sign-in.md](../browser-sign-in.md) for the
-implemented setup workflow and remaining prerequisite.
+proof; they do not mint it. The browser handoff was removed from setup on
+November 21. Current flow tests cover direct email/password setup, MFA,
+same-account reauthentication, error recovery and discovery retries; see the
+[sign-in guide](../sign-in.md).
 
 Environment: Python 3.13.7, Home Assistant Core 2026.2.3,
 pytest-homeassistant-custom-component 0.13.316, and PyTurboJPEG 1.8.0.

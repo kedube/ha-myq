@@ -33,3 +33,21 @@ jobs:
         with:
           persist-credentials: false
       - uses: home-assistant/actions/hassfest@86d4564712fa02543c808e3a693dd04f9d3f8361 # master, 2026-10-26
+
+  # Home Assistant installs the manifest's requirements under its own package pins before it
+  # loads the config flow; a conflict there is a 500 error when adding the integration. The
+  # CI job tests against one pinned HA, so this checks the hacs.json minimum and the latest
+  # release (the nightly run picks up new releases).
+  requirements:
+    name: Requirements install on Home Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # The uv that Home Assistant 2026.11 installs requirements with.
+      - run: python -m pip install uv==0.13.6
+      - run: python scripts/check_requirements.py

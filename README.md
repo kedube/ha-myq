@@ -61,8 +61,9 @@ only.
 ## Requirements
 
 - Home Assistant 2026.2 or later. Tested with 2026.2.3 and Python 3.13.
-- Something to sign in with: an App Check token, a one-time MyQ sign-in link or
-  a refresh token (see [Set up](#set-up)).
+- Your MyQ account email and password, plus access to its verification codes.
+  Sign-in still depends on MyQ accepting the application's verification; see
+  [Set up](#set-up).
 - For live video: outbound access to MyQ's video service (Tend, port 5104) and
   to AWS WebRTC servers. The `aiortc` dependency is installed automatically.
 
@@ -109,17 +110,13 @@ extract a release's `myq.zip` into `config/custom_components/myq/`.
 
 ## Set up
 
-Go to **Settings → Devices & services → Add integration → MyQ** and choose a sign-in method:
+Go to **Settings → Devices & services → Add integration → MyQ**. **Connect MyQ**
+opens directly to email and password. Enter your credentials, then complete
+MyQ's verification prompt if one appears. Your password is not saved.
 
-| Method | Use it when |
-| --- | --- |
-| **Browser sign-in with app verification** | You have a current App Check token. A helper on your computer opens MyQ's sign-in page in Chrome and returns the result to Home Assistant. |
-| **One-time MyQ sign-in link** | You have a `https://www.myliftmaster.com/ids/auth/onetime-login?token=…` link. |
-| **Experimental: email/password form** | Diagnostics only. In trials, MyQ's browser check stopped it before the password page. |
-| **Advanced: use an existing refresh token** | You have a refresh token from your own authorized session. |
-
-None of these methods has completed a sign-in to MyQ yet. The
-[sign-in guide](docs/sign-in.md) explains each method, reauthentication, and
+Email/password is the only setup and reconnect method. End-to-end sign-in is
+still unverified, and MyQ's browser and app-verification requirements remain
+unresolved. The [sign-in guide](docs/sign-in.md) explains reauthentication and
 what happens when you remove the integration.
 
 **Options:** the poll interval (60–900 seconds, default 60) and whether cameras

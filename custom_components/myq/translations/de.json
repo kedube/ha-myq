@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "MyQ verbinden",
-        "description": "Experimentelle Integration, noch nicht mit MyQ getestet: Für keine Anmeldemethode ist bestätigt, dass sie funktioniert. Die Browser-Anmeldung erfordert ein aktuelles MyQ-App-Verifizierungstoken aus einer autorisierten nativen Quelle. Eine Anmeldung im Browser allein kann diesen Nachweis nicht liefern. Wenn du einen einmaligen MyQ-Anmeldelink hast, kannst du stattdessen diesen verwenden. Du kannst auch ein vorhandenes autorisiertes Refresh-Token importieren.",
-        "menu_options": {
-          "browser": "Browser-Anmeldung mit App-Verifizierung",
-          "onetime": "Einmaliger MyQ-Anmeldelink",
-          "login": "Experimentell: Anmeldung per Formular mit E-Mail/Passwort",
-          "token": "Erweitert: vorhandenes Refresh-Token verwenden"
-        }
-      },
-      "login": {
-        "title": "Bei MyQ anmelden",
         "description": "Gib die Zugangsdaten deines MyQ-Kontos ein. Wenn MyQ eine unterstützte Verifizierungsabfrage stellt, wirst du als Nächstes dazu aufgefordert. Dein Passwort wird nur für diese Anmeldung verwendet und nicht gespeichert.",
         "data": {
           "username": "E-Mail",
-          "password": "Passwort",
-          "app_check_token": "App-Verifizierungstoken (optional; ersetzen, falls abgelaufen)"
+          "password": "Passwort"
         }
       },
       "mfa": {
         "title": "MyQ-Verifizierung",
         "description": "{instruction}",
         "data": {
-          "response": "Verifizierungsantwort",
-          "app_check_token": "App-Verifizierungstoken (optional; ersetzen, falls abgelaufen)"
-        }
-      },
-      "token": {
-        "title": "Vorhandene MyQ-Sitzung verwenden",
-        "description": "Für Entwicklung und Tests mit einem Refresh-Token aus deiner eigenen autorisierten Sitzung. Dies ersetzt oder umgeht weder die MyQ-Anmeldung noch MFA oder die App-Verifizierung. Die Integration prüft und erneuert die Sitzung, bevor sie sie speichert.",
-        "data": {
-          "refresh_token": "Refresh-Token"
+          "response": "Verifizierungsantwort"
         }
       },
       "reauth_confirm": {
         "title": "MyQ erneut verbinden",
         "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an.",
-        "menu_options": {
-          "browser": "Browser-Anmeldung mit App-Verifizierung",
-          "onetime": "Einmaliger MyQ-Anmeldelink",
-          "login": "Mit E-Mail und Passwort anmelden",
-          "token": "Erweitert: vorhandenes Refresh-Token verwenden"
-        }
-      },
-      "browser": {
-        "title": "MyQ-Anmeldung im Browser abschließen",
-        "description": "Verwende das lokale Browser-Hilfsprogramm, das in der [Einrichtungsanleitung]({guide_url}) beschrieben ist. Es erfordert ein aktuelles MyQ-App-Verifizierungstoken. Kopiere diese Anfrage in das Hilfsprogramm und füge dann innerhalb von zehn Minuten unten die private Ergebnisdatei ein. Lass dieses Einrichtungsfenster geöffnet.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Privates Anmeldeergebnis"
-        }
-      },
-      "onetime": {
-        "title": "Mit einem einmaligen MyQ-Link anmelden",
-        "description": "Füge einen einmaligen MyQ-Anmeldelink ein (er beginnt mit {link_start}). Die MyQ-App sendet mit diesen Links kein App-Verifizierungstoken. Weder diese noch eine andere Anmeldemethode wurde bisher mit MyQ getestet, und es ist nicht bekannt, wo MyQ diese Links ausgibt. Jeder Link funktioniert nur einmal; schlägt danach die Kontoerkennung fehl, kannst du es mit derselben Sitzung erneut versuchen.",
-        "data": {
-          "link": "Einmaliger Anmeldelink"
+          "username": "E-Mail",
+          "password": "Passwort"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ hat einen Anmelde- oder Verifizierungsbildschirm angezeigt, den diese Integration noch nicht unterstützt. Siehe die Protokollnotizen; möglicherweise erfordert dies ein App-Verifizierungstoken oder ein neues MFA-Formular.",
       "rate_limited": "MyQ hat die Anfragen begrenzt. Warte, bevor du es erneut versuchst.",
       "protocol_error": "MyQ hat eine unerwartete Antwort zurückgegeben. Sieh in den Protokollnotizen der Integration nach. Es wurde kein Konto hinzugefügt.",
-      "browser_verification": "MyQ verlangt eine Verifizierung in einem echten Browser. Starte im Einrichtungsmenü „Browser-Anmeldung mit App-Verifizierung“.",
+      "browser_verification": "MyQ verlangt eine Browser-Verifizierung, die diese Integration nicht abschließen kann.",
       "app_check_unavailable": "Ein aktuelles MyQ-App-Verifizierungstoken ist erforderlich. Der Browser kann es nicht erzeugen.",
       "app_check_expired": "Das App-Verifizierungstoken ist abgelaufen oder nur noch weniger als fünf Minuten gültig. Gib ein neues Token an.",
       "app_check_invalid": "Das App-Verifizierungstoken ist fehlerhaft oder hat keine verwendbare Ablaufzeit.",
-      "app_check_integrity": "Die native Token-Quelle konnte keinen Integritätsnachweis der Anwendung erhalten.",
-      "invalid_link": "Das ist kein verwendbarer einmaliger MyQ-Anmeldelink. Füge den vollständigen Link ein."
+      "app_check_integrity": "Die native Token-Quelle konnte keinen Integritätsnachweis der Anwendung erhalten."
     },
     "abort": {
       "already_configured": "Dieses MyQ-Konto ist bereits konfiguriert.",

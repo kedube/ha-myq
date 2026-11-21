@@ -1,4 +1,4 @@
-"""Interactive sign-in, MFA, token import, reauthentication, and polling options."""
+"""Email/password sign-in, MFA, reauthentication, and polling options."""
 
 import time
 from collections.abc import Mapping
@@ -11,7 +11,6 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
-from .api.app_check import SuppliedAppCheckProvider
 from .api.auth import Challenge, Login
 from .api.client import Client
 from .api.errors import (
@@ -26,9 +25,7 @@ from .api.errors import (
     SessionRenewalFailed,
     UnsupportedAuthStep,
 )
-from .api.handoff import create_request, read_result
-from .api.oauth import OAuthSession, ui_locale
-from .api.onetime import LINK_PATH, one_time_token
+from .api.oauth import ui_locale
 from .api.tokens import Tokens
 from .const import (
     CONF_ENABLE_CAMERAS,
@@ -40,10 +37,6 @@ from .const import (
 )
 
 SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
-MENU = ["browser", "onetime", "login", "token"]
-# Passed as placeholders: hassfest does not allow URLs in translation strings.
-HELPER_GUIDE = "https://github.com/kedube/ha-myq/blob/main/docs/browser-sign-in.md"
-ONE_TIME_LINK = "https://www.myliftmaster.com" + LINK_PATH
 
 
 def error_key(error: MyQError) -> str:
@@ -73,7 +66,6 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         self._session: aiohttp.ClientSession | None = None
         self._client: Client | None = None
         self._login: Login | None = None
-        self._oauth: OAuthSession | None = None
         self._email = ""
         self._cooldown_until = 0.0
 
@@ -100,7 +92,6 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         if self._login is not None and self._login.app_check_provider is not None:
             self._login.app_check_provider.invalidate()
         self._login = None
-        self._oauth = None
 
     @callback
     def async_remove(self) -> None:
@@ -113,53 +104,6 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         )
         self._client = Client(self._session)
         return self._client
-
-    async def async_step_user(self, user_input=None):
-        return self.async_show_menu(step_id="user", menu_options=MENU)
-
-    async def async_step_browser(self, user_input=None):
-        errors = {}
-        if self._oauth is None:
-            await self._new_client()
-            self._oauth = OAuthSession(locale=self._locale)
-        if user_input is not None:
-            provider = None
-            try:
-                if time.monotonic() < self._cooldown_until:
-                    raise RateLimited(self._cooldown_until - time.monotonic())
-                callback_url, token = read_result(user_input["handoff"])
-                # Validate state before parsing or acquiring supplied proof.
-                self._oauth.callback_code(callback_url)
-                provider = SuppliedAppCheckProvider(token)
-                await self._oauth.complete(
-                    callback_url,
-                    self._client.auth,
-                    app_check_provider=provider,
-                    require_app_check=True,
-                )
-                return await self._finish()
-            except MyQError as err:
-                errors["base"] = self._error(err)
-                if self._signed_in():
-                    # Discovery can be retried without replaying the OAuth code.
-                    return self._finish_form(errors)
-            finally:
-                if provider is not None:
-                    provider.invalidate()
-        try:
-            self._oauth.check_active()
-        except AuthenticationError:
-            await self._new_client()
-            self._oauth = OAuthSession(locale=self._locale)
-        return self.async_show_form(
-            step_id="browser",
-            data_schema=vol.Schema({vol.Required("handoff"): SECRET}),
-            description_placeholders={
-                "request": create_request(self._oauth),
-                "guide_url": HELPER_GUIDE,
-            },
-            errors=errors,
-        )
 
     def _finish_form(self, errors=None):
         return self.async_show_form(
@@ -180,35 +124,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         except MyQError as err:
             return self._finish_form({"base": self._error(err)})
 
-    async def async_step_onetime(self, user_input=None):
-        """Sign in with a one-time MyQ link, as the app's link handler does."""
-        errors = {}
-        if user_input is not None and time.monotonic() < self._cooldown_until:
-            errors["base"] = "rate_limited"
-        elif user_input is not None:
-            try:
-                token = one_time_token(user_input["link"])
-            except ValueError:
-                errors["base"] = "invalid_link"
-            else:
-                client = await self._new_client()
-                try:
-                    # Sent once: MyQ consumes the token whether or not setup finishes.
-                    await client.auth.exchange_one_time(token)
-                    return await self._finish()
-                except MyQError as err:
-                    errors["base"] = self._error(err)
-                    if self._signed_in():
-                        return self._finish_form(errors)
-                    self._close()
-        return self.async_show_form(
-            step_id="onetime",
-            data_schema=vol.Schema({vol.Required("link"): SECRET}),
-            description_placeholders={"link_start": ONE_TIME_LINK},
-            errors=errors,
-        )
-
-    async def async_step_login(self, user_input=None):
+    async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None and time.monotonic() < self._cooldown_until:
             errors["base"] = "rate_limited"
@@ -216,14 +132,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             self._email = user_input["username"].strip()
             client = await self._new_client()
             try:
-                provider = (
-                    SuppliedAppCheckProvider(user_input["app_check_token"].strip())
-                    if user_input.get("app_check_token")
-                    else None
-                )
-                self._login = Login(
-                    client.http, client.auth, app_check_provider=provider, locale=self._locale
-                )
+                self._login = Login(client.http, client.auth, locale=self._locale)
                 result = await self._login.start(self._email, user_input["password"])
                 if isinstance(result, Challenge):
                     return await self.async_step_mfa()
@@ -233,28 +142,26 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 if self._signed_in():
                     return self._finish_form(errors)
                 self._close()
+        return self._credentials_form(errors)
+
+    def _credentials_form(self, errors=None):
         return self.async_show_form(
-            step_id="login",
+            step_id="reauth_confirm" if self.source == SOURCE_REAUTH else "user",
             data_schema=vol.Schema(
                 {
                     vol.Required("username", default=self._email): str,
                     vol.Required("password"): SECRET,
-                    vol.Optional("app_check_token"): SECRET,
                 }
             ),
-            errors=errors,
+            errors=errors or {},
         )
 
     async def async_step_mfa(self, user_input=None):
         if self._login is None or self._login.challenge is None:
-            return await self.async_step_login()
+            return await self.async_step_user()
         errors = {}
         if user_input is not None:
             try:
-                if user_input.get("app_check_token"):
-                    self._login.app_check_provider = SuppliedAppCheckProvider(
-                        user_input["app_check_token"].strip()
-                    )
                 previous_kind = self._login.challenge.kind
                 result = await self._login.respond(user_input["response"])
                 if isinstance(result, Tokens):
@@ -265,28 +172,18 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
-                if isinstance(err, AuthenticationError):
+                if isinstance(err, AuthenticationError) or self._login.oauth.used:
                     self._close()
         challenge = self._login.challenge if self._login else None
         if challenge is None:
             self._close()
-            return self.async_show_form(
-                step_id="login",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required("username", default=self._email): str,
-                        vol.Required("password"): SECRET,
-                    }
-                ),
-                errors=errors or {"base": "unsupported_auth"},
-            )
+            return self._credentials_form(errors or {"base": "unsupported_auth"})
         schema = vol.In(challenge.choices) if challenge.kind == "method" else SECRET
         return self.async_show_form(
             step_id="mfa",
             data_schema=vol.Schema(
                 {
                     vol.Required("response"): schema,
-                    vol.Optional("app_check_token"): SECRET,
                 }
             ),
             errors=errors,
@@ -295,32 +192,6 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 if challenge.kind == "method"
                 else "Enter the verification code supplied by MyQ.",
             },
-        )
-
-    async def async_step_token(self, user_input=None):
-        errors = {}
-        if user_input is not None and time.monotonic() < self._cooldown_until:
-            errors["base"] = "rate_limited"
-        elif user_input is not None:
-            client = await self._new_client()
-            client.auth.tokens = Tokens("", user_input["refresh_token"].strip(), 0)
-            try:
-                await client.auth.access_token()
-                return await self._finish()
-            except MyQError as err:
-                errors["base"] = self._error(err)
-                if self._signed_in():
-                    # The pasted token was already exchanged for a new one; keep it.
-                    return self._finish_form(errors)
-                self._close()
-        return self.async_show_form(
-            step_id="token",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("refresh_token"): SECRET,
-                }
-            ),
-            errors=errors,
         )
 
     async def _finish(self):
@@ -343,7 +214,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input=None):
-        return self.async_show_menu(step_id="reauth_confirm", menu_options=MENU)
+        return await self.async_step_user(user_input)
 
     @staticmethod
     @callback

@@ -72,14 +72,19 @@ token source stops before opening a window.
 | `--curl` | Use `curl_cffi` for HTTP; with `--connection-check`, test whether the browser check appears |
 | `--curl-profile chrome` | Use the desktop Chrome profile instead of Android Chrome |
 
-The curl transport impersonates a browser's TLS and HTTP fingerprint with one
-in-memory cookie jar. It does not run JavaScript, so it cannot pass MyQ's
-browser check; see the
+The curl transport uses the selected browser's TLS/HTTP profile and an
+in-memory cookie jar for hosted sign-in pages. Native token and API requests
+use a separate session with Android request metadata, no browser impersonation
+and no cookies. This does not reproduce Android's TLS stack or supply App Check
+proof; see the [native request profile](android-request-profile.md).
+The transport does not run JavaScript, and its browser profiles have not passed
+MyQ's browser check; see the
 [sign-in investigation](sign-in-investigation.md#browser-verification) for the
 recorded trials.
 
 ### Report contents
 
+Reports include the selected public `native_request_profile` headers.
 Token failures include a `token_exchange` section: HTTP status, recognised OAuth
 and MyQ error codes, response format and whether App Check was supplied. Raw
 server text and credentials are left out. `401.122` is reported as an

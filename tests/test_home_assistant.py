@@ -382,9 +382,6 @@ async def test_config_flow_saves_only_tokens_and_verified_identity(hass, tokens)
         patch("custom_components.myq.async_setup_entry", AsyncMock(return_value=True)),
     ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"next_step_id": "login"}
-        )
         # Mock Login.start must mimic the real token manager update.
         flow = hass.config_entries.flow._progress[result["flow_id"]]
         original_new = flow._new_client
@@ -426,6 +423,8 @@ async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
             state = parse_qs(urlsplit(url).query)["state"][0]
             return Response(200, {}, PASSWORD_PAGE)
         data = kwargs["data"]
+        if isinstance(data, bytes):
+            data = {key: values[0] for key, values in parse_qs(data.decode()).items()}
         if "Password" in data or data.get("Code") == "wrong-code":
             return Response(200, {}, MFA_PAGE)
         if "Code" in data:
@@ -448,9 +447,6 @@ async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
         patch("custom_components.myq.async_setup_entry", AsyncMock(return_value=True)),
     ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"next_step_id": "login"}
-        )
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -504,9 +500,6 @@ async def test_reauth_preserves_account_identity(hass, entry, tokens, user_id, r
             data=entry.data,
         )
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"next_step_id": "login"}
-        )
-        result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
                 "username": "test@example.invalid",
@@ -543,9 +536,6 @@ async def test_flow_rate_limit_survives_another_login_attempt(hass):
         AsyncMock(side_effect=RateLimited(120, server_retry_after=True)),
     ) as start:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"next_step_id": "login"}
-        )
         for _ in range(2):
             result = await hass.config_entries.flow.async_configure(
                 result["flow_id"],
@@ -554,7 +544,7 @@ async def test_flow_rate_limit_survives_another_login_attempt(hass):
                     "password": "private-password",
                 },
             )
-            assert result["step_id"] == "login"
+            assert result["step_id"] == "user"
             assert result["errors"]["base"] == "rate_limited"
         start.assert_awaited_once()
         hass.config_entries.flow.async_abort(result["flow_id"])
@@ -666,6 +656,8 @@ async def test_lingering_401_after_renewal_does_not_start_reauth(hass, entry, do
 
 
 async def test_removing_the_entry_revokes_its_session(hass, entry, door, tokens):
+    from urllib.parse import parse_qs
+
     await setup(hass, entry, door)
     with patch(
         "custom_components.myq.api.http.Http.request",
@@ -675,7 +667,7 @@ async def test_removing_the_entry_revokes_its_session(hass, entry, door, tokens)
         await hass.async_block_till_done()
     revocations = [c for c in request.call_args_list if c.args[1] == REVOCATION_URL]
     assert len(revocations) == 1
-    assert revocations[0].kwargs["data"]["token"] == tokens.refresh_token
+    assert parse_qs(revocations[0].kwargs["data"].decode())["token"] == [tokens.refresh_token]
     assert not hass.config_entries.async_entries(DOMAIN)
 
 

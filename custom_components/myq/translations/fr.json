@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "Connecter MyQ",
-        "description": "Intégration expérimentale, pas encore testée avec MyQ : aucune méthode de connexion n'a été confirmée comme fonctionnelle. La connexion par navigateur nécessite un jeton de vérification de l'application MyQ en cours de validité, provenant d'une source native autorisée. Une connexion dans le navigateur ne peut pas, à elle seule, fournir cette preuve. Si vous disposez d'un lien de connexion MyQ à usage unique, vous pouvez l'utiliser à la place. Vous pouvez également importer un jeton d'actualisation autorisé existant.",
-        "menu_options": {
-          "browser": "Connexion par navigateur avec vérification de l'application",
-          "onetime": "Lien de connexion MyQ à usage unique",
-          "login": "Expérimental : connexion par formulaire avec adresse courriel et mot de passe",
-          "token": "Avancé : utiliser un jeton d'actualisation existant"
-        }
-      },
-      "login": {
-        "title": "Connexion à MyQ",
         "description": "Saisissez les identifiants de votre compte MyQ. Si MyQ présente une vérification prise en charge, vous serez invité à y répondre à l'étape suivante. Votre mot de passe sert uniquement à cette connexion et n'est pas enregistré.",
         "data": {
           "username": "Adresse courriel",
-          "password": "Mot de passe",
-          "app_check_token": "Jeton de vérification de l'application (facultatif ; à remplacer s'il a expiré)"
+          "password": "Mot de passe"
         }
       },
       "mfa": {
         "title": "Vérification MyQ",
         "description": "{instruction}",
         "data": {
-          "response": "Réponse de vérification",
-          "app_check_token": "Jeton de vérification de l'application (facultatif ; à remplacer s'il a expiré)"
-        }
-      },
-      "token": {
-        "title": "Utiliser une session MyQ existante",
-        "description": "Pour le développement et les tests avec un jeton d'actualisation issu de votre propre session autorisée. Cela ne remplace ni ne contourne la connexion MyQ, l'authentification multifacteur ou la vérification de l'application. L'intégration validera et renouvellera la session avant de l'enregistrer.",
-        "data": {
-          "refresh_token": "Jeton d'actualisation"
+          "response": "Réponse de vérification"
         }
       },
       "reauth_confirm": {
         "title": "Reconnecter MyQ",
         "description": "Votre session MyQ n'a pas pu être renouvelée. Reconnectez-vous au même compte.",
-        "menu_options": {
-          "browser": "Connexion par navigateur avec vérification de l'application",
-          "onetime": "Lien de connexion MyQ à usage unique",
-          "login": "Connexion avec adresse courriel et mot de passe",
-          "token": "Avancé : utiliser un jeton d'actualisation existant"
-        }
-      },
-      "browser": {
-        "title": "Terminer la connexion MyQ dans votre navigateur",
-        "description": "Utilisez l'utilitaire local pour navigateur décrit dans le [guide de configuration]({guide_url}). Il nécessite un jeton de vérification de l'application MyQ en cours de validité. Copiez cette requête dans l'utilitaire, puis collez ci-dessous le fichier de résultat privé dans un délai de dix minutes. Gardez cette fenêtre de configuration ouverte.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Résultat de connexion privé"
-        }
-      },
-      "onetime": {
-        "title": "Connexion avec un lien MyQ à usage unique",
-        "description": "Collez un lien de connexion MyQ à usage unique (il commence par {link_start}). L'application MyQ n'envoie aucun jeton de vérification de l'application avec ces liens. Ni cette méthode ni aucune autre méthode de connexion n'a encore été testée avec MyQ, et l'endroit où MyQ émet ces liens est inconnu. Chaque lien ne fonctionne qu'une fois ; si la découverte du compte échoue ensuite, vous pouvez réessayer avec la même session.",
-        "data": {
-          "link": "Lien de connexion à usage unique"
+          "username": "Adresse courriel",
+          "password": "Mot de passe"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ a présenté un écran de connexion ou de vérification que cette intégration ne prend pas encore en charge. Consultez les notes sur le protocole ; cela peut nécessiter un jeton de vérification de l'application ou un nouveau formulaire d'authentification multifacteur.",
       "rate_limited": "MyQ a limité les requêtes. Patientez avant de réessayer.",
       "protocol_error": "MyQ a renvoyé une réponse inattendue. Consultez les notes sur le protocole de l'intégration. Aucun compte n'a été ajouté.",
-      "browser_verification": "MyQ exige une vérification dans un vrai navigateur. Lancez « Connexion par navigateur avec vérification de l'application » depuis le menu de configuration.",
+      "browser_verification": "MyQ exige une vérification dans un navigateur que cette intégration ne peut pas effectuer.",
       "app_check_unavailable": "Un jeton de vérification de l'application MyQ en cours de validité est requis. Le navigateur ne peut pas le générer.",
       "app_check_expired": "Le jeton de vérification de l'application a expiré ou il lui reste moins de cinq minutes de validité. Fournissez un nouveau jeton.",
       "app_check_invalid": "Le jeton de vérification de l'application est mal formé ou n'a pas de date d'expiration exploitable.",
-      "app_check_integrity": "La source native du jeton n'a pas pu obtenir de preuve d'intégrité de l'application.",
-      "invalid_link": "Ce lien n'est pas un lien de connexion MyQ à usage unique utilisable. Collez le lien complet."
+      "app_check_integrity": "La source native du jeton n'a pas pu obtenir de preuve d'intégrité de l'application."
     },
     "abort": {
       "already_configured": "Ce compte MyQ est déjà configuré.",

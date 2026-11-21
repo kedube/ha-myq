@@ -2,6 +2,7 @@
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -39,7 +40,9 @@ async def test_refresh_is_single_flight_and_rotated_token_is_persisted(http):
     result = await asyncio.gather(*(manager.access_token() for _ in range(20)))
     assert result == ["new-access"] * 20
     assert http.request.await_count == 1
-    assert http.request.call_args.kwargs["data"]["refresh_token"] == "old-refresh"
+    assert parse_qs(http.request.call_args.kwargs["data"].decode())["refresh_token"] == [
+        "old-refresh"
+    ]
     save.assert_awaited_once_with(manager.tokens)
     assert manager.tokens.refresh_token == "rotated"
     assert "rotated" not in repr(manager.tokens)
@@ -103,6 +106,9 @@ async def test_exact_door_command_route_and_body(tokens, door, action):
         "Authorization": "Bearer " + tokens.access_token,
         "BrandId": "1",
         "App-Version": "5.324.0.1132442",
+        "User-Agent": "Pixel 9 Pro XL/Android 17",
+        "Accept-Encoding": "gzip",
+        "Connection": "Keep-Alive",
     }
 
 

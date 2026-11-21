@@ -71,8 +71,9 @@ the signed app-verification token. Refresh and additional auth-management
 routes are documented with their own observed parameters.
 
 Sign-in sessions end only when the token service answers `invalid_grant`,
-`401.102` or `400`; other failures keep the session. A one-time sign-in link can
-also create a session, without App Check. No accepted token exchange has been
+`401.102` or `400`; other failures keep the session. In the app, a one-time
+sign-in link can also create a session, without App Check; the integration no
+longer offers it because the link's web page is retired. No accepted token exchange has been
 observed; see the [sign-in investigation](../research/sign-in-investigation.md).
 
 ### Devices and actions

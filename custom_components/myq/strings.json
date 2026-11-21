@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "Connect MyQ",
-        "description": "Experimental integration, not yet tested with MyQ: no sign-in method has been confirmed to work. Browser sign-in requires a current MyQ app verification token from an authorized native source. A browser login alone cannot provide that proof. If you have a one-time MyQ sign-in link, you can use it instead. You can also import an existing authorized refresh token.",
-        "menu_options": {
-          "browser": "Browser sign-in with app verification",
-          "onetime": "One-time MyQ sign-in link",
-          "login": "Experimental: email/password form sign-in",
-          "token": "Advanced: use an existing refresh token"
-        }
-      },
-      "login": {
-        "title": "Sign in to MyQ",
         "description": "Enter your MyQ account credentials. If MyQ presents a supported verification challenge, you will be prompted next. Your password is used for this sign-in only and is not saved.",
         "data": {
           "username": "Email",
-          "password": "Password",
-          "app_check_token": "App verification token (optional; replace if expired)"
+          "password": "Password"
         }
       },
       "mfa": {
         "title": "MyQ verification",
         "description": "{instruction}",
         "data": {
-          "response": "Verification response",
-          "app_check_token": "App verification token (optional; replace if expired)"
-        }
-      },
-      "token": {
-        "title": "Use an existing MyQ session",
-        "description": "For development and testing with a refresh token from your own authorized session. This does not replace or bypass MyQ sign-in, MFA, or app verification. The integration will validate and renew the session before saving it.",
-        "data": {
-          "refresh_token": "Refresh token"
+          "response": "Verification response"
         }
       },
       "reauth_confirm": {
         "title": "Reconnect MyQ",
         "description": "Your MyQ session could not be renewed. Sign in to the same account again.",
-        "menu_options": {
-          "browser": "Browser sign-in with app verification",
-          "onetime": "One-time MyQ sign-in link",
-          "login": "Sign in with email and password",
-          "token": "Advanced: use an existing refresh token"
-        }
-      },
-      "browser": {
-        "title": "Complete MyQ sign-in in your browser",
-        "description": "Use the local browser helper described in the [setup guide]({guide_url}). It requires a current MyQ app verification token. Copy this request into the helper, then paste the private result file below within ten minutes. Keep this setup window open.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Private sign-in result"
-        }
-      },
-      "onetime": {
-        "title": "Sign in with a one-time MyQ link",
-        "description": "Paste a one-time MyQ sign-in link (it starts with {link_start}). The MyQ app sends no app verification token with these links. Neither this nor any other sign-in method has been tested with MyQ yet, and where MyQ issues these links is not known. Each link works once; if account discovery then fails, you can retry with the same session.",
-        "data": {
-          "link": "One-time sign-in link"
+          "username": "Email",
+          "password": "Password"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ presented a sign-in or verification screen this integration does not yet support. See the protocol notes; this may require an app verification token or a new MFA form.",
       "rate_limited": "MyQ has limited requests. Wait before trying again.",
       "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
-      "browser_verification": "MyQ requires verification in a real browser. Start Browser sign-in with app verification from the setup menu.",
+      "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
       "app_check_unavailable": "A current MyQ app verification token is required. The browser cannot generate it.",
       "app_check_expired": "The app verification token is expired or has less than five minutes remaining. Supply a fresh token.",
       "app_check_invalid": "The app verification token is malformed or has no usable expiry.",
-      "app_check_integrity": "The native token source could not obtain application integrity proof.",
-      "invalid_link": "That is not a usable one-time MyQ sign-in link. Paste the complete link."
+      "app_check_integrity": "The native token source could not obtain application integrity proof."
     },
     "abort": {
       "already_configured": "This MyQ account is already configured.",

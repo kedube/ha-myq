@@ -22,14 +22,22 @@ been reworked since, and the current version has not been tried against MyQ.
   code only initializes Analytics and Installations. Missing App Check is a
   confirmed difference and a plausible cause, not a proven sole cause; the app's
   `BrandId` and `App-Version` headers were also missing at the time.
+- **Native request details updated November 21.** The integration now uses a
+  selected Android device-format User-Agent, native gzip/HTTP/1 connection
+  headers, separate browser/native cookie handling and OkHttp form escaping.
+  These changes come from static inspection; no accepted exchange or matching
+  TLS/HTTP/2 fingerprint has been demonstrated. See the
+  [request profile evidence](android-request-profile.md).
 - **Other routes tried:** the iOS app's client (`IOS_CGI_MYQ`, `com.myqops://ios`)
   also returns `401.122`. On an Android emulator, the real app's own sign-in
   fails with `401.122 (-998)`; the device was reported uncertified, with no Play
   Integrity labels. Browser TLS fingerprints (`curl_cffi`) still hit MyQ's
   Cloudflare challenge.
-- **Not yet tried:** the one-time sign-in link (see the
-  [authentication reference](../api/authentication.md#refresh-persistence-and-sign-out-surfaces)),
-  because no such link has been found.
+- **One-time sign-in link:** never tried, because no link was found (see the
+  [authentication reference](../api/authentication.md#refresh-persistence-and-sign-out-surfaces)).
+  In November its page, `https://www.myliftmaster.com/ids/auth/onetime-login`,
+  began answering that web login is no longer supported and to use the mobile
+  app, so the option was removed from setup.
 
 ## Browser verification
 
@@ -65,6 +73,13 @@ access restored. No token file was acquired. No emulator model/version change
 has been demonstrated to solve this blocker. This project has no genuine
 supplied App Check token.
 
+The November 21 request profile uses `Pixel 9 Pro XL/Android 17`, taking the
+model and OS from the earlier emulator record. It is an explicit compatibility
+choice, not a claim that the integration runs on that device or that this
+profile passes Play Integrity. The user has no working Android phone available
+for a successful native capture. No new live sign-in was performed for the
+request-profile change, and genuine proof acquisition remains unresolved.
+
 ## Artifacts
 
 | Source | Identity / scope |
@@ -83,6 +98,8 @@ artifact inventory was recorded separately.
 
 - [Authentication review, November 20](auth-review.md): the gap analysis that
   led to the current sign-in implementation.
+- [Android request profile, November 21](android-request-profile.md): native
+  identification, cookie boundaries, form encoding and transport limits.
 - [Protocol evidence](protocol-evidence.md): capture provenance and the
   door-control and camera investigations.
 - [iPhone capture helper](native-capture.md) and [account probe](probe.md): the

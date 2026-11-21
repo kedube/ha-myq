@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "Conectar o MyQ",
-        "description": "Integração experimental, ainda não testada com o MyQ: nenhum método de login teve o funcionamento confirmado. O login pelo navegador exige um token atual de verificação do aplicativo MyQ, obtido de uma fonte nativa autorizada. Um login no navegador, por si só, não consegue fornecer essa prova. Se você tiver um link de login de uso único do MyQ, poderá usá-lo no lugar. Você também pode importar um token de atualização autorizado existente.",
-        "menu_options": {
-          "browser": "Login pelo navegador com verificação do aplicativo",
-          "onetime": "Link de login de uso único do MyQ",
-          "login": "Experimental: login por formulário com e-mail/senha",
-          "token": "Avançado: usar um token de atualização existente"
-        }
-      },
-      "login": {
-        "title": "Fazer login no MyQ",
         "description": "Informe as credenciais da sua conta MyQ. Se o MyQ apresentar um desafio de verificação compatível, você será solicitado a respondê-lo em seguida. Sua senha é usada somente para este login e não é salva.",
         "data": {
           "username": "E-mail",
-          "password": "Senha",
-          "app_check_token": "Token de verificação do aplicativo (opcional; substitua se tiver expirado)"
+          "password": "Senha"
         }
       },
       "mfa": {
         "title": "Verificação do MyQ",
         "description": "{instruction}",
         "data": {
-          "response": "Resposta de verificação",
-          "app_check_token": "Token de verificação do aplicativo (opcional; substitua se tiver expirado)"
-        }
-      },
-      "token": {
-        "title": "Usar uma sessão existente do MyQ",
-        "description": "Para desenvolvimento e testes com um token de atualização da sua própria sessão autorizada. Isso não substitui nem contorna o login do MyQ, a MFA ou a verificação do aplicativo. A integração validará e renovará a sessão antes de salvá-la.",
-        "data": {
-          "refresh_token": "Token de atualização"
+          "response": "Resposta de verificação"
         }
       },
       "reauth_confirm": {
         "title": "Reconectar o MyQ",
         "description": "Não foi possível renovar sua sessão do MyQ. Faça login novamente na mesma conta.",
-        "menu_options": {
-          "browser": "Login pelo navegador com verificação do aplicativo",
-          "onetime": "Link de login de uso único do MyQ",
-          "login": "Fazer login com e-mail e senha",
-          "token": "Avançado: usar um token de atualização existente"
-        }
-      },
-      "browser": {
-        "title": "Concluir o login do MyQ no navegador",
-        "description": "Use o auxiliar de navegador local descrito no [guia de configuração]({guide_url}). Ele exige um token atual de verificação do aplicativo MyQ. Copie esta solicitação para o auxiliar e, em seguida, cole abaixo o arquivo de resultado privado em até dez minutos. Mantenha esta janela de configuração aberta.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Resultado privado do login"
-        }
-      },
-      "onetime": {
-        "title": "Fazer login com um link de uso único do MyQ",
-        "description": "Cole um link de login de uso único do MyQ (ele começa com {link_start}). O aplicativo MyQ não envia nenhum token de verificação do aplicativo com esses links. Nem este nem qualquer outro método de login foi testado com o MyQ até agora, e não se sabe onde o MyQ emite esses links. Cada link funciona uma única vez; se a descoberta da conta falhar depois disso, você poderá tentar novamente com a mesma sessão.",
-        "data": {
-          "link": "Link de login de uso único"
+          "username": "E-mail",
+          "password": "Senha"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "O MyQ apresentou uma tela de login ou de verificação que esta integração ainda não suporta. Consulte as notas de protocolo; isso pode exigir um token de verificação do aplicativo ou um novo formulário de MFA.",
       "rate_limited": "O MyQ limitou as solicitações. Aguarde antes de tentar novamente.",
       "protocol_error": "O MyQ retornou uma resposta inesperada. Consulte as notas de protocolo da integração. Nenhuma conta foi adicionada.",
-      "browser_verification": "O MyQ exige verificação em um navegador real. Inicie \"Login pelo navegador com verificação do aplicativo\" no menu de configuração.",
+      "browser_verification": "O MyQ exige uma verificação no navegador que esta integração não consegue concluir.",
       "app_check_unavailable": "É necessário um token atual de verificação do aplicativo MyQ. O navegador não consegue gerá-lo.",
       "app_check_expired": "O token de verificação do aplicativo expirou ou tem menos de cinco minutos restantes. Forneça um token novo.",
       "app_check_invalid": "O token de verificação do aplicativo está malformado ou não tem uma validade utilizável.",
-      "app_check_integrity": "A fonte nativa do token não conseguiu obter a prova de integridade do aplicativo.",
-      "invalid_link": "Esse não é um link de login de uso único do MyQ utilizável. Cole o link completo."
+      "app_check_integrity": "A fonte nativa do token não conseguiu obter a prova de integridade do aplicativo."
     },
     "abort": {
       "already_configured": "Esta conta MyQ já está configurada.",

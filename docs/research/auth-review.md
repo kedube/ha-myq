@@ -1,8 +1,9 @@
 # Authentication review (November 20, 2026)
 
-Implementation follow-up: the gaps below describe the pre-change code. The
-provider lifecycle, native metadata, atomic exchange and HA browser handoff are
-now implemented; see [browser-sign-in.md](../browser-sign-in.md). Generating native
+Implementation follow-up: the gaps below describe the pre-change code. Provider
+lifecycle, native metadata, atomic exchange and HA browser handoff were subsequently
+implemented. On November 21, setup was simplified to email/password only and the
+HA browser handoff was removed; see [sign-in.md](../sign-in.md). Generating native
 proof and demonstrating a successful live login remain unresolved.
 
 The app authenticates to `partner-identity.myq-cloud.com` (not

@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "连接 MyQ",
-        "description": "实验性集成，尚未针对 MyQ 进行测试：目前没有任何登录方式被确认可用。浏览器登录需要来自经授权原生来源的当前有效 MyQ 应用验证令牌。仅凭浏览器登录无法提供该证明。如果您有 MyQ 一次性登录链接，可以改用该链接。您也可以导入已获授权的现有刷新令牌。",
-        "menu_options": {
-          "browser": "浏览器登录（含应用验证）",
-          "onetime": "MyQ 一次性登录链接",
-          "login": "实验性：通过电子邮箱/密码表单登录",
-          "token": "高级：使用现有的刷新令牌"
-        }
-      },
-      "login": {
-        "title": "登录 MyQ",
         "description": "请输入您的 MyQ 账户凭据。如果 MyQ 提出受支持的验证质询，接下来会提示您完成。您的密码仅用于本次登录，不会被保存。",
         "data": {
           "username": "电子邮箱",
-          "password": "密码",
-          "app_check_token": "应用验证令牌（可选；如已过期请替换）"
+          "password": "密码"
         }
       },
       "mfa": {
         "title": "MyQ 验证",
         "description": "{instruction}",
         "data": {
-          "response": "验证响应",
-          "app_check_token": "应用验证令牌（可选；如已过期请替换）"
-        }
-      },
-      "token": {
-        "title": "使用现有的 MyQ 会话",
-        "description": "用于开发和测试，使用来自您自己已授权会话的刷新令牌。这不会替代或绕过 MyQ 登录、MFA 或应用验证。集成会在保存会话之前对其进行验证和续期。",
-        "data": {
-          "refresh_token": "刷新令牌"
+          "response": "验证响应"
         }
       },
       "reauth_confirm": {
         "title": "重新连接 MyQ",
         "description": "无法续期您的 MyQ 会话。请重新登录同一账户。",
-        "menu_options": {
-          "browser": "浏览器登录（含应用验证）",
-          "onetime": "MyQ 一次性登录链接",
-          "login": "使用电子邮箱和密码登录",
-          "token": "高级：使用现有的刷新令牌"
-        }
-      },
-      "browser": {
-        "title": "在浏览器中完成 MyQ 登录",
-        "description": "请使用[设置指南]({guide_url})中介绍的本地浏览器助手。它需要当前有效的 MyQ 应用验证令牌。将此请求复制到助手中，然后在十分钟内将私密结果文件粘贴到下方。请保持此设置窗口打开。\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "私密登录结果"
-        }
-      },
-      "onetime": {
-        "title": "使用 MyQ 一次性链接登录",
-        "description": "粘贴 MyQ 一次性登录链接（以 {link_start} 开头）。MyQ 应用在使用这些链接时不会发送应用验证令牌。此方式和其他任何登录方式都尚未针对 MyQ 进行测试，而且目前不清楚 MyQ 在何处发放这些链接。每个链接只能使用一次；如果之后账户发现失败，可以使用同一会话重试。",
-        "data": {
-          "link": "一次性登录链接"
+          "username": "电子邮箱",
+          "password": "密码"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ 显示了本集成尚不支持的登录或验证界面。请参阅协议说明；这可能需要应用验证令牌或新的 MFA 表单。",
       "rate_limited": "MyQ 已限制请求。请稍候再试。",
       "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
-      "browser_verification": "MyQ 要求在真实的浏览器中进行验证。请从设置菜单中启动“浏览器登录（含应用验证）”。",
+      "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
       "app_check_unavailable": "需要当前有效的 MyQ 应用验证令牌。浏览器无法生成该令牌。",
       "app_check_expired": "应用验证令牌已过期或剩余有效时间不足五分钟。请提供新的令牌。",
       "app_check_invalid": "应用验证令牌格式错误，或没有可用的过期时间。",
-      "app_check_integrity": "原生令牌来源无法获取应用程序完整性证明。",
-      "invalid_link": "这不是可用的 MyQ 一次性登录链接。请粘贴完整的链接。"
+      "app_check_integrity": "原生令牌来源无法获取应用程序完整性证明。"
     },
     "abort": {
       "already_configured": "此 MyQ 账户已配置。",

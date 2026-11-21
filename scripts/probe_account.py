@@ -31,6 +31,7 @@ from myq_protocol.app_check import FileAppCheckProvider, SuppliedAppCheckProvide
 from myq_protocol.auth import Challenge, Login  # noqa: E402
 from myq_protocol.browser import BrowserLogin  # noqa: E402
 from myq_protocol.client import Client  # noqa: E402
+from myq_protocol.const import NATIVE_HEADERS  # noqa: E402
 from myq_protocol.errors import (  # noqa: E402
     AppCheckError,
     AppCheckUnavailable,
@@ -89,6 +90,7 @@ async def main(
                 "r": "refresh_token",
             }[mode],
             "http_transport": "curl_cffi" if use_curl else "aiohttp",
+            "native_request_profile": dict(NATIVE_HEADERS),
         }
         if use_curl:
             try:
@@ -102,7 +104,10 @@ async def main(
             transport_report.update(
                 {"curl_profile": http.profile, "curl_cffi_version": version("curl_cffi")}
             )
-            progress(f"Using curl_cffi {version('curl_cffi')} with {http.profile}")
+            progress(
+                f"Using curl_cffi {version('curl_cffi')}: {http.profile} for browser pages, "
+                "a separate native profile for OAuth/API requests"
+            )
         else:
             # The python.org macOS build may have no default CA file. Use an
             # explicit bundle instead of shell-specific SSL_CERT_FILE defaults.

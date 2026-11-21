@@ -1,7 +1,7 @@
 """Optional probe transport; Home Assistant does not import this module.
 
-Keep one browser profile and cookie jar throughout the flow. This HTTP client
-does not execute JavaScript, solve browser challenges, or produce app attestation.
+Keep browser navigation and native API sessions separate. This HTTP client does
+not execute JavaScript, solve browser challenges, or produce app attestation.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from .backoff import ServiceBackoff
 from .const import MAX_RESPONSE, TIMEOUT
 from .errors import BrowserVerificationRequired, CannotConnect, ProtocolError, RateLimited
 from .http import Response, is_browser_challenge, retry_seconds
+from .native import browser_header, uses_native_profile
 
 
 class CurlHttp:
@@ -36,6 +37,12 @@ class CurlHttp:
             impersonate=self.profile,
             default_headers=True,
         )
+        # Native OkHttp uses NoCookies. A separate pool also prevents the browser
+        # TLS/HTTP profile from being retained on a reused native connection.
+        # Plain libcurl is still not Android's TLS stack; see the profile evidence.
+        self.native_session = AsyncSession(
+            verify=certifi.where(), trust_env=False, proxy="", default_headers=False
+        )
         self.backoff = ServiceBackoff()
         self.last_status: int | None = None
         self.browser_verification_seen = False
@@ -44,13 +51,24 @@ class CurlHttp:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
-        await self.session.close()
+        try:
+            await self.session.close()
+        finally:
+            await self.native_session.close()
 
     async def request(self, method: str, url: str, **kwargs: Any) -> Response:
         self.backoff.check(url)
         headers = dict(kwargs.pop("headers", {}))
+        native = uses_native_profile(headers)
+        session = self.native_session if native else self.session
         timeout = kwargs.pop("timeout", None) or TIMEOUT
-        if any(k.lower() == "sec-fetch-mode" and v == "cors" for k, v in headers.items()):
+        if native:
+            headers = {name: value for name, value in headers.items() if not browser_header(name)}
+            if not any(name.lower() == "accept" for name in headers):
+                headers["Accept"] = None  # Suppress libcurl's default */*.
+            kwargs.pop("cookies", None)
+            kwargs.update(accept_encoding="gzip", discard_cookies=True, default_headers=False)
+        elif any(k.lower() == "sec-fetch-mode" and v == "cors" for k, v in headers.items()):
             # The captured SSO AJAX lookup is not a user-activated document
             # navigation. Suppress these defaults from the browser profile.
             headers["Sec-Fetch-User"] = None
@@ -69,11 +87,10 @@ class CurlHttp:
             return len(chunk)
 
         try:
-            response = await self.session.request(
+            response = await session.request(
                 method,
                 url,
-                # Preserve the profile's User-Agent and client hints. Protocol
-                # headers (Origin, CSRF, Authorization) are added by callers.
+                # Browser identity stays on navigation; native metadata is explicit.
                 allow_redirects=False,
                 timeout=timeout,
                 content_callback=receive,

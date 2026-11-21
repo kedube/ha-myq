@@ -89,8 +89,9 @@ async def test_cloudflare_challenge_is_not_reported_as_rate_limit(status):
 
 
 @pytest.mark.parametrize("outer_retries", [False, True])
+@pytest.mark.parametrize("native", [False, True])
 async def test_accepted_door_command_with_lost_response_is_not_resent(
-    monkeypatch, socket_enabled, tokens, door, outer_retries
+    monkeypatch, socket_enabled, tokens, door, outer_retries, native
 ):
     """A real server consumes the command and disconnects before acknowledging it."""
     from aiohttp import web
@@ -126,6 +127,8 @@ async def test_accepted_door_command_with_lost_response_is_not_resent(
         await site.start()
         base = f"http://127.0.0.1:{runner.addresses[0][1]}"
         monkeypatch.setattr("custom_components.myq.api.client.ACTIONS", base)
+        if native:
+            monkeypatch.setattr("custom_components.myq.api.client.NATIVE_API_BASES", {base})
         middleware_chain = (session_middleware,)
         async with aiohttp.ClientSession(middlewares=middleware_chain) as session:
             with pytest.raises(CommandUncertain, match="outcome is unknown"):

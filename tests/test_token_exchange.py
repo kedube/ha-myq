@@ -3,6 +3,7 @@
 import asyncio
 import json
 from unittest.mock import AsyncMock
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -16,8 +17,8 @@ from custom_components.myq.api.errors import (
     SessionRenewalFailed,
 )
 from custom_components.myq.api.http import Response
+from custom_components.myq.api.native import FORM_CONTENT_TYPE
 from custom_components.myq.api.oauth import OAuthSession
-from custom_components.myq.api.onetime import one_time_token
 from custom_components.myq.api.tokens import (
     REVOCATION_URL,
     TokenManager,
@@ -42,9 +43,10 @@ async def test_app_check_is_used_only_for_code_exchange_and_is_not_persisted(htt
     assert call.args == ("POST", IDENTITY + "/connect/token")
     assert call.kwargs["headers"] == {
         **NATIVE_HEADERS,
+        "Content-Type": FORM_CONTENT_TYPE,
         "Firebase-AppCheck-Token": "private-app-check-token",
     }
-    assert call.kwargs["data"]["code_verifier"] == oauth.verifier
+    assert parse_qs(call.kwargs["data"].decode())["code_verifier"] == [oauth.verifier]
     assert manager.last_exchange["app_check_supplied"] is True
     assert "private-app-check-token" not in json.dumps(manager.last_exchange)
     assert "private-app-check-token" not in json.dumps(manager.tokens.as_dict())
@@ -53,6 +55,7 @@ async def test_app_check_is_used_only_for_code_exchange_and_is_not_persisted(htt
     # ft0/i0 also adds the stored access token to the refresh request.
     assert http.request.call_args.kwargs["headers"] == {
         **NATIVE_HEADERS,
+        "Content-Type": FORM_CONTENT_TYPE,
         "IsRefresh": "true",
         "Authorization": "Bearer access",
     }
@@ -285,12 +288,16 @@ async def test_revoke_sends_the_apps_sign_out_request(http, tokens):
     assert await manager.revoke() is True
     call = http.request.call_args
     assert call.args == ("POST", REVOCATION_URL)
-    assert call.kwargs["data"] == {
-        "client_id": "ANDROID_CGI_MYQ",
-        "token_type_hint": "refresh_token",
-        "token": "test-refresh",
+    assert parse_qs(call.kwargs["data"].decode()) == {
+        "client_id": ["ANDROID_CGI_MYQ"],
+        "token_type_hint": ["refresh_token"],
+        "token": ["test-refresh"],
     }
-    assert call.kwargs["headers"] == {**NATIVE_HEADERS, "Authorization": "Bearer test-access"}
+    assert call.kwargs["headers"] == {
+        **NATIVE_HEADERS,
+        "Content-Type": FORM_CONTENT_TYPE,
+        "Authorization": "Bearer test-access",
+    }
     assert manager.tokens is None
     http.request.assert_awaited_once()
 
@@ -303,7 +310,7 @@ async def test_revoke_renews_an_expired_session_first_and_revokes_the_new_token(
     manager = TokenManager(http, Tokens("old", "r1", 0))
     assert await manager.revoke() is True
     revoke = http.request.call_args
-    assert revoke.kwargs["data"]["token"] == "r2"
+    assert parse_qs(revoke.kwargs["data"].decode())["token"] == ["r2"]
     assert revoke.kwargs["headers"]["Authorization"] == "Bearer a2"
 
 
@@ -315,44 +322,3 @@ async def test_revoke_without_renewal_still_sends_the_refresh_token(http):
     manager = TokenManager(http, Tokens("old", "r1", 0))
     assert await manager.revoke() is False
     assert "Authorization" not in http.request.call_args.kwargs["headers"]
-
-
-# --- One-time sign-in links (gm0/a.N, LoginActivity.L2) ------------------------------------
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "https://www.myliftmaster.com/ids/auth/onetime-login?token=abc.DEF-1",
-        "https://WWW.MYLIFTMASTER.COM/ids/auth/onetime-login/?token=abc.DEF-1",
-        "https://www.gomerlin.com.au/ids/auth/onetime-login?token=abc.DEF-1",
-        "  abc.DEF-1  ",
-    ],
-)
-def test_one_time_token_is_read_from_the_link(text):
-    assert one_time_token(text) == "abc.DEF-1"
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "",
-        "https://myqdevwww.myliftmaster.com/ids/auth/onetime-login?token=x",
-        "https://www.myliftmaster.com:8443/ids/auth/onetime-login?token=x",
-        "https://user@www.myliftmaster.com/ids/auth/onetime-login?token=x",
-        "https://www.myliftmaster.com/ids/auth/onetime-login?token=",
-        "line\r\nbreak",
-    ],
-)
-def test_unusable_one_time_links_are_refused(text):
-    with pytest.raises(ValueError):
-        one_time_token(text)
-
-
-async def test_one_time_exchange_is_sent_once_with_the_token_as_bearer(http):
-    http.request.return_value = json_response({"code": "401.122"}, 401)
-    manager = TokenManager(http)
-    with pytest.raises(ApplicationVerificationError):
-        await manager.exchange_one_time("one-time")
-    http.request.assert_awaited_once()
-    assert http.request.call_args.kwargs["headers"]["Authorization"] == "Bearer one-time"

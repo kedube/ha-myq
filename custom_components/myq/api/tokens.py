@@ -20,6 +20,7 @@ from .errors import (
     SessionRenewalFailed,
 )
 from .http import HttpTransport, Response, check_status
+from .native import FORM_CONTENT_TYPE, encode_form
 
 # Protocol codes only. Never surface arbitrary server descriptions or field values.
 OAUTH_ERRORS = frozenset(
@@ -45,13 +46,10 @@ LEGACY_MARGIN = 60.0
 SESSION_ENDED_ERRORS = frozenset({"invalid_grant"})
 SESSION_ENDED_CODES = frozenset({"401.102", "400"})
 TOKEN_URL = IDENTITY + "/connect/token"
-# ip0/s.f, ip0/k.J: the app's one-time sign-in exchange (api/{v1.0}/auth/token).
-ONE_TIME_URL = IDENTITY + "/api/v1.0/auth/token"
 # ip0/s.h, ip0/k.N: sign-out revocation.
 REVOCATION_URL = IDENTITY + "/connect/revocation"
-MAX_ONE_TIME_TOKEN = 8192
 
-Grant = Literal["code", "refresh", "one_time"]
+Grant = Literal["code", "refresh"]
 
 
 async def _complete_despite_cancellation[T](operation: Coroutine[Any, Any, T]) -> T:
@@ -103,18 +101,6 @@ def _lifetime(value: Any) -> float:
     if not math.isfinite(lifetime) or lifetime <= 0:
         return DEFAULT_LIFETIME
     return lifetime
-
-
-def validate_one_time_token(token: str) -> None:
-    """Header-safe syntax only; MyQ decides whether the token is valid."""
-    if (
-        not isinstance(token, str)
-        or not token
-        or len(token) > MAX_ONE_TIME_TOKEN
-        or not token.isascii()
-        or any(ord(c) < 33 or ord(c) == 127 for c in token)
-    ):
-        raise ProtocolError("The one-time sign-in token is malformed")
 
 
 @dataclass(frozen=True)
@@ -173,14 +159,16 @@ class TokenManager:
         headers: dict[str, str],
         *,
         grant: Grant,
-        url: str = TOKEN_URL,
     ) -> Tokens:
         self.last_exchange = {
             "app_check_supplied": bool(headers.get("Firebase-AppCheck-Token")),
             "http_status": None,
         }
         response = await self.http.request(
-            "POST", url, data=form, headers={**NATIVE_HEADERS, **headers}
+            "POST",
+            TOKEN_URL,
+            data=encode_form(form),
+            headers={**NATIVE_HEADERS, "Content-Type": FORM_CONTENT_TYPE, **headers},
         )
         self.last_exchange.update(exchange_diagnostics(response))
         oauth_error, code = self.last_exchange["oauth_error"], self.last_exchange["myq_code"]
@@ -207,10 +195,6 @@ class TokenManager:
                     f"MyQ ended this session ({oauth_error or code}); sign in again"
                 )
             raise SessionRenewalFailed()
-        if grant == "one_time":
-            raise AuthenticationError(
-                "MyQ did not accept the one-time sign-in link; it may be used or expired"
-            )
         if oauth_error == "invalid_client":
             raise AuthenticationError("MyQ rejected OAuth client authentication (invalid_client)")
         if oauth_error == "invalid_grant":
@@ -255,27 +239,6 @@ class TokenManager:
 
         return await _complete_despite_cancellation(exchange())
 
-    async def exchange_one_time(self, token: str) -> Tokens:
-        """Swap a one-time sign-in token for a session, as the app's link handler does.
-
-        gp0/f.h -> ip0/j.g stores the token as the access token, so the header
-        interceptor (ft0/i0) sends it as a Bearer credential; the form carries only
-        client_id. This request has no App Check header. It is sent once, never
-        replayed, because the server consumes the token.
-        """
-        validate_one_time_token(token)
-
-        async def exchange() -> Tokens:
-            async with self._lock:
-                return await self._exchange(
-                    {"client_id": CLIENT_ID},
-                    {"Authorization": "Bearer " + token},
-                    grant="one_time",
-                    url=ONE_TIME_URL,
-                )
-
-        return await _complete_despite_cancellation(exchange())
-
     async def access_token(self, rejected_token: str | None = None) -> str:
         return await _complete_despite_cancellation(self._access_token(rejected_token))
 
@@ -312,7 +275,7 @@ class TokenManager:
         """
         if self.tokens is None or not self.tokens.refresh_token:
             return False
-        headers = dict(NATIVE_HEADERS)
+        headers = {**NATIVE_HEADERS, "Content-Type": FORM_CONTENT_TYPE}
         with suppress(MyQError):
             headers["Authorization"] = "Bearer " + await self.access_token()
 
@@ -324,11 +287,13 @@ class TokenManager:
                 response = await self.http.request(
                     "POST",
                     REVOCATION_URL,
-                    data={
-                        "client_id": CLIENT_ID,
-                        "token_type_hint": "refresh_token",
-                        "token": tokens.refresh_token,
-                    },
+                    data=encode_form(
+                        {
+                            "client_id": CLIENT_ID,
+                            "token_type_hint": "refresh_token",
+                            "token": tokens.refresh_token,
+                        }
+                    ),
                     headers=headers,
                 )
                 if not 200 <= response.status < 300:

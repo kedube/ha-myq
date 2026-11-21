@@ -154,12 +154,28 @@ lifetime has been observed here.
 | --- | --- | --- |
 | `BrandId` | `1`; `yk/a0` through `sa2/b` | Included on token and supported MyQ account/device requests |
 | `App-Version` | `5.324.0.1132442`; `yk/b0` through `ta2/f` | Tied to the analyzed protocol build |
-| `User-Agent` | Android model plus `/Android ` and OS version | Uses its own integration agent or chosen curl profile; no invented model/OS |
+| `User-Agent` | Android model plus `/Android ` and OS version | Selected compatibility profile: `Pixel 9 Pro XL/Android 17`; these model/OS values come from the previously documented emulator, not an accepted native exchange |
+| `Accept-Encoding` | `gzip`; OkHttp `BridgeInterceptor` | Native requests use gzip only |
+| `Connection` | `Keep-Alive` on HTTP/1; omitted by OkHttp's HTTP/2 codec | Included for the integration's native HTTP/1 requests |
 | `Authorization` | Bearer access token on authenticated service requests | Added for authenticated calls, not a substitute for code-exchange proof |
 
-The new metadata is not added to browser navigation or Tend camera requests.
-Its live server effect is unverified; adding headers is not proof of resolving
-`401.122`.
+Native requests suppress automatic `Accept`, browser fetch/client-hint headers
+and browser cookies. The inspected app's native OkHttp client uses `NoCookies`;
+its browser authorization session is separate. The curl probe likewise uses a
+separate native session without browser impersonation or browser-cookie reuse.
+Browser navigation retains its existing identity, and the native metadata is
+not added to Tend camera requests.
+
+Code exchange, refresh and revocation use the inspected OkHttp form escaping:
+spaces become `+`, literal `+` becomes `%2B`, `~` becomes `%7E`, and `*` stays
+literal. The form examples above show decoded fields, not encoded wire bytes.
+
+These changes match verified request details, not the complete Android network
+stack. TLS ClientHello, HTTP/2 behavior and backend acceptance remain
+unverified. No new App Check producer is implemented, and changing headers does
+not establish that `401.122` is resolved. The
+[Android request profile evidence](../research/android-request-profile.md)
+records the source locations, profile choice and remaining differences.
 
 ## Firebase App Check and Play Integrity
 
@@ -291,7 +307,7 @@ Additional auth-service operations are statically declared and partly mapped:
 | Operation | Request | Evidence and boundary |
 | --- | --- | --- |
 | Token revocation | POST `/connect/revocation`, form `client_id`, `token_type_hint=refresh_token`, `token`; authenticated, so a Bearer access token is attached | Sign-out: `gp0/f.d` → `ip0/j.f` → `ip0/k.N` → `ip0/s.h`, then the store and cookies are cleared. The integration sends it when its entry is deleted; no live invocation observed |
-| One-time sign-in | POST `/api/v1.0/auth/token`, form `client_id`, `Authorization: Bearer <one-time token>`, no App Check header | App Link `https://www.myliftmaster.com/ids/auth/onetime-login?token=…` (also `www.gomerlin.com.au`) → `gm0/a.N` → `LoginActivity.L2` → `gp0/f.h` → `ip0/j.g`, which stores the token as the access token so `ft0/i0` sends it. The response is a normal `AuthLoginDto`. Gated by the `enable_onetime_authorization` feature flag (`WelcomeActivity.y1` → `ra2/c.Q0`). Where MyQ issues these links was not found. Implemented as a setup option; no live use observed |
+| One-time sign-in | POST `/api/v1.0/auth/token`, form `client_id`, `Authorization: Bearer <one-time token>`, no App Check header | App Link `https://www.myliftmaster.com/ids/auth/onetime-login?token=…` (also `www.gomerlin.com.au`) → `gm0/a.N` → `LoginActivity.L2` → `gp0/f.h` → `ip0/j.g`, which stores the token as the access token so `ft0/i0` sends it. The response is a normal `AuthLoginDto`. Gated by the `enable_onetime_authorization` feature flag (`WelcomeActivity.y1` → `ra2/c.Q0`). Where MyQ issues these links was not found. Offered as a setup option until November 2026, when the link's web page began saying web login is no longer supported; never used live |
 | Change password | POST `/api/v1.0/Login/UpdatePassword`, JSON `CurrentPassword`, `NewPassword`, `RefreshToken` | `ip0/k.P/Q`, `ip0/s.e`, `ap0/UpdatePasswordV6Dto`; default version v1.0 despite the DTO's V6 name; no integration write |
 
 Deleting the integration entry now sends the revocation above for that entry's
@@ -302,11 +318,13 @@ screens and all their recovery paths have not been fully traced.
 
 The following behavior belongs to this repository, with synthetic/local tests:
 
-- HA owns the OAuth state and verifier in memory. Its public handoff request
-  contains the authorization URL and expiry; it does not export the verifier.
-  A private result returns the callback and supplied proof. Requests expire
-  after ten minutes and are lost on restart/cancellation.
-- `SuppliedAppCheckProvider` accepts proof for a sign-in. `FileAppCheckProvider`
+- HA setup and reauthentication open directly to email/password, followed by
+  MFA when requested. Browser handoff, refresh-token import and manual proof
+  fields are no longer offered. The form keeps OAuth state and the PKCE verifier
+  in memory; transactions expire after ten minutes and are lost on restart or
+  cancellation. It does not yet acquire App Check proof automatically.
+- The research API retains `SuppliedAppCheckProvider` for externally supplied
+  proof. `FileAppCheckProvider`
   reloads externally maintained proof; `CachedAppCheckProvider` wraps an external
   async loader. None mints or renews native attestation itself.
 - Providers require more than five minutes of remaining validity, using locally
@@ -333,16 +351,15 @@ The following behavior belongs to this repository, with synthetic/local tests:
   remains sensitive until the user removes it.
 - Setup verifies profile identity and discovery before saving the integration.
   Reauthentication cannot replace an existing entry with a different account.
-  On every setup path (browser, one-time link, form, refresh-token import) a
-  discovery failure after the session was issued offers a retry with that same
-  session, so an imported refresh token is never spent on a failed attempt.
+  A discovery failure after form sign-in offers a retry with that same session,
+  without repeating password/MFA or the code exchange.
 - Deleting the entry revokes its session (above), bounded to 15 seconds.
 
-The code locations are `api/oauth.py`, `tokens.py`, `app_check.py`, `handoff.py`,
-`browser.py`, `auth.py`, `har.py`, `config_flow.py` and
-`scripts/browser_handoff.py`. Operational instructions are in
-[browser sign-in](../browser-sign-in.md). Valid authorized refresh-token import is
-also implemented, but no genuine working session is currently available here.
+The setup code is in `config_flow.py`, `api/auth.py`, `oauth.py` and `tokens.py`.
+Operational instructions are in the [sign-in guide](../sign-in.md).
+`app_check.py`, `handoff.py`, `browser.py`, `har.py` and the standalone scripts
+retain research support for externally supplied proof and sessions; those are
+not Home Assistant setup options. No genuine working session is available here.
 
 ## Sources and open questions
 

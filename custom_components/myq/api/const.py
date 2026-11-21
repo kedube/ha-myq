@@ -17,8 +17,17 @@ REDIRECT_URI = "com.myqops://android"
 # Keep equal to manifest.json and pyproject.toml; tests/test_metadata.py enforces it.
 VERSION = "0.02"
 USER_AGENT = f"ha-myq/{VERSION}"
-# y92/b.s -> ft0/i0: native metadata, not browser navigation headers.
-NATIVE_HEADERS = {"BrandId": "1", "App-Version": "5.324.0.1132442"}
+# y92/b.s -> ft0/i0: model + "/Android " + release. This selected compatibility
+# profile uses the documented emulator identity, not an attested device claim.
+NATIVE_USER_AGENT = "Pixel 9 Pro XL/Android 17"
+NATIVE_HEADERS = {
+    "User-Agent": NATIVE_USER_AGENT,
+    "BrandId": "1",
+    "App-Version": "5.324.0.1132442",
+    # OkHttp BridgeInterceptor defaults; HTTP/2 transports omit Connection.
+    "Accept-Encoding": "gzip",
+    "Connection": "Keep-Alive",
+}
 NATIVE_API_BASES = frozenset(
     {
         ACCOUNTS,

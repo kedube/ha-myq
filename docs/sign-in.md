@@ -1,64 +1,26 @@
 # Sign-in
 
-MyQ accounts require two-step verification, and MyQ's sign-in ends with a
-token exchange that the Android app proves with a Firebase App Check token.
-Home Assistant cannot generate that token. Choose the method that matches what
-you have.
+**Connect MyQ** opens directly to email and password. This is the only sign-in
+method in Home Assistant, including when reconnecting an existing account.
 
-None of this has been tested against MyQ. No method has completed a sign-in
-yet, so session renewal and sign-out have not run against MyQ either. See
-[what is known](#what-is-known).
+1. Open **Settings → Devices & services → Add integration → MyQ**.
+2. Enter your MyQ account email and password.
+3. Complete the verification prompt if MyQ asks for a method or code.
 
-Start from **Settings → Devices & services → Add integration → MyQ**.
+Your password and verification code are used for this sign-in only and are not
+saved. There is no sign-in menu, browser-helper handoff, refresh-token import,
+or manual app-verification token field.
 
-## Sign-in methods
-
-### Browser sign-in with app verification
-
-For when you have a current App Check token from an authorized native source.
-Home Assistant shows a sign-in request. A helper on a computer with Chrome opens
-MyQ's real sign-in pages, where you enter your password and verification code.
-The helper then returns a private result that you paste back into Home
-Assistant. The token must have more than five minutes of validity left.
-
-Follow the [browser sign-in helper guide](browser-sign-in.md).
-
-### One-time MyQ sign-in link
-
-The MyQ app can sign in from a link of this form:
-
-```text
-https://www.myliftmaster.com/ids/auth/onetime-login?token=…
-```
-
-Paste the whole link, or only the token. Home Assistant exchanges it for a
-session the way the app does; the app sends no App Check token with this
-request. Only MyQ's production link hosts are accepted (`www.myliftmaster.com`
-and `www.gomerlin.com.au`).
-
-A link works once. Where MyQ issues these links is not known, and the app only
-honours them when its `enable_onetime_authorization` feature flag is on.
-
-### Advanced: use an existing refresh token
-
-For a refresh token from your own authorized MyQ session. Home Assistant renews
-it immediately and saves the renewed session. MyQ may then stop accepting the
-token you pasted, so don't reuse it elsewhere.
-
-### Experimental: email/password form
-
-A diagnostic transport that submits MyQ's sign-in forms directly, without a
-browser. It handles the email verification-code step and accepts an optional
-App Check token. In trials, MyQ's browser verification page appeared before the
-password page and stopped it, so expect it to stop there.
+End-to-end sign-in remains unverified. MyQ may require a browser challenge or
+app-verification proof that the integration cannot currently provide. Simplifying
+the form does not remove those server requirements; see [what is known](#what-is-known).
 
 ## Finishing setup
 
-After any sign-in, Home Assistant checks your MyQ profile and finds your
+After sign-in, Home Assistant checks your MyQ profile and finds your
 devices before it saves the integration. If that check fails, for example
 because of a network error, a **Finish connecting MyQ** step lets you retry with
-the session you already have. You don't need to sign in again, and a pasted
-refresh token or one-time link is not spent on the failed attempt.
+the session you already have. You don't need to sign in again.
 
 Each MyQ account can be added once. The sign-in page is shown in Home
 Assistant's language and country.
@@ -87,15 +49,11 @@ own session; the phone app and other sign-ins stay signed in.
 
 | Message | Meaning |
 | --- | --- |
-| MyQ rejected the credentials or session | Wrong password or code, an expired sign-in request, a used one-time link, or a refresh token MyQ no longer accepts |
+| MyQ rejected the credentials or session | Wrong password or code, an expired sign-in request, or a refresh token MyQ no longer accepts |
 | Verification was not completed | The verification code was not accepted; enter it again |
 | MyQ rejected verification of the application (401.122) | MyQ did not accept the app verification for this sign-in. See [what is known](#what-is-known) |
-| A current MyQ app verification token is required | Browser sign-in needs an App Check token; none was supplied |
-| The app verification token is expired or has less than five minutes remaining | Get a fresh token and start again |
-| The app verification token is malformed | The pasted value is not a token with a readable expiry |
-| MyQ requires verification in a real browser | The form method hit MyQ's browser check; use browser sign-in |
+| MyQ requires a browser verification step that this integration cannot complete | The form encountered a browser challenge; the integration cannot complete this sign-in |
 | MyQ presented a sign-in or verification screen this integration does not yet support | The form method met an unsupported step, such as SSO or an unknown verification screen |
-| That is not a usable one-time MyQ sign-in link | The link is from another host, has no token, or is incomplete |
 | MyQ has limited requests | Wait before trying again; the integration does not retry automatically |
 | Could not connect to MyQ | A network error or a MyQ outage |
 
@@ -117,9 +75,10 @@ recorded. The missing App Check token is one possible cause, but that was never
 confirmed. The sign-in code has changed a lot since, and the current version
 has not been tried.
 
-In the app, the one-time link and refresh-token requests carry no App Check
-token, so those methods might avoid the problem. Neither has been tried against
-MyQ.
+The form retains the Android OAuth parameters, PKCE and native exchange
+[request profile](research/android-request-profile.md). It does not yet acquire
+genuine App Check proof. Automatic renewal of an established session remains
+implemented; refresh-token import is no longer part of setup.
 
 The [authentication reference](api/authentication.md) describes the protocol,
 and the [research notes](research/sign-in-investigation.md) record what has been

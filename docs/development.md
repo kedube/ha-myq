@@ -46,6 +46,16 @@ test contacts MyQ or operates a device.
 
 On GitHub, the Validate workflow also runs HACS's and Home Assistant's hassfest
 checks on every push, nightly and before a release; they cannot run locally.
+The same workflow checks that Home Assistant can install the manifest's
+requirements under its own package pins, for the minimum version in `hacs.json`
+and the latest release. A conflict there makes adding the integration fail
+with a 500 error, and the CI tests can't see it because they pin one Home
+Assistant version. This one needs network access and `uv`, and also runs locally:
+
+```sh
+.venv/bin/python scripts/check_requirements.py            # minimum and latest
+.venv/bin/python scripts/check_requirements.py 2026.10.4  # specific versions
+```
 `tests/test_translations.py` covers what hassfest checks in the translation
 files: every language has the English keys and placeholders, and no URLs or HTML.
 
@@ -103,7 +113,7 @@ becomes the release notes. The workflow pushes to `main` with the built-in
 | Path | Contents |
 | --- | --- |
 | `custom_components/myq/` | Home Assistant platforms, config flow, coordinator, services, media source and the live card (`www/`) |
-| `custom_components/myq/api/` | The MyQ client, independent of Home Assistant: sign-in (`oauth`, `tokens`, `auth`, `onetime`, `app_check`, `handoff`), HTTP transport, device families, cameras (`video`, `tend`, `kvs`, `live`, `status`), recordings and management |
+| `custom_components/myq/api/` | The MyQ client, independent of Home Assistant: sign-in (`oauth`, `tokens`, `auth`, `app_check`, `handoff`), HTTP transport, device families, cameras (`video`, `tend`, `kvs`, `live`, `status`), recordings and management |
 | `scripts/` | The browser sign-in helper, the read-only account probe, the iPhone capture helper, APK route extraction and packaging |
 | `tests/` | Unit tests for the client and Home Assistant tests that load the integration |
 | `docs/` | User guides; `docs/api/` the MyQ API reference; `docs/research/` investigation records |

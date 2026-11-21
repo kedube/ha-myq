@@ -104,8 +104,9 @@ captures the final identity-origin HTTP redirect at Chrome's response stage,
 before dispatch of `com.myqops://android`, and validates origin, state, PKCE,
 expiry, and one-time exchange. It also handles a main-frame script navigation
 to that URI. Callback URLs and browser storage are not printed or exported.
-The HA browser handoff now reuses this browser transport with a public request;
-HA retains the verifier and performs the exchange. See [browser-sign-in.md](../browser-sign-in.md).
+The former HA browser handoff reused this browser transport with a public
+request while HA retained the verifier. That setup option was removed on
+November 21; see [browser-sign-in.md](../browser-sign-in.md).
 
 An anonymous request subsequently returned **HTTP 429**, `Server: cloudflare`,
 `Content-Type: text/html; charset=UTF-8`, and **`cf-mitigated: challenge`**,
@@ -176,8 +177,9 @@ locally, accepts only an identity-origin HTTP redirect with matching state and
 the exact registered callback, then exchanges the code once using its own verifier.
 Old captures, ambiguous callbacks, provider errors, and expired sessions fail
 explicitly. Captured passwords, cookies, and token response bodies are ignored.
-The standalone probe owns its transaction. The separate HA browser helper
-accepts an HA-owned public request and returns a private result file to setup.
+The standalone probe owns its transaction. The former HA browser helper accepted
+an HA-owned public request and returned a private result file. Home Assistant
+no longer offers that handoff.
 
 A second HAR, `partner-identity.myq-cloud.com2.har`, contains 117 entries and
 the successful app OAuth redirect. Its authorization parameters match the APK

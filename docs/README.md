@@ -7,8 +7,7 @@ is known about MyQ's API, and how that was found out stay separate.
 
 | Guide | Contents |
 | --- | --- |
-| [Sign-in](sign-in.md) | The four sign-in methods, reauthentication, session renewal and removal |
-| [Browser sign-in helper](browser-sign-in.md) | Step-by-step use of the helper that completes MyQ's sign-in page for Home Assistant |
+| [Sign-in](sign-in.md) | Email/password setup, verification, reauthentication, session renewal and removal |
 | [Devices and entities](devices.md) | Supported device families, the entities each one gets, and what is not supported |
 | [Cameras](cameras.md) | Snapshots, live video, camera controls, two-way audio and recordings |
 | [Actions](integration-actions.md) | The `myq.*` actions, the optional entities they enable, and the live view card |

@@ -5,6 +5,27 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Changed
+
+- Connect MyQ now opens directly to email and password. Setup and reauthentication
+  no longer offer browser handoff, refresh-token import, or manual app-verification
+  token fields. MFA and automatic session renewal remain available. This UI change
+  does not resolve MyQ's browser challenge or app-verification requirement.
+
+### Fixed
+
+- Native authentication and MyQ API requests now use an Android device-format
+  User-Agent, the app's gzip/header defaults, and no browser cookies or client
+  hints. OAuth forms use the Android client's encoding. Browser navigation keeps
+  its separate identity. This does not supply App Check proof or establish a
+  successful login; Android TLS and HTTP/2 equivalence remain unverified.
+
+### Removed
+
+- The "One-time MyQ sign-in link" setup option. MyQ's link page,
+  `https://www.myliftmaster.com/ids/auth/onetime-login`, now says web login is
+  no longer supported and to use the mobile app instead.
+
 ## [0.02] - 2026-11-21
 
 ### Fixed

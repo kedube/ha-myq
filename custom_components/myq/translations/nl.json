@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "MyQ verbinden",
-        "description": "Experimentele integratie, nog niet getest met MyQ: van geen enkele inlogmethode is bevestigd dat ze werkt. Inloggen via de browser vereist een actueel MyQ-app-verificatietoken uit een geautoriseerde native bron. Alleen inloggen in de browser kan dat bewijs niet leveren. Als je een eenmalige MyQ-inloglink hebt, kun je die in plaats daarvan gebruiken. Je kunt ook een bestaand geautoriseerd refreshtoken importeren.",
-        "menu_options": {
-          "browser": "Inloggen via browser met app-verificatie",
-          "onetime": "Eenmalige MyQ-inloglink",
-          "login": "Experimenteel: inloggen via formulier met e-mail/wachtwoord",
-          "token": "Geavanceerd: een bestaand refreshtoken gebruiken"
-        }
-      },
-      "login": {
-        "title": "Inloggen bij MyQ",
         "description": "Vul de inloggegevens van je MyQ-account in. Als MyQ een ondersteunde verificatiestap toont, word je daar vervolgens om gevraagd. Je wachtwoord wordt alleen voor deze aanmelding gebruikt en niet opgeslagen.",
         "data": {
           "username": "E-mail",
-          "password": "Wachtwoord",
-          "app_check_token": "App-verificatietoken (optioneel; vervangen als het verlopen is)"
+          "password": "Wachtwoord"
         }
       },
       "mfa": {
         "title": "MyQ-verificatie",
         "description": "{instruction}",
         "data": {
-          "response": "Verificatieantwoord",
-          "app_check_token": "App-verificatietoken (optioneel; vervangen als het verlopen is)"
-        }
-      },
-      "token": {
-        "title": "Een bestaande MyQ-sessie gebruiken",
-        "description": "Voor ontwikkeling en testen met een refreshtoken uit je eigen geautoriseerde sessie. Dit vervangt of omzeilt het inloggen bij MyQ, MFA of app-verificatie niet. De integratie valideert en vernieuwt de sessie voordat deze wordt opgeslagen.",
-        "data": {
-          "refresh_token": "Refreshtoken"
+          "response": "Verificatieantwoord"
         }
       },
       "reauth_confirm": {
         "title": "MyQ opnieuw verbinden",
         "description": "Je MyQ-sessie kon niet worden vernieuwd. Log opnieuw in bij hetzelfde account.",
-        "menu_options": {
-          "browser": "Inloggen via browser met app-verificatie",
-          "onetime": "Eenmalige MyQ-inloglink",
-          "login": "Inloggen met e-mail en wachtwoord",
-          "token": "Geavanceerd: een bestaand refreshtoken gebruiken"
-        }
-      },
-      "browser": {
-        "title": "Inloggen bij MyQ voltooien in je browser",
-        "description": "Gebruik de lokale browserhelper die wordt beschreven in de [configuratiehandleiding]({guide_url}). Hiervoor is een actueel MyQ-app-verificatietoken nodig. Kopieer dit verzoek naar de helper en plak daarna binnen tien minuten hieronder het privébestand met het resultaat. Houd dit configuratievenster open.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Privé-inlogresultaat"
-        }
-      },
-      "onetime": {
-        "title": "Inloggen met een eenmalige MyQ-link",
-        "description": "Plak een eenmalige MyQ-inloglink (die begint met {link_start}). De MyQ-app stuurt bij deze links geen app-verificatietoken mee. Deze en alle andere inlogmethoden zijn nog niet met MyQ getest, en het is niet bekend waar MyQ deze links uitgeeft. Elke link werkt één keer; als het detecteren van het account daarna mislukt, kun je het opnieuw proberen met dezelfde sessie.",
-        "data": {
-          "link": "Eenmalige inloglink"
+          "username": "E-mail",
+          "password": "Wachtwoord"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ toonde een inlog- of verificatiescherm dat deze integratie nog niet ondersteunt. Zie de protocolnotities; hiervoor is mogelijk een app-verificatietoken of een nieuw MFA-formulier nodig.",
       "rate_limited": "MyQ heeft het aantal verzoeken beperkt. Wacht voordat je het opnieuw probeert.",
       "protocol_error": "MyQ gaf een onverwacht antwoord. Raadpleeg de protocolnotities van de integratie. Er is geen account toegevoegd.",
-      "browser_verification": "MyQ vereist verificatie in een echte browser. Start \"Inloggen via browser met app-verificatie\" vanuit het configuratiemenu.",
+      "browser_verification": "MyQ vereist een browserverificatie die deze integratie niet kan voltooien.",
       "app_check_unavailable": "Een actueel MyQ-app-verificatietoken is vereist. De browser kan dit niet genereren.",
       "app_check_expired": "Het app-verificatietoken is verlopen of nog maar minder dan vijf minuten geldig. Geef een nieuw token op.",
       "app_check_invalid": "Het app-verificatietoken is onjuist opgemaakt of heeft geen bruikbare vervaltijd.",
-      "app_check_integrity": "De native tokenbron kon geen integriteitsbewijs voor de applicatie verkrijgen.",
-      "invalid_link": "Dat is geen bruikbare eenmalige MyQ-inloglink. Plak de volledige link."
+      "app_check_integrity": "De native tokenbron kon geen integriteitsbewijs voor de applicatie verkrijgen."
     },
     "abort": {
       "already_configured": "Dit MyQ-account is al geconfigureerd.",

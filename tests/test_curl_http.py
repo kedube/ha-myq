@@ -42,7 +42,10 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, 
             response = web.Response(status=302, headers={"Location": "/signin"})
             response.set_cookie("synthetic", "cookie-pair", httponly=True)
             return response
-        assert request.cookies["synthetic"] == "cookie-pair"
+        if request.path in {"/connect/token", "/api/v6.0/my/profile"}:
+            assert not request.cookies
+        else:
+            assert request.cookies["synthetic"] == "cookie-pair"
         if request.path == "/signin" and request.method == "GET":
             assert "BrandId" not in request.headers
             assert "App-Version" not in request.headers
@@ -113,14 +116,15 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, 
     base = f"http://127.0.0.1:{runner.addresses[0][1]}"
     try:
         async with CurlHttp() as http:
-            original_request = http.session.request
+            for session in (http.session, http.native_session):
+                original_request = session.request
 
-            async def loopback(method, url, **kwargs):
-                parsed = urlsplit(url)
-                target = base + parsed.path + ("?" + parsed.query if parsed.query else "")
-                return await original_request(method, target, **kwargs)
+                async def loopback(method, url, _request=original_request, **kwargs):
+                    parsed = urlsplit(url)
+                    target = base + parsed.path + ("?" + parsed.query if parsed.query else "")
+                    return await _request(method, target, **kwargs)
 
-            monkeypatch.setattr(http.session, "request", loopback)
+                monkeypatch.setattr(session, "request", loopback)
             client = Client(transport=http)
             login = Login(http, client.auth, unified=True)
             assert isinstance(

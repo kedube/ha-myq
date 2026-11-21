@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "Connetti MyQ",
-        "description": "Integrazione sperimentale, non ancora testata con MyQ: non è stato confermato il funzionamento di alcun metodo di accesso. L'accesso tramite browser richiede un token di verifica dell'app MyQ in corso di validità, proveniente da una fonte nativa autorizzata. Un accesso dal browser, da solo, non può fornire questa prova. Se hai un link di accesso MyQ monouso, puoi usarlo in alternativa. Puoi anche importare un token di aggiornamento autorizzato esistente.",
-        "menu_options": {
-          "browser": "Accesso tramite browser con verifica dell'app",
-          "onetime": "Link di accesso MyQ monouso",
-          "login": "Sperimentale: accesso con modulo e-mail/password",
-          "token": "Avanzato: usa un token di aggiornamento esistente"
-        }
-      },
-      "login": {
-        "title": "Accedi a MyQ",
         "description": "Inserisci le credenziali del tuo account MyQ. Se MyQ presenta una richiesta di verifica supportata, ti verrà chiesto di completarla nel passaggio successivo. La password viene usata solo per questo accesso e non viene salvata.",
         "data": {
           "username": "E-mail",
-          "password": "Password",
-          "app_check_token": "Token di verifica dell'app (facoltativo; sostituiscilo se è scaduto)"
+          "password": "Password"
         }
       },
       "mfa": {
         "title": "Verifica MyQ",
         "description": "{instruction}",
         "data": {
-          "response": "Risposta di verifica",
-          "app_check_token": "Token di verifica dell'app (facoltativo; sostituiscilo se è scaduto)"
-        }
-      },
-      "token": {
-        "title": "Usa una sessione MyQ esistente",
-        "description": "Per sviluppo e test con un token di aggiornamento proveniente da una tua sessione autorizzata. Non sostituisce né aggira l'accesso a MyQ, l'autenticazione a più fattori o la verifica dell'app. L'integrazione convaliderà e rinnoverà la sessione prima di salvarla.",
-        "data": {
-          "refresh_token": "Token di aggiornamento"
+          "response": "Risposta di verifica"
         }
       },
       "reauth_confirm": {
         "title": "Riconnetti MyQ",
         "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi di nuovo allo stesso account.",
-        "menu_options": {
-          "browser": "Accesso tramite browser con verifica dell'app",
-          "onetime": "Link di accesso MyQ monouso",
-          "login": "Accedi con e-mail e password",
-          "token": "Avanzato: usa un token di aggiornamento esistente"
-        }
-      },
-      "browser": {
-        "title": "Completa l'accesso a MyQ nel browser",
-        "description": "Usa lo strumento locale per browser descritto nella [guida alla configurazione]({guide_url}). Richiede un token di verifica dell'app MyQ in corso di validità. Copia questa richiesta nello strumento, quindi incolla qui sotto il file di risultato privato entro dieci minuti. Tieni aperta questa finestra di configurazione.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Risultato di accesso privato"
-        }
-      },
-      "onetime": {
-        "title": "Accedi con un link MyQ monouso",
-        "description": "Incolla un link di accesso MyQ monouso (inizia con {link_start}). L'app MyQ non invia alcun token di verifica dell'app con questi link. Né questo né alcun altro metodo di accesso è stato ancora testato con MyQ, e non si sa dove MyQ emetta questi link. Ogni link funziona una sola volta; se poi il rilevamento dell'account non riesce, puoi riprovare con la stessa sessione.",
-        "data": {
-          "link": "Link di accesso monouso"
+          "username": "E-mail",
+          "password": "Password"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "MyQ ha presentato una schermata di accesso o di verifica che questa integrazione non supporta ancora. Consulta le note sul protocollo; potrebbe essere necessario un token di verifica dell'app o un nuovo modulo di autenticazione a più fattori.",
       "rate_limited": "MyQ ha limitato le richieste. Attendi prima di riprovare.",
       "protocol_error": "MyQ ha restituito una risposta imprevista. Consulta le note sul protocollo dell'integrazione. Nessun account è stato aggiunto.",
-      "browser_verification": "MyQ richiede la verifica in un browser reale. Avvia \"Accesso tramite browser con verifica dell'app\" dal menu di configurazione.",
+      "browser_verification": "MyQ richiede una verifica nel browser che questa integrazione non può completare.",
       "app_check_unavailable": "È necessario un token di verifica dell'app MyQ in corso di validità. Il browser non può generarlo.",
       "app_check_expired": "Il token di verifica dell'app è scaduto o gli restano meno di cinque minuti di validità. Fornisci un token nuovo.",
       "app_check_invalid": "Il token di verifica dell'app non è formattato correttamente o non ha una scadenza utilizzabile.",
-      "app_check_integrity": "La fonte nativa del token non è riuscita a ottenere una prova di integrità dell'app.",
-      "invalid_link": "Questo non è un link di accesso MyQ monouso utilizzabile. Incolla il link completo."
+      "app_check_integrity": "La fonte nativa del token non è riuscita a ottenere una prova di integrità dell'app."
     },
     "abort": {
       "already_configured": "Questo account MyQ è già configurato.",

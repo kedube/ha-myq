@@ -4,60 +4,25 @@
     "step": {
       "user": {
         "title": "Połącz z MyQ",
-        "description": "Integracja eksperymentalna, jeszcze nieprzetestowana z MyQ: nie potwierdzono działania żadnej metody logowania. Logowanie przez przeglądarkę wymaga aktualnego tokenu weryfikacji aplikacji MyQ z autoryzowanego natywnego źródła. Samo zalogowanie się w przeglądarce nie zapewni takiego dowodu. Jeśli masz jednorazowy link logowania MyQ, możesz użyć go zamiast tego. Możesz też zaimportować istniejący autoryzowany token odświeżania.",
-        "menu_options": {
-          "browser": "Logowanie przez przeglądarkę z weryfikacją aplikacji",
-          "onetime": "Jednorazowy link logowania MyQ",
-          "login": "Eksperymentalne: logowanie przez formularz z adresem e-mail i hasłem",
-          "token": "Zaawansowane: użyj istniejącego tokenu odświeżania"
-        }
-      },
-      "login": {
-        "title": "Zaloguj się do MyQ",
         "description": "Wprowadź dane logowania do konta MyQ. Jeśli usługa MyQ zażąda obsługiwanej formy weryfikacji, pojawi się ona w następnym kroku. Twoje hasło jest używane tylko do tego logowania i nie jest zapisywane.",
         "data": {
           "username": "Adres e-mail",
-          "password": "Hasło",
-          "app_check_token": "Token weryfikacji aplikacji (opcjonalny; zastąp, jeśli wygasł)"
+          "password": "Hasło"
         }
       },
       "mfa": {
         "title": "Weryfikacja MyQ",
         "description": "{instruction}",
         "data": {
-          "response": "Odpowiedź weryfikacyjna",
-          "app_check_token": "Token weryfikacji aplikacji (opcjonalny; zastąp, jeśli wygasł)"
-        }
-      },
-      "token": {
-        "title": "Użyj istniejącej sesji MyQ",
-        "description": "Do celów programistycznych i testowych, z tokenem odświeżania z Twojej własnej autoryzowanej sesji. Nie zastępuje to ani nie omija logowania do MyQ, MFA ani weryfikacji aplikacji. Przed zapisaniem sesji integracja ją zweryfikuje i odnowi.",
-        "data": {
-          "refresh_token": "Token odświeżania"
+          "response": "Odpowiedź weryfikacyjna"
         }
       },
       "reauth_confirm": {
         "title": "Połącz ponownie z MyQ",
         "description": "Nie udało się odnowić Twojej sesji MyQ. Zaloguj się ponownie do tego samego konta.",
-        "menu_options": {
-          "browser": "Logowanie przez przeglądarkę z weryfikacją aplikacji",
-          "onetime": "Jednorazowy link logowania MyQ",
-          "login": "Zaloguj się za pomocą adresu e-mail i hasła",
-          "token": "Zaawansowane: użyj istniejącego tokenu odświeżania"
-        }
-      },
-      "browser": {
-        "title": "Dokończ logowanie do MyQ w przeglądarce",
-        "description": "Użyj lokalnego narzędzia pomocniczego przeglądarki opisanego w [przewodniku konfiguracji]({guide_url}). Wymaga ono aktualnego tokenu weryfikacji aplikacji MyQ. Skopiuj to żądanie do narzędzia pomocniczego, a następnie w ciągu dziesięciu minut wklej poniżej prywatny plik wyniku. Nie zamykaj tego okna konfiguracji.\n\n```json\n{request}\n```",
         "data": {
-          "handoff": "Prywatny wynik logowania"
-        }
-      },
-      "onetime": {
-        "title": "Zaloguj się jednorazowym linkiem MyQ",
-        "description": "Wklej jednorazowy link logowania MyQ (zaczyna się od {link_start}). Aplikacja MyQ nie wysyła z tymi linkami tokenu weryfikacji aplikacji. Ani ta, ani żadna inna metoda logowania nie została jeszcze przetestowana z MyQ i nie wiadomo, gdzie MyQ wydaje te linki. Każdy link działa jeden raz; jeśli potem wykrywanie konta się nie powiedzie, możesz spróbować ponownie w ramach tej samej sesji.",
-        "data": {
-          "link": "Jednorazowy link logowania"
+          "username": "Adres e-mail",
+          "password": "Hasło"
         }
       },
       "finish": {
@@ -74,12 +39,11 @@
       "unsupported_auth": "Usługa MyQ wyświetliła ekran logowania lub weryfikacji, którego ta integracja jeszcze nie obsługuje. Zobacz notatki dotyczące protokołu; może to wymagać tokenu weryfikacji aplikacji lub nowego formularza MFA.",
       "rate_limited": "Usługa MyQ ograniczyła liczbę żądań. Odczekaj przed ponowną próbą.",
       "protocol_error": "Usługa MyQ zwróciła nieoczekiwaną odpowiedź. Sprawdź notatki integracji dotyczące protokołu. Nie dodano żadnego konta.",
-      "browser_verification": "Usługa MyQ wymaga weryfikacji w prawdziwej przeglądarce. W menu konfiguracji wybierz „Logowanie przez przeglądarkę z weryfikacją aplikacji”.",
+      "browser_verification": "MyQ wymaga weryfikacji w przeglądarce, której ta integracja nie może ukończyć.",
       "app_check_unavailable": "Wymagany jest aktualny token weryfikacji aplikacji MyQ. Przeglądarka nie może go wygenerować.",
       "app_check_expired": "Token weryfikacji aplikacji wygasł lub pozostało mu mniej niż pięć minut ważności. Podaj nowy token.",
       "app_check_invalid": "Token weryfikacji aplikacji ma nieprawidłowy format lub nie zawiera użytecznego czasu wygaśnięcia.",
-      "app_check_integrity": "Natywne źródło tokenu nie mogło uzyskać dowodu integralności aplikacji.",
-      "invalid_link": "To nie jest poprawny jednorazowy link logowania MyQ. Wklej cały link."
+      "app_check_integrity": "Natywne źródło tokenu nie mogło uzyskać dowodu integralności aplikacji."
     },
     "abort": {
       "already_configured": "To konto MyQ jest już skonfigurowane.",
