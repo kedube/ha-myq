@@ -1,0 +1,943 @@
+{
+  "title": "MyQ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接 MyQ",
+        "description": "实验性集成，尚未针对 MyQ 进行测试：目前没有任何登录方式被确认可用。浏览器登录需要来自经授权原生来源的当前有效 MyQ 应用验证令牌。仅凭浏览器登录无法提供该证明。如果您有 MyQ 一次性登录链接，可以改用该链接。您也可以导入已获授权的现有刷新令牌。",
+        "menu_options": {
+          "browser": "浏览器登录（含应用验证）",
+          "onetime": "MyQ 一次性登录链接",
+          "login": "实验性：通过电子邮箱/密码表单登录",
+          "token": "高级：使用现有的刷新令牌"
+        }
+      },
+      "login": {
+        "title": "登录 MyQ",
+        "description": "请输入您的 MyQ 账户凭据。如果 MyQ 提出受支持的验证质询，接下来会提示您完成。您的密码仅用于本次登录，不会被保存。",
+        "data": {
+          "username": "电子邮箱",
+          "password": "密码",
+          "app_check_token": "应用验证令牌（可选；如已过期请替换）"
+        }
+      },
+      "mfa": {
+        "title": "MyQ 验证",
+        "description": "{instruction}",
+        "data": {
+          "response": "验证响应",
+          "app_check_token": "应用验证令牌（可选；如已过期请替换）"
+        }
+      },
+      "token": {
+        "title": "使用现有的 MyQ 会话",
+        "description": "用于开发和测试，使用来自您自己已授权会话的刷新令牌。这不会替代或绕过 MyQ 登录、MFA 或应用验证。集成会在保存会话之前对其进行验证和续期。",
+        "data": {
+          "refresh_token": "刷新令牌"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新连接 MyQ",
+        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。",
+        "menu_options": {
+          "browser": "浏览器登录（含应用验证）",
+          "onetime": "MyQ 一次性登录链接",
+          "login": "使用电子邮箱和密码登录",
+          "token": "高级：使用现有的刷新令牌"
+        }
+      },
+      "browser": {
+        "title": "在浏览器中完成 MyQ 登录",
+        "description": "请使用[设置指南]({guide_url})中介绍的本地浏览器助手。它需要当前有效的 MyQ 应用验证令牌。将此请求复制到助手中，然后在十分钟内将私密结果文件粘贴到下方。请保持此设置窗口打开。\n\n```json\n{request}\n```",
+        "data": {
+          "handoff": "私密登录结果"
+        }
+      },
+      "onetime": {
+        "title": "使用 MyQ 一次性链接登录",
+        "description": "粘贴 MyQ 一次性登录链接（以 {link_start} 开头）。MyQ 应用在使用这些链接时不会发送应用验证令牌。此方式和其他任何登录方式都尚未针对 MyQ 进行测试，而且目前不清楚 MyQ 在何处发放这些链接。每个链接只能使用一次；如果之后账户发现失败，可以使用同一会话重试。",
+        "data": {
+          "link": "一次性登录链接"
+        }
+      },
+      "finish": {
+        "title": "完成 MyQ 连接",
+        "description": "登录已完成，但账户或设备发现失败。提交即可使用同一会话重试发现。"
+      }
+    },
+    "error": {
+      "invalid_auth": "MyQ 拒绝了凭据或会话。请检查您的账户信息；如果验证会话已过期，请重新开始。",
+      "invalid_code": "验证未完成。请检查验证码后重试。",
+      "cannot_connect": "无法连接到 MyQ。请稍后重试。",
+      "access_denied": "MyQ 拒绝了此请求。可能需要应用验证或额外的账户权限。",
+      "app_verification": "MyQ 拒绝了对应用程序的验证（401.122）。",
+      "unsupported_auth": "MyQ 显示了本集成尚不支持的登录或验证界面。请参阅协议说明；这可能需要应用验证令牌或新的 MFA 表单。",
+      "rate_limited": "MyQ 已限制请求。请稍候再试。",
+      "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
+      "browser_verification": "MyQ 要求在真实的浏览器中进行验证。请从设置菜单中启动“浏览器登录（含应用验证）”。",
+      "app_check_unavailable": "需要当前有效的 MyQ 应用验证令牌。浏览器无法生成该令牌。",
+      "app_check_expired": "应用验证令牌已过期或剩余有效时间不足五分钟。请提供新的令牌。",
+      "app_check_invalid": "应用验证令牌格式错误，或没有可用的过期时间。",
+      "app_check_integrity": "原生令牌来源无法获取应用程序完整性证明。",
+      "invalid_link": "这不是可用的 MyQ 一次性登录链接。请粘贴完整的链接。"
+    },
+    "abort": {
+      "already_configured": "此 MyQ 账户已配置。",
+      "reauth_successful": "已成功重新连接 MyQ。",
+      "unique_id_mismatch": "请登录与现有集成相同的 MyQ 账户。",
+      "invalid_auth": "此 MyQ 会话已被拒绝。请重新开始登录。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MyQ 选项",
+        "data": {
+          "poll_interval": "轮询间隔（秒）",
+          "enable_cameras": "启用摄像头发现和图像"
+        }
+      }
+    }
+  },
+  "selector": {
+    "schedule_feature": {
+      "options": {
+        "floodlight": "泛光灯",
+        "patrol_mode": "巡航模式",
+        "privacy_mode": "隐私模式",
+        "voice_deter": "语音威慑"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "星期一",
+        "tuesday": "星期二",
+        "wednesday": "星期三",
+        "thursday": "星期四",
+        "friday": "星期五",
+        "saturday": "星期六",
+        "sunday": "星期日"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "连接"
+      },
+      "sensor_comm_error": {
+        "name": "门传感器通信故障"
+      },
+      "dps_low_battery_mode": {
+        "name": "门传感器电量低"
+      },
+      "monitor_only_mode": {
+        "name": "仅监控"
+      },
+      "is_unattended_open_allowed": {
+        "name": "允许远程开门"
+      },
+      "is_unattended_close_allowed": {
+        "name": "允许远程关门"
+      },
+      "in_vacation_mode": {
+        "name": "遥控器已禁用"
+      },
+      "camera_online": {
+        "name": "摄像头连接"
+      },
+      "low_battery": {
+        "name": "电量低"
+      },
+      "auto_relock_enabled": {
+        "name": "自动重新上锁已启用"
+      },
+      "allow_auto_relock": {
+        "name": "自动重新上锁可用"
+      },
+      "is_managed": {
+        "name": "由 MyQ 管理"
+      },
+      "attached_work_light_error_present": {
+        "name": "工作灯未配对"
+      },
+      "failed_credential_lockout_active": {
+        "name": "PIN 锁定"
+      },
+      "failed_credential_lockout_enabled": {
+        "name": "PIN 锁定保护"
+      },
+      "faults": {
+        "name": "故障"
+      },
+      "backup_battery_problem": {
+        "name": "备用电池问题"
+      },
+      "safety_sensors": {
+        "name": "安全传感器对准"
+      },
+      "lock_calibration": {
+        "name": "门锁校准"
+      },
+      "lock_door": {
+        "name": "门"
+      },
+      "camera_charging": {
+        "name": "充电中"
+      }
+    },
+    "button": {
+      "left": {
+        "name": "向左转动"
+      },
+      "right": {
+        "name": "向右转动"
+      },
+      "up": {
+        "name": "向上转动"
+      },
+      "down": {
+        "name": "向下转动"
+      },
+      "zoom_in": {
+        "name": "放大"
+      },
+      "zoom_out": {
+        "name": "缩小"
+      },
+      "stop": {
+        "name": "停止摄像头转动"
+      },
+      "siren_on": {
+        "name": "鸣响警笛 10 秒"
+      },
+      "siren_off": {
+        "name": "停止警笛"
+      },
+      "talkback_on": {
+        "name": "开启麦克风 30 秒"
+      },
+      "talkback_off": {
+        "name": "麦克风静音"
+      },
+      "go_to_position": {
+        "name": "转到 {position}"
+      },
+      "clear_pin_lockout": {
+        "name": "解除 PIN 锁定"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "摄像头"
+      }
+    },
+    "event": {
+      "activity": {
+        "name": "活动",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "open": "已开门",
+              "closed": "已关门",
+              "on": "已开启",
+              "off": "已关闭",
+              "locked": "已上锁",
+              "unlocked": "已解锁",
+              "stopped": "已停止",
+              "accessed": "已访问",
+              "call_answered": "通话已接听",
+              "call_unanswered": "通话未接听",
+              "expired": "已过期",
+              "attempted": "已尝试",
+              "assigned_remote": "已分配遥控器",
+              "unassigned_remote": "已取消分配遥控器",
+              "failed_to_close": "关闭失败",
+              "failed_to_lock": "上锁失败",
+              "other": "其他"
+            }
+          }
+        }
+      }
+    },
+    "light": {
+      "camera_light": {
+        "name": "摄像头灯 {number}"
+      }
+    },
+    "number": {
+      "speaker_volume": {
+        "name": "扬声器音量"
+      },
+      "time_to_close": {
+        "name": "自动关闭时间（0 为禁用）"
+      },
+      "motion_sensitivity": {
+        "name": "移动侦测灵敏度"
+      },
+      "siren_volume": {
+        "name": "警笛音量"
+      }
+    },
+    "select": {
+      "light_timer": {
+        "name": "开门器灯定时",
+        "state": {
+          "90": "90 秒",
+          "150": "150 秒",
+          "210": "210 秒",
+          "270": "270 秒"
+        }
+      },
+      "auto_relock_delay": {
+        "name": "自动重新上锁延迟",
+        "state": {
+          "30": "30 秒",
+          "60": "60 秒",
+          "90": "90 秒",
+          "120": "120 秒",
+          "180": "180 秒"
+        }
+      },
+      "automatic_lock_delay": {
+        "name": "自动上锁延迟",
+        "state": {
+          "off": "关闭",
+          "30": "30 秒",
+          "60": "60 秒",
+          "90": "90 秒",
+          "120": "120 秒",
+          "180": "180 秒"
+        }
+      },
+      "rotation": {
+        "name": "图像方向",
+        "state": {
+          "normal": "正常",
+          "mirror": "镜像",
+          "mirror_flip": "镜像并翻转",
+          "flip": "翻转"
+        }
+      },
+      "night_vision": {
+        "name": "夜视",
+        "state": {
+          "off": "关闭",
+          "on": "开启",
+          "auto": "自动"
+        }
+      },
+      "power_saver": {
+        "name": "省电",
+        "state": {
+          "auto": "自动",
+          "on": "开启",
+          "off": "关闭"
+        }
+      },
+      "chime_type": {
+        "name": "门铃铃声类型",
+        "state": {
+          "mechanical": "机械式",
+          "digital": "数字式"
+        }
+      }
+    },
+    "sensor": {
+      "door_state": {
+        "name": "门状态"
+      },
+      "battery_backup_state": {
+        "name": "备用电池",
+        "state": {
+          "idle": "待机",
+          "charging": "充电中",
+          "bad": "故障",
+          "disconnected": "未连接",
+          "none": "无",
+          "unknown": "未知"
+        }
+      },
+      "absolute_cycle_count": {
+        "name": "开关门次数"
+      },
+      "wifi_signal_strength": {
+        "name": "Wi-Fi 信号"
+      },
+      "battery_percentage": {
+        "name": "电池"
+      },
+      "lamp_state": {
+        "name": "灯状态"
+      },
+      "offline_reason": {
+        "name": "离线原因"
+      },
+      "lock_state": {
+        "name": "门锁状态"
+      },
+      "bluetooth_connectability": {
+        "name": "门锁连接"
+      },
+      "auto_relock_time": {
+        "name": "自动重新上锁延迟"
+      },
+      "automatic_lock_state": {
+        "name": "自动上锁设置"
+      },
+      "door_sensor_state": {
+        "name": "门传感器设置"
+      },
+      "door_sensor_calibration_status": {
+        "name": "门传感器校准"
+      },
+      "orientation": {
+        "name": "门锁方向",
+        "state": {
+          "lefthand": "左开",
+          "righthand": "右开",
+          "unknown": "未知",
+          "calibrationfailure": "校准失败"
+        }
+      },
+      "failed_credential_lockout_frequency": {
+        "name": "触发 PIN 锁定的尝试次数"
+      },
+      "failed_credential_lockout_duration_seconds": {
+        "name": "PIN 锁定时长"
+      },
+      "last_update": {
+        "name": "上次状态变化"
+      },
+      "device_type": {
+        "name": "设备类型"
+      },
+      "video_res": {
+        "name": "视频分辨率"
+      },
+      "video_fps": {
+        "name": "视频帧率"
+      },
+      "video_quality": {
+        "name": "视频质量"
+      },
+      "camera_battery": {
+        "name": "电池"
+      },
+      "camera_power_source": {
+        "name": "电源",
+        "state": {
+          "ac": "交流电源",
+          "usb": "USB",
+          "battery": "电池",
+          "solar": "太阳能",
+          "solar_battery": "太阳能和电池"
+        }
+      },
+      "camera_wifi_strength": {
+        "name": "Wi-Fi 强度"
+      },
+      "accessory_battery": {
+        "name": "{accessory} 电池",
+        "state": {
+          "good": "良好",
+          "low": "低",
+          "critical": "极低",
+          "unknown": "未知"
+        }
+      }
+    },
+    "switch": {
+      "status_led": {
+        "name": "状态 LED"
+      },
+      "chime_enabled": {
+        "name": "门铃铃声"
+      },
+      "auto_tracking": {
+        "name": "PTZ 自动跟踪"
+      },
+      "wake_on_motion": {
+        "name": "移动侦测唤醒"
+      },
+      "microphone": {
+        "name": "麦克风"
+      },
+      "motion_detection": {
+        "name": "移动侦测"
+      },
+      "motion_light": {
+        "name": "开门器灯移动感应"
+      },
+      "auto_relock": {
+        "name": "自动重新上锁"
+      },
+      "door_sensor": {
+        "name": "门传感器"
+      },
+      "lock_mode": {
+        "name": "禁用遥控器"
+      },
+      "alert_rule": {
+        "name": "警报：{rule}"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "固件"
+      }
+    }
+  },
+  "exceptions": {
+    "session_ended": {
+      "message": "MyQ 已结束会话。请在“设置 > 设备与服务”中重新连接 MyQ。"
+    },
+    "session_renewal": {
+      "message": "MyQ 本次未续期会话。稍后将重试。"
+    },
+    "rate_limited": {
+      "message": "MyQ 正在限制请求。请稍后重试。"
+    },
+    "access_denied": {
+      "message": "MyQ 不允许此请求：{detail}"
+    },
+    "cannot_connect": {
+      "message": "无法连接到 MyQ：{detail}"
+    },
+    "command_uncertain": {
+      "message": "MyQ 未确认结果，因此未重复该请求：{detail}"
+    },
+    "command_rejected": {
+      "message": "请求未完成：{detail}"
+    },
+    "unexpected_response": {
+      "message": "MyQ 发送了意外的响应：{detail}"
+    },
+    "myq_error": {
+      "message": "MyQ 请求失败：{detail}"
+    },
+    "temperature_or_range": {
+      "message": "请选择单一温度，或选择制热和制冷温度范围。"
+    },
+    "temperature_needs_mode": {
+      "message": "单一温度需要制热或制冷模式。"
+    },
+    "temperature_required": {
+      "message": "需要恒温器目标温度。"
+    },
+    "whole_number": {
+      "message": "该值必须为整数。"
+    },
+    "whole_minutes": {
+      "message": "自动关闭时间必须为整数分钟。"
+    },
+    "unsupported_option": {
+      "message": "该选项对此设备不可用。"
+    },
+    "setting_unavailable": {
+      "message": "此设置当前对此设备不可用。"
+    },
+    "no_lockout": {
+      "message": "当前没有生效的键盘锁定。"
+    },
+    "entry_not_loaded": {
+      "message": "所选的 MyQ 集成未加载。"
+    },
+    "device_not_found": {
+      "message": "请选择一个当前已注册的 MyQ 设备。"
+    },
+    "legacy_entry": {
+      "message": "此配置条目由 Home Assistant 以前的 MyQ 集成创建，无法使用。请将其删除，然后重新添加 MyQ。"
+    }
+  },
+  "services": {
+    "validate_session": {
+      "name": "验证会话",
+      "description": "只读检查身份、账户和设备，可选择续期令牌。返回不含凭据或标识符的计数。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "config_entry_id": {
+          "name": "集成",
+          "description": "要检查的 MyQ 配置条目。"
+        },
+        "refresh": {
+          "name": "验证令牌续期",
+          "description": "续期会话，保存轮换后的令牌，并验证身份是否相同。"
+        }
+      }
+    },
+    "get_accessories": {
+      "name": "获取配件",
+      "description": "读取开门器已配对的配件，并为此已加载的集成启用其电池诊断。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    },
+    "rename_accessory": {
+      "name": "重命名配件",
+      "description": "重命名已配对的配件（1 到 24 个字符，且该开门器上尚未使用此名称），并等待上报的确认。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "accessory_serial": {
+          "name": "配件序列号",
+          "description": "从 get_accessories 中选择一个现有配件。"
+        },
+        "name": {
+          "name": "名称",
+          "description": "现有配件或 PIN 的名称。"
+        }
+      }
+    },
+    "remove_accessory": {
+      "name": "移除配件",
+      "description": "移除已配对的配件，并等待确认其已不存在。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "accessory_serial": {
+          "name": "配件序列号",
+          "description": "从 get_accessories 中选择一个现有配件。"
+        }
+      }
+    },
+    "set_auto_relock": {
+      "name": "设置自动重新上锁",
+      "description": "设置受支持的旧款门锁的自动重新上锁，并等待上报的确认。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "enabled": {
+          "name": "启用",
+          "description": "期望的启用状态。"
+        },
+        "seconds": {
+          "name": "延迟",
+          "description": "原生自动重新上锁延迟（秒）。"
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "获取计划",
+      "description": "读取现有摄像头功能配置的计划。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "feature": {
+          "name": "摄像头功能",
+          "description": "与现有工作流配置关联的功能。"
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "设置计划启用状态",
+      "description": "启用或禁用现有的摄像头工作流计划并确认更改。若某计划与同一功能的另一个已启用计划重叠，则无法启用该计划。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "feature": {
+          "name": "摄像头功能",
+          "description": "与现有工作流配置关联的功能。"
+        },
+        "configuration_id": {
+          "name": "配置 ID",
+          "description": "属于所选设备和功能的现有配置。"
+        },
+        "schedule_id": {
+          "name": "计划 ID",
+          "description": "现有计划的 ID；添加计划时请省略。"
+        },
+        "enabled": {
+          "name": "启用",
+          "description": "期望的启用状态。"
+        }
+      }
+    },
+    "save_schedule": {
+      "name": "保存计划",
+      "description": "添加或更新摄像头工作流计划，并确认上报的完成状态。未提供配置 ID 时，仅在不存在任何配置时创建第一个受支持的功能配置。已启用的计划不能与同一功能的另一个已启用计划重叠。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "feature": {
+          "name": "摄像头功能",
+          "description": "与现有工作流配置关联的功能。"
+        },
+        "configuration_id": {
+          "name": "配置 ID",
+          "description": "现有配置的 ID。仅在创建第一个受支持的功能配置时省略。"
+        },
+        "schedule_id": {
+          "name": "计划 ID",
+          "description": "现有计划的 ID；添加计划时请省略。"
+        },
+        "label": {
+          "name": "标签",
+          "description": "计划标签。"
+        },
+        "days": {
+          "name": "星期",
+          "description": "按现有配置时区计算的星期几。"
+        },
+        "start_time": {
+          "name": "开始时间",
+          "description": "HH:mm:00 格式的本地时间。"
+        },
+        "end_time": {
+          "name": "结束时间",
+          "description": "HH:mm:00 格式的本地时间；须与开始时间不同。"
+        },
+        "enabled": {
+          "name": "启用",
+          "description": "期望的启用状态。"
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "删除计划",
+      "description": "删除现有的摄像头工作流计划并确认其已不存在。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "feature": {
+          "name": "摄像头功能",
+          "description": "与现有工作流配置关联的功能。"
+        },
+        "configuration_id": {
+          "name": "配置 ID",
+          "description": "属于所选设备和功能的现有配置。"
+        },
+        "schedule_id": {
+          "name": "计划 ID",
+          "description": "现有计划的 ID；添加计划时请省略。"
+        }
+      }
+    },
+    "get_pins": {
+      "name": "获取 PIN",
+      "description": "读取远程锁 PIN 的名称、ID、访问权限和状态。绝不会返回数字 PIN。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    },
+    "save_pin": {
+      "name": "保存 PIN",
+      "description": "从私密本地文件创建或更新远程锁 PIN，并等待状态变为已同步。本集成不会保留该 PIN；使用后请删除该文件。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "name": {
+          "name": "名称",
+          "description": "现有配件或 PIN 的名称。"
+        },
+        "pin_file": {
+          "name": "私密 PIN 文件",
+          "description": "直接位于 HA 配置目录中的 JSON 文件的文件名，数字写在“pin”键下；该文件须归 HA 所有，且仅其所有者可读。只有此文件名会进入服务总线。"
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "来自 get_pins 的现有 ID；添加时请省略。"
+        }
+      }
+    },
+    "delete_pin": {
+      "name": "删除 PIN",
+      "description": "删除远程锁 PIN，并等待确认其已不存在。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "来自 get_pins 的现有 ID；添加时请省略。"
+        }
+      }
+    },
+    "get_guests": {
+      "name": "获取访客",
+      "description": "读取现有的 MyQ 访客及其允许设备的计划。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    },
+    "set_guest_devices": {
+      "name": "设置访客设备",
+      "description": "替换现有访客计划的设备列表，同时保留其时间限制。仅接受 MyQ 应用允许共享的设备类型。移除视频键盘不会删除访客在其上的 PIN；请先在应用中将其删除。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "account_user_id": {
+          "name": "访客 ID",
+          "description": "来自 get_guests 的现有访客。"
+        },
+        "access_schedule_id": {
+          "name": "访客访问计划",
+          "description": "来自 get_guests 的现有访客计划。"
+        },
+        "allowed_serials": {
+          "name": "允许的设备序列号",
+          "description": "同一 MyQ 账户中的现有设备。空列表会移除此计划的所有设备访问权限。"
+        }
+      }
+    },
+    "remove_guest": {
+      "name": "移除访客",
+      "description": "撤销现有访客并确认其已不存在。此动作无法移除所有者和共同所有者。与 MyQ 应用不同，此动作不会先删除访客的键盘 PIN；请事先在应用中将其删除。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "account_user_id": {
+          "name": "访客 ID",
+          "description": "来自 get_guests 的现有访客。"
+        }
+      }
+    },
+    "assign_accessory": {
+      "name": "分配配件",
+      "description": "将已配对的配件分配给已拥有该开门器访问权限的现有访客。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "accessory_serial": {
+          "name": "配件序列号",
+          "description": "从 get_accessories 中选择一个现有配件。"
+        },
+        "account_user_id": {
+          "name": "访客 ID",
+          "description": "来自 get_guests 的现有访客。"
+        }
+      }
+    },
+    "set_auto_lock": {
+      "name": "设置自动上锁",
+      "description": "在受支持的原生 Wi-Fi 门锁上配置自动上锁。0 表示禁用；支持的延迟为 30、60、90、120、180 秒。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "seconds": {
+          "name": "延迟",
+          "description": "门锁自动上锁前的延迟（秒）；0 表示关闭自动上锁。"
+        }
+      }
+    },
+    "set_door_sensor": {
+      "name": "设置门传感器",
+      "description": "启用或禁用原生 Wi-Fi 门锁上已配置并已校准的门传感器，并确认上报的状态。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "enabled": {
+          "name": "启用",
+          "description": "期望的启用状态。"
+        }
+      }
+    },
+    "rename_device": {
+      "name": "重命名设备",
+      "description": "在 MyQ 账户中重命名 MyQ 设备（与应用相同，最多 24 个字符）并确认新名称。仅限账户所有者。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "name": {
+          "name": "名称",
+          "description": "新的 MyQ 名称，1 到 24 个字符。"
+        }
+      }
+    },
+    "get_device_history": {
+      "name": "获取设备历史",
+      "description": "返回设备 MyQ 活动历史中的一页，按时间从早到晚排列：发生了什么、何时发生以及由谁操作。不包含用户标识符。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "continuation": {
+          "name": "续页标记",
+          "description": "上一次响应中的续页标记，用于读取下一页。"
+        }
+      }
+    },
+    "get_alerts": {
+      "name": "获取警报",
+      "description": "返回设备的 MyQ 通知规则及每条规则是否已启用。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    },
+    "snooze_alerts": {
+      "name": "暂停警报",
+      "description": "将设备所属账户的所有 MyQ 通知暂停指定的分钟数。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        },
+        "minutes": {
+          "name": "分钟",
+          "description": "暂停时长，1 分钟至 7 天。"
+        }
+      }
+    },
+    "cancel_alert_snooze": {
+      "name": "取消警报暂停",
+      "description": "结束设备所属账户当前生效的 MyQ 通知暂停。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    },
+    "get_thermostat_programs": {
+      "name": "获取恒温器程序",
+      "description": "返回已关联恒温器的预设和计划（只读）。需要 Home Assistant 管理员权限。",
+      "fields": {
+        "device_id": {
+          "name": "设备",
+          "description": "当前已注册的 MyQ 设备。"
+        }
+      }
+    }
+  }
+}

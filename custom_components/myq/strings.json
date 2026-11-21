@@ -1,0 +1,943 @@
+{
+  "title": "MyQ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect MyQ",
+        "description": "Experimental integration, not yet tested with MyQ: no sign-in method has been confirmed to work. Browser sign-in requires a current MyQ app verification token from an authorized native source. A browser login alone cannot provide that proof. If you have a one-time MyQ sign-in link, you can use it instead. You can also import an existing authorized refresh token.",
+        "menu_options": {
+          "browser": "Browser sign-in with app verification",
+          "onetime": "One-time MyQ sign-in link",
+          "login": "Experimental: email/password form sign-in",
+          "token": "Advanced: use an existing refresh token"
+        }
+      },
+      "login": {
+        "title": "Sign in to MyQ",
+        "description": "Enter your MyQ account credentials. If MyQ presents a supported verification challenge, you will be prompted next. Your password is used for this sign-in only and is not saved.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "app_check_token": "App verification token (optional; replace if expired)"
+        }
+      },
+      "mfa": {
+        "title": "MyQ verification",
+        "description": "{instruction}",
+        "data": {
+          "response": "Verification response",
+          "app_check_token": "App verification token (optional; replace if expired)"
+        }
+      },
+      "token": {
+        "title": "Use an existing MyQ session",
+        "description": "For development and testing with a refresh token from your own authorized session. This does not replace or bypass MyQ sign-in, MFA, or app verification. The integration will validate and renew the session before saving it.",
+        "data": {
+          "refresh_token": "Refresh token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect MyQ",
+        "description": "Your MyQ session could not be renewed. Sign in to the same account again.",
+        "menu_options": {
+          "browser": "Browser sign-in with app verification",
+          "onetime": "One-time MyQ sign-in link",
+          "login": "Sign in with email and password",
+          "token": "Advanced: use an existing refresh token"
+        }
+      },
+      "browser": {
+        "title": "Complete MyQ sign-in in your browser",
+        "description": "Use the local browser helper described in the [setup guide]({guide_url}). It requires a current MyQ app verification token. Copy this request into the helper, then paste the private result file below within ten minutes. Keep this setup window open.\n\n```json\n{request}\n```",
+        "data": {
+          "handoff": "Private sign-in result"
+        }
+      },
+      "onetime": {
+        "title": "Sign in with a one-time MyQ link",
+        "description": "Paste a one-time MyQ sign-in link (it starts with {link_start}). The MyQ app sends no app verification token with these links. Neither this nor any other sign-in method has been tested with MyQ yet, and where MyQ issues these links is not known. Each link works once; if account discovery then fails, you can retry with the same session.",
+        "data": {
+          "link": "One-time sign-in link"
+        }
+      },
+      "finish": {
+        "title": "Finish connecting MyQ",
+        "description": "Sign-in completed, but account or device discovery failed. Submit to retry discovery using the same session."
+      }
+    },
+    "error": {
+      "invalid_auth": "MyQ rejected the credentials or session. Check your account details and start again if the verification session expired.",
+      "invalid_code": "Verification was not completed. Check the code and try again.",
+      "cannot_connect": "Could not connect to MyQ. Try again later.",
+      "access_denied": "MyQ denied this request. App verification or additional account permissions may be required.",
+      "app_verification": "MyQ rejected verification of the application (401.122).",
+      "unsupported_auth": "MyQ presented a sign-in or verification screen this integration does not yet support. See the protocol notes; this may require an app verification token or a new MFA form.",
+      "rate_limited": "MyQ has limited requests. Wait before trying again.",
+      "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
+      "browser_verification": "MyQ requires verification in a real browser. Start Browser sign-in with app verification from the setup menu.",
+      "app_check_unavailable": "A current MyQ app verification token is required. The browser cannot generate it.",
+      "app_check_expired": "The app verification token is expired or has less than five minutes remaining. Supply a fresh token.",
+      "app_check_invalid": "The app verification token is malformed or has no usable expiry.",
+      "app_check_integrity": "The native token source could not obtain application integrity proof.",
+      "invalid_link": "That is not a usable one-time MyQ sign-in link. Paste the complete link."
+    },
+    "abort": {
+      "already_configured": "This MyQ account is already configured.",
+      "reauth_successful": "MyQ reconnected successfully.",
+      "unique_id_mismatch": "Sign in to the same MyQ account as the existing integration.",
+      "invalid_auth": "This MyQ session was rejected. Start a new sign-in."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MyQ options",
+        "data": {
+          "poll_interval": "Poll interval (seconds)",
+          "enable_cameras": "Enable camera discovery and images"
+        }
+      }
+    }
+  },
+  "selector": {
+    "schedule_feature": {
+      "options": {
+        "floodlight": "Floodlight",
+        "patrol_mode": "Patrol mode",
+        "privacy_mode": "Privacy mode",
+        "voice_deter": "Voice deterrence"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Connectivity"
+      },
+      "sensor_comm_error": {
+        "name": "Door sensor communication fault"
+      },
+      "dps_low_battery_mode": {
+        "name": "Door sensor low battery"
+      },
+      "monitor_only_mode": {
+        "name": "Monitor only"
+      },
+      "is_unattended_open_allowed": {
+        "name": "Remote opening permitted"
+      },
+      "is_unattended_close_allowed": {
+        "name": "Remote closing permitted"
+      },
+      "in_vacation_mode": {
+        "name": "Remotes disabled"
+      },
+      "camera_online": {
+        "name": "Camera connectivity"
+      },
+      "low_battery": {
+        "name": "Low battery"
+      },
+      "auto_relock_enabled": {
+        "name": "Auto relock enabled"
+      },
+      "allow_auto_relock": {
+        "name": "Auto relock available"
+      },
+      "is_managed": {
+        "name": "Managed by MyQ"
+      },
+      "attached_work_light_error_present": {
+        "name": "Work light not paired"
+      },
+      "failed_credential_lockout_active": {
+        "name": "PIN lockout"
+      },
+      "failed_credential_lockout_enabled": {
+        "name": "PIN lockout protection"
+      },
+      "faults": {
+        "name": "Fault"
+      },
+      "backup_battery_problem": {
+        "name": "Backup battery problem"
+      },
+      "safety_sensors": {
+        "name": "Safety sensor alignment"
+      },
+      "lock_calibration": {
+        "name": "Lock calibration"
+      },
+      "lock_door": {
+        "name": "Door"
+      },
+      "camera_charging": {
+        "name": "Charging"
+      }
+    },
+    "button": {
+      "left": {
+        "name": "Pan left"
+      },
+      "right": {
+        "name": "Pan right"
+      },
+      "up": {
+        "name": "Tilt up"
+      },
+      "down": {
+        "name": "Tilt down"
+      },
+      "zoom_in": {
+        "name": "Zoom in"
+      },
+      "zoom_out": {
+        "name": "Zoom out"
+      },
+      "stop": {
+        "name": "Stop camera movement"
+      },
+      "siren_on": {
+        "name": "Sound siren for 10 seconds"
+      },
+      "siren_off": {
+        "name": "Stop siren"
+      },
+      "talkback_on": {
+        "name": "Enable microphone for 30 seconds"
+      },
+      "talkback_off": {
+        "name": "Mute microphone"
+      },
+      "go_to_position": {
+        "name": "Go to {position}"
+      },
+      "clear_pin_lockout": {
+        "name": "Clear PIN lockout"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera"
+      }
+    },
+    "event": {
+      "activity": {
+        "name": "Activity",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "open": "Opened",
+              "closed": "Closed",
+              "on": "Turned on",
+              "off": "Turned off",
+              "locked": "Locked",
+              "unlocked": "Unlocked",
+              "stopped": "Stopped",
+              "accessed": "Accessed",
+              "call_answered": "Call answered",
+              "call_unanswered": "Call unanswered",
+              "expired": "Expired",
+              "attempted": "Attempted",
+              "assigned_remote": "Remote assigned",
+              "unassigned_remote": "Remote unassigned",
+              "failed_to_close": "Failed to close",
+              "failed_to_lock": "Failed to lock",
+              "other": "Other"
+            }
+          }
+        }
+      }
+    },
+    "light": {
+      "camera_light": {
+        "name": "Camera light {number}"
+      }
+    },
+    "number": {
+      "speaker_volume": {
+        "name": "Speaker volume"
+      },
+      "time_to_close": {
+        "name": "Time to close (0 disables)"
+      },
+      "motion_sensitivity": {
+        "name": "Motion sensitivity"
+      },
+      "siren_volume": {
+        "name": "Siren volume"
+      }
+    },
+    "select": {
+      "light_timer": {
+        "name": "Opener light timer",
+        "state": {
+          "90": "90 seconds",
+          "150": "150 seconds",
+          "210": "210 seconds",
+          "270": "270 seconds"
+        }
+      },
+      "auto_relock_delay": {
+        "name": "Auto relock delay",
+        "state": {
+          "30": "30 seconds",
+          "60": "60 seconds",
+          "90": "90 seconds",
+          "120": "120 seconds",
+          "180": "180 seconds"
+        }
+      },
+      "automatic_lock_delay": {
+        "name": "Automatic lock delay",
+        "state": {
+          "off": "Off",
+          "30": "30 seconds",
+          "60": "60 seconds",
+          "90": "90 seconds",
+          "120": "120 seconds",
+          "180": "180 seconds"
+        }
+      },
+      "rotation": {
+        "name": "Image orientation",
+        "state": {
+          "normal": "Normal",
+          "mirror": "Mirrored",
+          "mirror_flip": "Mirrored and flipped",
+          "flip": "Flipped"
+        }
+      },
+      "night_vision": {
+        "name": "Night vision",
+        "state": {
+          "off": "Off",
+          "on": "On",
+          "auto": "Auto"
+        }
+      },
+      "power_saver": {
+        "name": "Power saver",
+        "state": {
+          "auto": "Auto",
+          "on": "On",
+          "off": "Off"
+        }
+      },
+      "chime_type": {
+        "name": "Doorbell chime type",
+        "state": {
+          "mechanical": "Mechanical",
+          "digital": "Digital"
+        }
+      }
+    },
+    "sensor": {
+      "door_state": {
+        "name": "Door state"
+      },
+      "battery_backup_state": {
+        "name": "Backup battery",
+        "state": {
+          "idle": "Idle",
+          "charging": "Charging",
+          "bad": "Faulty",
+          "disconnected": "Disconnected",
+          "none": "None",
+          "unknown": "Unknown"
+        }
+      },
+      "absolute_cycle_count": {
+        "name": "Door cycles"
+      },
+      "wifi_signal_strength": {
+        "name": "Wi-Fi signal"
+      },
+      "battery_percentage": {
+        "name": "Battery"
+      },
+      "lamp_state": {
+        "name": "Light state"
+      },
+      "offline_reason": {
+        "name": "Offline reason"
+      },
+      "lock_state": {
+        "name": "Lock state"
+      },
+      "bluetooth_connectability": {
+        "name": "Lock connection"
+      },
+      "auto_relock_time": {
+        "name": "Auto relock delay"
+      },
+      "automatic_lock_state": {
+        "name": "Automatic lock setting"
+      },
+      "door_sensor_state": {
+        "name": "Door sensor setting"
+      },
+      "door_sensor_calibration_status": {
+        "name": "Door sensor calibration"
+      },
+      "orientation": {
+        "name": "Lock orientation",
+        "state": {
+          "lefthand": "Left-handed",
+          "righthand": "Right-handed",
+          "unknown": "Unknown",
+          "calibrationfailure": "Calibration failed"
+        }
+      },
+      "failed_credential_lockout_frequency": {
+        "name": "PIN lockout attempts"
+      },
+      "failed_credential_lockout_duration_seconds": {
+        "name": "PIN lockout duration"
+      },
+      "last_update": {
+        "name": "Last state change"
+      },
+      "device_type": {
+        "name": "Device type"
+      },
+      "video_res": {
+        "name": "Video resolution"
+      },
+      "video_fps": {
+        "name": "Video frame rate"
+      },
+      "video_quality": {
+        "name": "Video quality"
+      },
+      "camera_battery": {
+        "name": "Battery"
+      },
+      "camera_power_source": {
+        "name": "Power source",
+        "state": {
+          "ac": "AC power",
+          "usb": "USB",
+          "battery": "Battery",
+          "solar": "Solar",
+          "solar_battery": "Solar and battery"
+        }
+      },
+      "camera_wifi_strength": {
+        "name": "Wi-Fi strength"
+      },
+      "accessory_battery": {
+        "name": "{accessory} battery",
+        "state": {
+          "good": "Good",
+          "low": "Low",
+          "critical": "Critical",
+          "unknown": "Unknown"
+        }
+      }
+    },
+    "switch": {
+      "status_led": {
+        "name": "Status LED"
+      },
+      "chime_enabled": {
+        "name": "Doorbell chime"
+      },
+      "auto_tracking": {
+        "name": "PTZ auto tracking"
+      },
+      "wake_on_motion": {
+        "name": "Wake on motion"
+      },
+      "microphone": {
+        "name": "Microphone"
+      },
+      "motion_detection": {
+        "name": "Motion detection"
+      },
+      "motion_light": {
+        "name": "Motion activated opener light"
+      },
+      "auto_relock": {
+        "name": "Auto relock"
+      },
+      "door_sensor": {
+        "name": "Door sensor"
+      },
+      "lock_mode": {
+        "name": "Disable remotes"
+      },
+      "alert_rule": {
+        "name": "Alert: {rule}"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    }
+  },
+  "exceptions": {
+    "session_ended": {
+      "message": "MyQ ended the session. Reconnect MyQ from Settings > Devices & services."
+    },
+    "session_renewal": {
+      "message": "MyQ did not renew the session this time. It will be retried."
+    },
+    "rate_limited": {
+      "message": "MyQ is limiting requests. Try again later."
+    },
+    "access_denied": {
+      "message": "MyQ did not allow this request: {detail}"
+    },
+    "cannot_connect": {
+      "message": "Could not connect to MyQ: {detail}"
+    },
+    "command_uncertain": {
+      "message": "MyQ did not confirm the result, so the request was not repeated: {detail}"
+    },
+    "command_rejected": {
+      "message": "The request was not completed: {detail}"
+    },
+    "unexpected_response": {
+      "message": "MyQ sent an unexpected response: {detail}"
+    },
+    "myq_error": {
+      "message": "The MyQ request failed: {detail}"
+    },
+    "temperature_or_range": {
+      "message": "Choose one temperature or a heating and cooling range."
+    },
+    "temperature_needs_mode": {
+      "message": "A single temperature needs heat or cool mode."
+    },
+    "temperature_required": {
+      "message": "A thermostat target temperature is required."
+    },
+    "whole_number": {
+      "message": "The value must be a whole number."
+    },
+    "whole_minutes": {
+      "message": "Time to close must be a whole number of minutes."
+    },
+    "unsupported_option": {
+      "message": "That option is not available for this device."
+    },
+    "setting_unavailable": {
+      "message": "This setting is not available for this device right now."
+    },
+    "no_lockout": {
+      "message": "No keypad lockout is active."
+    },
+    "entry_not_loaded": {
+      "message": "The selected MyQ integration is not loaded."
+    },
+    "device_not_found": {
+      "message": "Choose one currently registered MyQ device."
+    },
+    "legacy_entry": {
+      "message": "This entry was made by Home Assistant's former MyQ integration and can't be used. Delete it, then add MyQ again."
+    }
+  },
+  "services": {
+    "validate_session": {
+      "name": "Validate session",
+      "description": "Read-only identity, account and device check, with optional token renewal. Returns counts without credentials or identifiers. Requires a Home Assistant administrator.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Integration",
+          "description": "The MyQ configuration entry to check."
+        },
+        "refresh": {
+          "name": "Verify token renewal",
+          "description": "Renew the session, persist rotated tokens, and verify the same identity."
+        }
+      }
+    },
+    "get_accessories": {
+      "name": "Get accessories",
+      "description": "Read paired opener accessories and enable their battery diagnostics for this loaded integration. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    },
+    "rename_accessory": {
+      "name": "Rename accessory",
+      "description": "Rename a paired accessory (1 to 24 characters, not already used on that opener) and wait for reported confirmation. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "accessory_serial": {
+          "name": "Accessory serial",
+          "description": "Select an existing accessory from get_accessories."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name for the existing accessory or PIN."
+        }
+      }
+    },
+    "remove_accessory": {
+      "name": "Remove accessory",
+      "description": "Remove a paired accessory and wait for confirmed absence. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "accessory_serial": {
+          "name": "Accessory serial",
+          "description": "Select an existing accessory from get_accessories."
+        }
+      }
+    },
+    "set_auto_relock": {
+      "name": "Set auto relock",
+      "description": "Set supported legacy lock auto relock and wait for reported confirmation. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Desired enabled state."
+        },
+        "seconds": {
+          "name": "Delay",
+          "description": "Native auto relock delay in seconds."
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "Get schedules",
+      "description": "Read schedules for an existing camera feature configuration. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "feature": {
+          "name": "Camera feature",
+          "description": "Feature associated with the existing workflow configuration."
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "Set schedule enabled",
+      "description": "Enable or disable an existing camera workflow schedule and confirm the change. A schedule cannot be enabled while it overlaps another enabled schedule of the same feature. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "feature": {
+          "name": "Camera feature",
+          "description": "Feature associated with the existing workflow configuration."
+        },
+        "configuration_id": {
+          "name": "Configuration ID",
+          "description": "An existing configuration belonging to the selected device and feature."
+        },
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "Existing schedule ID; omit when adding a schedule."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Desired enabled state."
+        }
+      }
+    },
+    "save_schedule": {
+      "name": "Save schedule",
+      "description": "Add or update a camera workflow schedule and confirm reported completion. Without a configuration ID, create the first supported feature configuration only when none exists. An enabled schedule cannot overlap another enabled schedule of the same feature. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "feature": {
+          "name": "Camera feature",
+          "description": "Feature associated with the existing workflow configuration."
+        },
+        "configuration_id": {
+          "name": "Configuration ID",
+          "description": "Existing configuration ID. Omit only to create the first supported feature configuration."
+        },
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "Existing schedule ID; omit when adding a schedule."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Schedule label."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Weekdays in the existing configuration time zone."
+        },
+        "start_time": {
+          "name": "Start time",
+          "description": "Local time in HH:mm:00 format."
+        },
+        "end_time": {
+          "name": "End time",
+          "description": "Local time in HH:mm:00 format; different from start."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Desired enabled state."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Delete schedule",
+      "description": "Delete an existing camera workflow schedule and confirm absence. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "feature": {
+          "name": "Camera feature",
+          "description": "Feature associated with the existing workflow configuration."
+        },
+        "configuration_id": {
+          "name": "Configuration ID",
+          "description": "An existing configuration belonging to the selected device and feature."
+        },
+        "schedule_id": {
+          "name": "Schedule ID",
+          "description": "Existing schedule ID; omit when adding a schedule."
+        }
+      }
+    },
+    "get_pins": {
+      "name": "Get pins",
+      "description": "Read remote lock PIN names, IDs, access and status. Numeric PINs are never returned. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    },
+    "save_pin": {
+      "name": "Save pin",
+      "description": "Create or update a remote lock PIN from a private local file and wait for synced status. The integration does not retain the PIN; remove the file after use. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name for the existing accessory or PIN."
+        },
+        "pin_file": {
+          "name": "Private PIN file",
+          "description": "Name of a JSON file directly in the HA config directory, with the digits under the key \"pin\"; owned by HA and readable only by its owner. Only this filename enters the service bus."
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "Existing ID from get_pins; omit to add."
+        }
+      }
+    },
+    "delete_pin": {
+      "name": "Delete pin",
+      "description": "Delete a remote lock PIN and wait for confirmed absence. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "Existing ID from get_pins; omit to add."
+        }
+      }
+    },
+    "get_guests": {
+      "name": "Get guests",
+      "description": "Read existing MyQ guests and their allowed-device schedules. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    },
+    "set_guest_devices": {
+      "name": "Set guest devices",
+      "description": "Replace an existing guest schedule device list while preserving its time restrictions. Only device types the MyQ app lets you share are accepted. Taking a video keypad away does not delete the guest's PIN on it; remove that in the app first. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "account_user_id": {
+          "name": "Guest ID",
+          "description": "An existing guest from get_guests."
+        },
+        "access_schedule_id": {
+          "name": "Guest access schedule",
+          "description": "Existing guest schedule from get_guests."
+        },
+        "allowed_serials": {
+          "name": "Allowed device serials",
+          "description": "Existing devices in the same MyQ account. An empty list removes all device access for this schedule."
+        }
+      }
+    },
+    "remove_guest": {
+      "name": "Remove guest",
+      "description": "Revoke an existing guest and confirm absence. Owners and co-owners cannot be removed by this action. Unlike the MyQ app, this does not delete the guest's keypad PINs first; remove those in the app beforehand. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "account_user_id": {
+          "name": "Guest ID",
+          "description": "An existing guest from get_guests."
+        }
+      }
+    },
+    "assign_accessory": {
+      "name": "Assign accessory",
+      "description": "Assign a paired accessory to an existing guest who already has access to the opener. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "accessory_serial": {
+          "name": "Accessory serial",
+          "description": "Select an existing accessory from get_accessories."
+        },
+        "account_user_id": {
+          "name": "Guest ID",
+          "description": "An existing guest from get_guests."
+        }
+      }
+    },
+    "set_auto_lock": {
+      "name": "Set auto lock",
+      "description": "Configure automatic locking on a supported native Wi-Fi lock. Zero disables it; supported delays are 30, 60, 90, 120, 180 seconds. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "seconds": {
+          "name": "Delay",
+          "description": "Delay in seconds before the lock locks itself; 0 turns automatic locking off."
+        }
+      }
+    },
+    "set_door_sensor": {
+      "name": "Set door sensor",
+      "description": "Enable or disable a configured, calibrated native Wi-Fi lock door sensor and confirm reported state. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Desired enabled state."
+        }
+      }
+    },
+    "rename_device": {
+      "name": "Rename device",
+      "description": "Rename a MyQ device in the MyQ account (up to 24 characters, as in the app) and confirm the new name. Account owner only. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "name": {
+          "name": "Name",
+          "description": "New MyQ name, 1 to 24 characters."
+        }
+      }
+    },
+    "get_device_history": {
+      "name": "Get device history",
+      "description": "Return one page of the device's MyQ activity history, oldest first: what happened, when, and by whom. User identifiers are omitted. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "continuation": {
+          "name": "Continuation",
+          "description": "Continuation value from a previous response, to read the next page."
+        }
+      }
+    },
+    "get_alerts": {
+      "name": "Get alerts",
+      "description": "Return the device's MyQ notification rules and whether each is enabled. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    },
+    "snooze_alerts": {
+      "name": "Snooze alerts",
+      "description": "Snooze all MyQ notifications for the device's account for a number of minutes. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "Snooze length, 1 minute to 7 days."
+        }
+      }
+    },
+    "cancel_alert_snooze": {
+      "name": "Cancel alert snooze",
+      "description": "End an active MyQ notification snooze for the device's account. Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    },
+    "get_thermostat_programs": {
+      "name": "Get thermostat programs",
+      "description": "Return a linked thermostat's presets and schedules (read only). Requires a Home Assistant administrator.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "Currently registered MyQ device."
+        }
+      }
+    }
+  }
+}

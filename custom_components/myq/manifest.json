@@ -1,0 +1,24 @@
+{
+  "domain": "myq",
+  "name": "MyQ",
+  "after_dependencies": [
+    "frontend",
+    "media_source"
+  ],
+  "codeowners": [
+    "@kedube"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "web_rtc"
+  ],
+  "documentation": "https://github.com/kedube/ha-myq",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/kedube/ha-myq/issues",
+  "requirements": [
+    "aiortc==1.14.0"
+  ],
+  "version": "0.00"
+}

@@ -1,0 +1,943 @@
+{
+  "title": "MyQ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "MyQ に接続",
+        "description": "実験的な統合で、MyQ ではまだテストされていません。動作が確認されたサインイン方法はありません。ブラウザーでのサインインには、承認されたネイティブのソースから取得した、現在有効な MyQ アプリ検証トークンが必要です。ブラウザーでログインするだけでは、その証明を提供できません。MyQ のワンタイムサインインリンクをお持ちの場合は、代わりにそれを使用できます。承認済みの既存のリフレッシュトークンをインポートすることもできます。",
+        "menu_options": {
+          "browser": "アプリ検証付きのブラウザーサインイン",
+          "onetime": "MyQ のワンタイムサインインリンク",
+          "login": "実験的：メールアドレス/パスワードのフォームでサインイン",
+          "token": "上級者向け：既存のリフレッシュトークンを使用"
+        }
+      },
+      "login": {
+        "title": "MyQ にサインイン",
+        "description": "MyQ アカウントの認証情報を入力してください。MyQ が対応している検証チャレンジを提示した場合は、次の画面で入力を求められます。パスワードはこのサインインにのみ使用され、保存されません。",
+        "data": {
+          "username": "メールアドレス",
+          "password": "パスワード",
+          "app_check_token": "アプリ検証トークン（任意。期限切れの場合は置き換えてください）"
+        }
+      },
+      "mfa": {
+        "title": "MyQ の検証",
+        "description": "{instruction}",
+        "data": {
+          "response": "検証の応答",
+          "app_check_token": "アプリ検証トークン（任意。期限切れの場合は置き換えてください）"
+        }
+      },
+      "token": {
+        "title": "既存の MyQ セッションを使用",
+        "description": "ご自身の承認済みセッションから取得したリフレッシュトークンを使った開発およびテスト用です。MyQ のサインイン、MFA、アプリ検証を置き換えたり回避したりするものではありません。統合は保存前にセッションを検証して更新します。",
+        "data": {
+          "refresh_token": "リフレッシュトークン"
+        }
+      },
+      "reauth_confirm": {
+        "title": "MyQ に再接続",
+        "description": "MyQ セッションを更新できませんでした。同じアカウントに再度サインインしてください。",
+        "menu_options": {
+          "browser": "アプリ検証付きのブラウザーサインイン",
+          "onetime": "MyQ のワンタイムサインインリンク",
+          "login": "メールアドレスとパスワードでサインイン",
+          "token": "上級者向け：既存のリフレッシュトークンを使用"
+        }
+      },
+      "browser": {
+        "title": "ブラウザーで MyQ のサインインを完了",
+        "description": "[セットアップガイド]({guide_url}) で説明しているローカルのブラウザーヘルパーを使用してください。現在有効な MyQ アプリ検証トークンが必要です。このリクエストをヘルパーにコピーし、10 分以内に非公開の結果ファイルを下に貼り付けてください。この設定ウィンドウは開いたままにしてください。\n\n```json\n{request}\n```",
+        "data": {
+          "handoff": "非公開のサインイン結果"
+        }
+      },
+      "onetime": {
+        "title": "MyQ のワンタイムリンクでサインイン",
+        "description": "MyQ のワンタイムサインインリンク（{link_start} で始まるもの）を貼り付けてください。MyQ アプリは、これらのリンクと一緒にアプリ検証トークンを送信しません。この方法も他のサインイン方法も、まだ MyQ でテストされておらず、MyQ がこれらのリンクをどこで発行しているかもわかっていません。各リンクは 1 回だけ使用できます。その後アカウントの検出に失敗した場合は、同じセッションで再試行できます。",
+        "data": {
+          "link": "ワンタイムサインインリンク"
+        }
+      },
+      "finish": {
+        "title": "MyQ の接続を完了",
+        "description": "サインインは完了しましたが、アカウントまたはデバイスの検出に失敗しました。送信すると、同じセッションで検出を再試行します。"
+      }
+    },
+    "error": {
+      "invalid_auth": "MyQ が認証情報またはセッションを拒否しました。アカウント情報を確認し、検証セッションの有効期限が切れている場合は最初からやり直してください。",
+      "invalid_code": "検証が完了しませんでした。コードを確認して、もう一度お試しください。",
+      "cannot_connect": "MyQ に接続できませんでした。しばらくしてからもう一度お試しください。",
+      "access_denied": "MyQ がこのリクエストを拒否しました。アプリ検証または追加のアカウント権限が必要な可能性があります。",
+      "app_verification": "MyQ がアプリケーションの検証を拒否しました（401.122）。",
+      "unsupported_auth": "この統合がまだ対応していないサインイン画面または検証画面が MyQ から提示されました。プロトコルノートを参照してください。アプリ検証トークンまたは新しい MFA フォームが必要になる場合があります。",
+      "rate_limited": "MyQ によりリクエストが制限されています。しばらく待ってから再試行してください。",
+      "protocol_error": "MyQ から予期しない応答が返されました。統合のプロトコルノートを確認してください。アカウントは追加されていません。",
+      "browser_verification": "MyQ では実際のブラウザーでの検証が必要です。設定メニューから「アプリ検証付きのブラウザーサインイン」を開始してください。",
+      "app_check_unavailable": "現在有効な MyQ アプリ検証トークンが必要です。ブラウザーではこのトークンを生成できません。",
+      "app_check_expired": "アプリ検証トークンの有効期限が切れているか、残り 5 分未満です。新しいトークンを指定してください。",
+      "app_check_invalid": "アプリ検証トークンの形式が正しくないか、使用可能な有効期限がありません。",
+      "app_check_integrity": "ネイティブのトークンソースがアプリケーションの整合性証明を取得できませんでした。",
+      "invalid_link": "使用可能な MyQ のワンタイムサインインリンクではありません。リンク全体を貼り付けてください。"
+    },
+    "abort": {
+      "already_configured": "この MyQ アカウントはすでに設定されています。",
+      "reauth_successful": "MyQ に再接続しました。",
+      "unique_id_mismatch": "既存の統合と同じ MyQ アカウントにサインインしてください。",
+      "invalid_auth": "この MyQ セッションは拒否されました。新たにサインインを開始してください。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MyQ のオプション",
+        "data": {
+          "poll_interval": "ポーリング間隔（秒）",
+          "enable_cameras": "カメラの検出と画像を有効にする"
+        }
+      }
+    }
+  },
+  "selector": {
+    "schedule_feature": {
+      "options": {
+        "floodlight": "フラッドライト",
+        "patrol_mode": "パトロールモード",
+        "privacy_mode": "プライバシーモード",
+        "voice_deter": "音声威嚇"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "月曜日",
+        "tuesday": "火曜日",
+        "wednesday": "水曜日",
+        "thursday": "木曜日",
+        "friday": "金曜日",
+        "saturday": "土曜日",
+        "sunday": "日曜日"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "接続"
+      },
+      "sensor_comm_error": {
+        "name": "ドアセンサーの通信障害"
+      },
+      "dps_low_battery_mode": {
+        "name": "ドアセンサーのバッテリー残量低下"
+      },
+      "monitor_only_mode": {
+        "name": "監視のみ"
+      },
+      "is_unattended_open_allowed": {
+        "name": "リモート開扉許可"
+      },
+      "is_unattended_close_allowed": {
+        "name": "リモート閉扉許可"
+      },
+      "in_vacation_mode": {
+        "name": "リモコン無効"
+      },
+      "camera_online": {
+        "name": "カメラの接続"
+      },
+      "low_battery": {
+        "name": "バッテリー残量低下"
+      },
+      "auto_relock_enabled": {
+        "name": "自動再施錠が有効"
+      },
+      "allow_auto_relock": {
+        "name": "自動再施錠が利用可能"
+      },
+      "is_managed": {
+        "name": "MyQ による管理"
+      },
+      "attached_work_light_error_present": {
+        "name": "作業灯が未ペアリング"
+      },
+      "failed_credential_lockout_active": {
+        "name": "PIN ロックアウト"
+      },
+      "failed_credential_lockout_enabled": {
+        "name": "PIN ロックアウト保護"
+      },
+      "faults": {
+        "name": "故障"
+      },
+      "backup_battery_problem": {
+        "name": "バックアップバッテリーの問題"
+      },
+      "safety_sensors": {
+        "name": "安全センサーの位置合わせ"
+      },
+      "lock_calibration": {
+        "name": "ロックのキャリブレーション"
+      },
+      "lock_door": {
+        "name": "ドア"
+      },
+      "camera_charging": {
+        "name": "充電中"
+      }
+    },
+    "button": {
+      "left": {
+        "name": "左にパン"
+      },
+      "right": {
+        "name": "右にパン"
+      },
+      "up": {
+        "name": "上にチルト"
+      },
+      "down": {
+        "name": "下にチルト"
+      },
+      "zoom_in": {
+        "name": "ズームイン"
+      },
+      "zoom_out": {
+        "name": "ズームアウト"
+      },
+      "stop": {
+        "name": "カメラの動きを停止"
+      },
+      "siren_on": {
+        "name": "サイレンを 10 秒間鳴らす"
+      },
+      "siren_off": {
+        "name": "サイレンを停止"
+      },
+      "talkback_on": {
+        "name": "マイクを 30 秒間有効化"
+      },
+      "talkback_off": {
+        "name": "マイクをミュート"
+      },
+      "go_to_position": {
+        "name": "{position} に移動"
+      },
+      "clear_pin_lockout": {
+        "name": "PIN ロックアウトを解除"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "カメラ"
+      }
+    },
+    "event": {
+      "activity": {
+        "name": "アクティビティ",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "open": "開扉",
+              "closed": "閉扉",
+              "on": "オン",
+              "off": "オフ",
+              "locked": "施錠",
+              "unlocked": "解錠",
+              "stopped": "停止",
+              "accessed": "アクセス",
+              "call_answered": "通話に応答",
+              "call_unanswered": "通話に応答なし",
+              "expired": "期限切れ",
+              "attempted": "試行",
+              "assigned_remote": "リモコン割り当て",
+              "unassigned_remote": "リモコン割り当て解除",
+              "failed_to_close": "閉扉失敗",
+              "failed_to_lock": "施錠失敗",
+              "other": "その他"
+            }
+          }
+        }
+      }
+    },
+    "light": {
+      "camera_light": {
+        "name": "カメラライト {number}"
+      }
+    },
+    "number": {
+      "speaker_volume": {
+        "name": "スピーカーの音量"
+      },
+      "time_to_close": {
+        "name": "自動で閉じるまでの時間（0 で無効）"
+      },
+      "motion_sensitivity": {
+        "name": "動体検知の感度"
+      },
+      "siren_volume": {
+        "name": "サイレンの音量"
+      }
+    },
+    "select": {
+      "light_timer": {
+        "name": "オープナーライトのタイマー",
+        "state": {
+          "90": "90 秒",
+          "150": "150 秒",
+          "210": "210 秒",
+          "270": "270 秒"
+        }
+      },
+      "auto_relock_delay": {
+        "name": "自動再施錠までの時間",
+        "state": {
+          "30": "30 秒",
+          "60": "60 秒",
+          "90": "90 秒",
+          "120": "120 秒",
+          "180": "180 秒"
+        }
+      },
+      "automatic_lock_delay": {
+        "name": "自動施錠までの時間",
+        "state": {
+          "off": "オフ",
+          "30": "30 秒",
+          "60": "60 秒",
+          "90": "90 秒",
+          "120": "120 秒",
+          "180": "180 秒"
+        }
+      },
+      "rotation": {
+        "name": "画像の向き",
+        "state": {
+          "normal": "標準",
+          "mirror": "左右反転",
+          "mirror_flip": "上下左右反転",
+          "flip": "上下反転"
+        }
+      },
+      "night_vision": {
+        "name": "ナイトビジョン",
+        "state": {
+          "off": "オフ",
+          "on": "オン",
+          "auto": "自動"
+        }
+      },
+      "power_saver": {
+        "name": "省電力",
+        "state": {
+          "auto": "自動",
+          "on": "オン",
+          "off": "オフ"
+        }
+      },
+      "chime_type": {
+        "name": "ドアチャイムの種類",
+        "state": {
+          "mechanical": "機械式",
+          "digital": "デジタル式"
+        }
+      }
+    },
+    "sensor": {
+      "door_state": {
+        "name": "ドアの状態"
+      },
+      "battery_backup_state": {
+        "name": "バックアップバッテリー",
+        "state": {
+          "idle": "待機中",
+          "charging": "充電中",
+          "bad": "不良",
+          "disconnected": "未接続",
+          "none": "なし",
+          "unknown": "不明"
+        }
+      },
+      "absolute_cycle_count": {
+        "name": "ドアの開閉回数"
+      },
+      "wifi_signal_strength": {
+        "name": "Wi-Fi 信号強度"
+      },
+      "battery_percentage": {
+        "name": "バッテリー"
+      },
+      "lamp_state": {
+        "name": "ライトの状態"
+      },
+      "offline_reason": {
+        "name": "オフラインの理由"
+      },
+      "lock_state": {
+        "name": "施錠状態"
+      },
+      "bluetooth_connectability": {
+        "name": "ロックの接続"
+      },
+      "auto_relock_time": {
+        "name": "自動再施錠までの時間"
+      },
+      "automatic_lock_state": {
+        "name": "自動施錠の設定"
+      },
+      "door_sensor_state": {
+        "name": "ドアセンサーの設定"
+      },
+      "door_sensor_calibration_status": {
+        "name": "ドアセンサーのキャリブレーション"
+      },
+      "orientation": {
+        "name": "ロックの取り付け向き",
+        "state": {
+          "lefthand": "左勝手",
+          "righthand": "右勝手",
+          "unknown": "不明",
+          "calibrationfailure": "キャリブレーション失敗"
+        }
+      },
+      "failed_credential_lockout_frequency": {
+        "name": "PIN ロックアウトまでの試行回数"
+      },
+      "failed_credential_lockout_duration_seconds": {
+        "name": "PIN ロックアウトの継続時間"
+      },
+      "last_update": {
+        "name": "最後の状態変化"
+      },
+      "device_type": {
+        "name": "デバイスの種類"
+      },
+      "video_res": {
+        "name": "映像の解像度"
+      },
+      "video_fps": {
+        "name": "映像のフレームレート"
+      },
+      "video_quality": {
+        "name": "映像の画質"
+      },
+      "camera_battery": {
+        "name": "バッテリー"
+      },
+      "camera_power_source": {
+        "name": "電源",
+        "state": {
+          "ac": "AC 電源",
+          "usb": "USB",
+          "battery": "バッテリー",
+          "solar": "ソーラー",
+          "solar_battery": "ソーラーとバッテリー"
+        }
+      },
+      "camera_wifi_strength": {
+        "name": "Wi-Fi 強度"
+      },
+      "accessory_battery": {
+        "name": "{accessory} のバッテリー",
+        "state": {
+          "good": "良好",
+          "low": "低下",
+          "critical": "極めて低い",
+          "unknown": "不明"
+        }
+      }
+    },
+    "switch": {
+      "status_led": {
+        "name": "ステータス LED"
+      },
+      "chime_enabled": {
+        "name": "ドアチャイム"
+      },
+      "auto_tracking": {
+        "name": "PTZ 自動追尾"
+      },
+      "wake_on_motion": {
+        "name": "動体検知で起動"
+      },
+      "microphone": {
+        "name": "マイク"
+      },
+      "motion_detection": {
+        "name": "動体検知"
+      },
+      "motion_light": {
+        "name": "動体検知によるオープナーライト点灯"
+      },
+      "auto_relock": {
+        "name": "自動再施錠"
+      },
+      "door_sensor": {
+        "name": "ドアセンサー"
+      },
+      "lock_mode": {
+        "name": "リモコンを無効化"
+      },
+      "alert_rule": {
+        "name": "アラート：{rule}"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "ファームウェア"
+      }
+    }
+  },
+  "exceptions": {
+    "session_ended": {
+      "message": "MyQ がセッションを終了しました。「設定 > デバイスとサービス」から MyQ に再接続してください。"
+    },
+    "session_renewal": {
+      "message": "今回は MyQ がセッションを更新しませんでした。再試行されます。"
+    },
+    "rate_limited": {
+      "message": "MyQ がリクエストを制限しています。しばらくしてからもう一度お試しください。"
+    },
+    "access_denied": {
+      "message": "MyQ がこのリクエストを許可しませんでした：{detail}"
+    },
+    "cannot_connect": {
+      "message": "MyQ に接続できませんでした：{detail}"
+    },
+    "command_uncertain": {
+      "message": "MyQ が結果を確認しなかったため、リクエストは繰り返されませんでした：{detail}"
+    },
+    "command_rejected": {
+      "message": "リクエストは完了しませんでした：{detail}"
+    },
+    "unexpected_response": {
+      "message": "MyQ から予期しない応答がありました：{detail}"
+    },
+    "myq_error": {
+      "message": "MyQ へのリクエストに失敗しました：{detail}"
+    },
+    "temperature_or_range": {
+      "message": "単一の温度か、暖房と冷房の温度範囲のいずれかを選択してください。"
+    },
+    "temperature_needs_mode": {
+      "message": "単一の温度を設定するには、暖房モードまたは冷房モードが必要です。"
+    },
+    "temperature_required": {
+      "message": "サーモスタットの目標温度が必要です。"
+    },
+    "whole_number": {
+      "message": "値は整数である必要があります。"
+    },
+    "whole_minutes": {
+      "message": "自動で閉じるまでの時間は、分単位の整数で指定する必要があります。"
+    },
+    "unsupported_option": {
+      "message": "そのオプションはこのデバイスでは利用できません。"
+    },
+    "setting_unavailable": {
+      "message": "この設定は現在このデバイスでは利用できません。"
+    },
+    "no_lockout": {
+      "message": "現在、キーパッドのロックアウトは発生していません。"
+    },
+    "entry_not_loaded": {
+      "message": "選択した MyQ 統合は読み込まれていません。"
+    },
+    "device_not_found": {
+      "message": "現在登録されている MyQ デバイスを 1 つ選択してください。"
+    },
+    "legacy_entry": {
+      "message": "この設定エントリは Home Assistant の以前の MyQ 統合で作成されたもので、使用できません。削除してから、MyQ をもう一度追加してください。"
+    }
+  },
+  "services": {
+    "validate_session": {
+      "name": "セッションを検証",
+      "description": "アイデンティティ、アカウント、デバイスを読み取り専用で確認します。任意でトークンの更新も行えます。認証情報や識別子を含まない件数を返します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "config_entry_id": {
+          "name": "統合",
+          "description": "確認する MyQ の設定エントリです。"
+        },
+        "refresh": {
+          "name": "トークンの更新を検証",
+          "description": "セッションを更新し、ローテーションされたトークンを保存して、同じアイデンティティであることを確認します。"
+        }
+      }
+    },
+    "get_accessories": {
+      "name": "アクセサリーを取得",
+      "description": "オープナーにペアリングされているアクセサリーを読み取り、読み込み済みのこの統合でそれらのバッテリー診断を有効にします。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    },
+    "rename_accessory": {
+      "name": "アクセサリーの名前を変更",
+      "description": "ペアリング済みのアクセサリーの名前を変更し（1～24 文字で、そのオープナーでまだ使われていない名前）、確認が報告されるまで待機します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "accessory_serial": {
+          "name": "アクセサリーのシリアル番号",
+          "description": "get_accessories で取得した既存のアクセサリーを選択します。"
+        },
+        "name": {
+          "name": "名前",
+          "description": "既存のアクセサリーまたは PIN の名前です。"
+        }
+      }
+    },
+    "remove_accessory": {
+      "name": "アクセサリーを削除",
+      "description": "ペアリング済みのアクセサリーを削除し、存在しなくなったことが確認されるまで待機します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "accessory_serial": {
+          "name": "アクセサリーのシリアル番号",
+          "description": "get_accessories で取得した既存のアクセサリーを選択します。"
+        }
+      }
+    },
+    "set_auto_relock": {
+      "name": "自動再施錠を設定",
+      "description": "対応する旧型ロックの自動再施錠を設定し、確認が報告されるまで待機します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "enabled": {
+          "name": "有効",
+          "description": "希望する有効/無効の状態です。"
+        },
+        "seconds": {
+          "name": "遅延時間",
+          "description": "ネイティブの自動再施錠までの時間（秒）です。"
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "スケジュールを取得",
+      "description": "既存のカメラ機能設定のスケジュールを読み取ります。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "feature": {
+          "name": "カメラ機能",
+          "description": "既存のワークフロー設定に関連付けられた機能です。"
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "スケジュールの有効/無効を設定",
+      "description": "既存のカメラワークフローのスケジュールを有効または無効にし、変更を確認します。同じ機能の有効な別のスケジュールと重なっている間は、スケジュールを有効にできません。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "feature": {
+          "name": "カメラ機能",
+          "description": "既存のワークフロー設定に関連付けられた機能です。"
+        },
+        "configuration_id": {
+          "name": "設定 ID",
+          "description": "選択したデバイスと機能に属する既存の設定です。"
+        },
+        "schedule_id": {
+          "name": "スケジュール ID",
+          "description": "既存のスケジュール ID です。スケジュールを追加する場合は省略します。"
+        },
+        "enabled": {
+          "name": "有効",
+          "description": "希望する有効/無効の状態です。"
+        }
+      }
+    },
+    "save_schedule": {
+      "name": "スケジュールを保存",
+      "description": "カメラワークフローのスケジュールを追加または更新し、完了の報告を確認します。設定 ID がない場合は、設定が 1 つも存在しないときに限り、対応する最初の機能設定を作成します。有効なスケジュールを、同じ機能の有効な別のスケジュールと重ねることはできません。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "feature": {
+          "name": "カメラ機能",
+          "description": "既存のワークフロー設定に関連付けられた機能です。"
+        },
+        "configuration_id": {
+          "name": "設定 ID",
+          "description": "既存の設定 ID です。対応する最初の機能設定を作成する場合にのみ省略します。"
+        },
+        "schedule_id": {
+          "name": "スケジュール ID",
+          "description": "既存のスケジュール ID です。スケジュールを追加する場合は省略します。"
+        },
+        "label": {
+          "name": "ラベル",
+          "description": "スケジュールのラベルです。"
+        },
+        "days": {
+          "name": "曜日",
+          "description": "既存の設定のタイムゾーンでの曜日です。"
+        },
+        "start_time": {
+          "name": "開始時刻",
+          "description": "HH:mm:00 形式の現地時刻です。"
+        },
+        "end_time": {
+          "name": "終了時刻",
+          "description": "HH:mm:00 形式の現地時刻です。開始時刻とは異なる時刻にしてください。"
+        },
+        "enabled": {
+          "name": "有効",
+          "description": "希望する有効/無効の状態です。"
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "スケジュールを削除",
+      "description": "既存のカメラワークフローのスケジュールを削除し、存在しなくなったことを確認します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "feature": {
+          "name": "カメラ機能",
+          "description": "既存のワークフロー設定に関連付けられた機能です。"
+        },
+        "configuration_id": {
+          "name": "設定 ID",
+          "description": "選択したデバイスと機能に属する既存の設定です。"
+        },
+        "schedule_id": {
+          "name": "スケジュール ID",
+          "description": "既存のスケジュール ID です。スケジュールを追加する場合は省略します。"
+        }
+      }
+    },
+    "get_pins": {
+      "name": "PIN を取得",
+      "description": "リモートロックの PIN の名前、ID、アクセス権、ステータスを読み取ります。PIN の数字は一切返されません。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    },
+    "save_pin": {
+      "name": "PIN を保存",
+      "description": "非公開のローカルファイルからリモートロックの PIN を作成または更新し、同期済みのステータスになるまで待機します。統合は PIN を保持しません。使用後はファイルを削除してください。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "name": {
+          "name": "名前",
+          "description": "既存のアクセサリーまたは PIN の名前です。"
+        },
+        "pin_file": {
+          "name": "非公開の PIN ファイル",
+          "description": "HA の設定ディレクトリ直下にある JSON ファイルの名前です。数字は「pin」キーに入れます。ファイルは HA が所有し、所有者のみが読み取れるようにしてください。サービスバスに渡されるのはこのファイル名だけです。"
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "get_pins で取得した既存の ID です。追加する場合は省略します。"
+        }
+      }
+    },
+    "delete_pin": {
+      "name": "PIN を削除",
+      "description": "リモートロックの PIN を削除し、存在しなくなったことが確認されるまで待機します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "pin_id": {
+          "name": "PIN ID",
+          "description": "get_pins で取得した既存の ID です。追加する場合は省略します。"
+        }
+      }
+    },
+    "get_guests": {
+      "name": "ゲストを取得",
+      "description": "既存の MyQ ゲストと、許可されたデバイスのスケジュールを読み取ります。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    },
+    "set_guest_devices": {
+      "name": "ゲストのデバイスを設定",
+      "description": "既存のゲストスケジュールのデバイスリストを、時間制限を保持したまま置き換えます。MyQ アプリで共有できる種類のデバイスのみが受け付けられます。ビデオキーパッドを外しても、そのキーパッド上のゲストの PIN は削除されません。先にアプリで削除してください。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "account_user_id": {
+          "name": "ゲスト ID",
+          "description": "get_guests で取得した既存のゲストです。"
+        },
+        "access_schedule_id": {
+          "name": "ゲストのアクセススケジュール",
+          "description": "get_guests で取得した既存のゲストスケジュールです。"
+        },
+        "allowed_serials": {
+          "name": "許可するデバイスのシリアル番号",
+          "description": "同じ MyQ アカウント内の既存のデバイスです。空のリストにすると、このスケジュールのデバイスへのアクセスがすべて削除されます。"
+        }
+      }
+    },
+    "remove_guest": {
+      "name": "ゲストを削除",
+      "description": "既存のゲストのアクセス権を取り消し、ゲストが存在しなくなったことを確認します。オーナーと共同オーナーはこのアクションでは削除できません。MyQ アプリとは異なり、先にゲストのキーパッド PIN を削除することはしません。事前にアプリで削除してください。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "account_user_id": {
+          "name": "ゲスト ID",
+          "description": "get_guests で取得した既存のゲストです。"
+        }
+      }
+    },
+    "assign_accessory": {
+      "name": "アクセサリーを割り当て",
+      "description": "ペアリング済みのアクセサリーを、すでにオープナーへのアクセス権を持つ既存のゲストに割り当てます。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "accessory_serial": {
+          "name": "アクセサリーのシリアル番号",
+          "description": "get_accessories で取得した既存のアクセサリーを選択します。"
+        },
+        "account_user_id": {
+          "name": "ゲスト ID",
+          "description": "get_guests で取得した既存のゲストです。"
+        }
+      }
+    },
+    "set_auto_lock": {
+      "name": "自動施錠を設定",
+      "description": "対応するネイティブ Wi-Fi ロックの自動施錠を設定します。0 で無効になります。対応する遅延時間は 30、60、90、120、180 秒です。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "seconds": {
+          "name": "遅延時間",
+          "description": "ロックが自動で施錠されるまでの遅延時間（秒）です。0 にすると自動施錠がオフになります。"
+        }
+      }
+    },
+    "set_door_sensor": {
+      "name": "ドアセンサーを設定",
+      "description": "設定とキャリブレーションが済んだネイティブ Wi-Fi ロックのドアセンサーを有効または無効にし、報告された状態を確認します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "enabled": {
+          "name": "有効",
+          "description": "希望する有効/無効の状態です。"
+        }
+      }
+    },
+    "rename_device": {
+      "name": "デバイスの名前を変更",
+      "description": "MyQ アカウント内の MyQ デバイスの名前を変更し（アプリと同じく最大 24 文字）、新しい名前を確認します。アカウントのオーナーのみが実行できます。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "name": {
+          "name": "名前",
+          "description": "MyQ での新しい名前（1～24 文字）です。"
+        }
+      }
+    },
+    "get_device_history": {
+      "name": "デバイスの履歴を取得",
+      "description": "デバイスの MyQ アクティビティ履歴を 1 ページ分、古い順に返します（何が、いつ、誰によって行われたか）。ユーザー識別子は省かれます。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "continuation": {
+          "name": "継続値",
+          "description": "次のページを読み取るための、前回の応答に含まれる継続値です。"
+        }
+      }
+    },
+    "get_alerts": {
+      "name": "アラートを取得",
+      "description": "デバイスの MyQ 通知ルールと、それぞれが有効かどうかを返します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    },
+    "snooze_alerts": {
+      "name": "アラートをスヌーズ",
+      "description": "デバイスのアカウントのすべての MyQ 通知を、指定した分数だけスヌーズします。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        },
+        "minutes": {
+          "name": "分",
+          "description": "スヌーズの長さ（1 分～7 日）です。"
+        }
+      }
+    },
+    "cancel_alert_snooze": {
+      "name": "アラートのスヌーズを解除",
+      "description": "デバイスのアカウントで有効になっている MyQ 通知のスヌーズを終了します。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    },
+    "get_thermostat_programs": {
+      "name": "サーモスタットのプログラムを取得",
+      "description": "リンクされたサーモスタットのプリセットとスケジュールを返します（読み取り専用）。Home Assistant の管理者権限が必要です。",
+      "fields": {
+        "device_id": {
+          "name": "デバイス",
+          "description": "現在登録されている MyQ デバイスです。"
+        }
+      }
+    }
+  }
+}

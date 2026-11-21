@@ -1,0 +1,144 @@
+name: Release
+
+# Publishes a release. Run it on main from the Actions tab (Release → Run workflow), or with
+# `gh workflow run release.yml -f bump=minor`. Nothing is released any other way.
+#
+# Versions are MAJOR.NN and start at 0.01 (see scripts/release.py):
+#   minor   0.01 → 0.02 → … → 0.99 → 1.00 → 1.01
+#   major   the next .00, for example 0.37 → 1.00 or 1.04 → 2.00
+#
+# The run checks the code, writes the version into manifest.json, pyproject.toml and
+# api/const.py, files the changelog's "Unreleased" section under the version, commits and tags
+# that on main, and publishes a GitHub release with that section as its notes and the
+# archives attached. HACS installs myq.zip from the release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Kind of release (minor adds 0.01; major goes to the next .00)
+        type: choice
+        options:
+          - minor
+          - major
+        default: minor
+
+permissions: {}
+
+# One release at a time: the version comes from the tags that exist when the run starts.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Choose the version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tagged: ${{ steps.version.outputs.tagged }}
+    steps:
+      - name: Releases are cut from the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::error::Run this workflow on $DEFAULT_BRANCH, not $GITHUB_REF_NAME."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # every tag: they are the list of released versions
+          persist-credentials: false # this job only reads
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Work out the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(python scripts/release.py latest)"
+          tagged=false
+          if [ -n "$latest" ] && [ "$(git rev-parse "refs/tags/$latest^{commit}")" = "$(git rev-parse HEAD)" ]; then
+            if gh release view "$latest" > /dev/null 2>&1; then
+              echo "::error::Nothing has changed since release $latest."
+              exit 1
+            fi
+            # An earlier run pushed the tag and then failed: publish that version, don't skip it.
+            version="$latest"
+            tagged=true
+          else
+            version="$(python scripts/release.py next "$BUMP")"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tagged=$tagged" >> "$GITHUB_OUTPUT"
+          echo "Releasing **$version** (previous release: ${latest:-none})." >> "$GITHUB_STEP_SUMMARY"
+
+  # The same checks that run on every push; a release needs all of them to pass.
+  test:
+    needs: plan
+    permissions:
+      contents: read # ci.yml asks for it; a called workflow gets no more than this
+    uses: ./.github/workflows/ci.yml
+  validate:
+    needs: plan
+    uses: ./.github/workflows/validate.yml
+
+  publish:
+    name: Publish ${{ needs.plan.outputs.version }}
+    needs: [plan, test, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release commit and tag, create the release
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # keeps its credentials: this job pushes the release commit and tag
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Commit and tag the release
+        if: needs.plan.outputs.tagged != 'true'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          python scripts/release.py stamp "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --all --message "Release $VERSION"
+          git tag "$VERSION"
+          # The commit and the tag go up together or not at all. The push is refused if the
+          # branch has moved on since the checks ran; start a new run in that case.
+          git push --atomic origin "HEAD:refs/heads/$DEFAULT_BRANCH" "refs/tags/$VERSION"
+
+      - name: Build the archives
+        run: |
+          python scripts/package.py
+          test -f dist/myq.zip # hacs.json "filename"
+          test -f "dist/myq-$VERSION.zip"
+
+      # The archives are attached as the release is created, so HACS never sees a release
+      # without myq.zip.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          if [ -n "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" ]; then
+            notes=(--notes-file "$RUNNER_TEMP/notes.md")
+          else
+            notes=(--generate-notes)
+          fi
+          gh release create "$VERSION" dist/*.zip dist/*.sha256 \
+            --verify-tag --title "$VERSION" "${notes[@]}"

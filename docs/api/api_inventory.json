@@ -1,0 +1,3817 @@
+{
+  "package": "com.chamberlain.android.liftmaster.myq",
+  "version": "5.324.0.1132442",
+  "version_code": "1132442",
+  "archive_sha256": "77aee562ebbef96712ac44b41ee899047f3a1e92860fe6e32d760e5422c7d7f5",
+  "base_apk_sha256": "20d6e5d35a819169867f1b7ebbe13769720ae0b78cb6e26ef95bc9f36dabefb2",
+  "signature_status": "Not independently verified against the Play Store signing certificate",
+  "jadx_version": "1.5.6",
+  "jadx_returncode": null,
+  "coverage": "Static Retrofit literal routes and the Tend/Seedonk SDK HTTP API table. Runtime URLs, native signaling, unresolved constants and embedded library routes may be missing or not applicable to MyQ. Paths retain their declaration prefixes; base URLs must be resolved separately. Presence does not prove server support.",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accountAccess",
+      "source_file": "an0/a.java",
+      "source_type": "AccountAccessApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts",
+      "source_file": "an0/b.java",
+      "source_type": "AccountApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts",
+      "source_file": "an0/b.java",
+      "source_type": "AccountApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}",
+      "source_file": "an0/b.java",
+      "source_type": "AccountApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/consent_level/{consentLevel}/categories/{category}/consents",
+      "source_file": "b91/a.java",
+      "source_type": "ConsentApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/consent_level/{consentLevel}/categories/{category}/consent_metadata_versions/{consentMetadataVersion}/consents/accept",
+      "source_file": "b91/a.java",
+      "source_type": "ConsentApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/consent_level/{consentLevel}/categories/{category}/consent_metadata_versions/{consentMetadataVersion}/consents/accept",
+      "source_file": "b91/a.java",
+      "source_type": "ConsentApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/categories/{category}/consents_metadata",
+      "source_file": "b91/a.java",
+      "source_type": "ConsentApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/consent_level/{consentLevel}/categories/{category}/consents/revoke",
+      "source_file": "b91/a.java",
+      "source_type": "ConsentApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/userdataprotection/acceptterms",
+      "source_file": "b91/b.java",
+      "source_type": "GDPRApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/userdataprotection",
+      "source_file": "b91/b.java",
+      "source_type": "GDPRApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/content",
+      "source_file": "b91/c.java",
+      "source_type": "GeneralServicesApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/timezones",
+      "source_file": "b91/c.java",
+      "source_type": "GeneralServicesApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/content",
+      "source_file": "b91/c.java",
+      "source_type": "GeneralServicesApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/countries",
+      "source_file": "b91/c.java",
+      "source_type": "GeneralServicesApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/my/features",
+      "source_file": "b91/d.java",
+      "source_type": "ProfileServicesApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/My/Email/ConfirmChange",
+      "source_file": "b91/d.java",
+      "source_type": "ProfileServicesApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/My/Email",
+      "source_file": "b91/d.java",
+      "source_type": "ProfileServicesApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/my/profile",
+      "source_file": "b91/d.java",
+      "source_type": "ProfileServicesApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/my/profile",
+      "source_file": "b91/d.java",
+      "source_type": "ProfileServicesApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}",
+      "source_file": "bz0/e.java",
+      "source_type": "DevicesActionV1Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/accounts/{accountId}/devices/{serialNumber}/lockconfiguration",
+      "source_file": "bz0/e.java",
+      "source_type": "DevicesActionV1Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/chimesetting",
+      "source_file": "bz0/e.java",
+      "source_type": "DevicesActionV1Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "notification-app/api/v1/register",
+      "source_file": "com/chamberlaingroup/video/webrtc/network/NotificationAppRemoteApi.java",
+      "source_type": "NotificationAppRemoteApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "notification-app/api/v1/unregister",
+      "source_file": "com/chamberlaingroup/video/webrtc/network/NotificationAppRemoteApi.java",
+      "source_type": "NotificationAppRemoteApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "webrtc-app/api/v1/videoCalls/{callId}/metadata",
+      "source_file": "com/chamberlaingroup/video/webrtc/network/WebRtcAppRemoteApi.java",
+      "source_type": "WebRtcAppRemoteApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/app/ping",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "APP_PING",
+      "line": 122,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_LOGIN",
+      "line": 124,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login/sid",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_LOGIN_SID",
+      "line": 125,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_LOGOUT",
+      "line": 126,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/current",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_GET_CUR_USER",
+      "line": 127,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/signup",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_SIGNUP",
+      "line": 128,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/forgotPassword/do/initiate",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_FORGOT_PASSWORD",
+      "line": 129,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/forgotUsername/do/initiate",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_FORGOT_USERNAME",
+      "line": 130,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/changePassword",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "AUTH_CHANGE_PASSWORD",
+      "line": 131,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/oauthServer/codeGrant",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "OAUTH_CODE_GRANT",
+      "line": 132,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_LIST",
+      "line": 133,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_INFO",
+      "line": 134,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_SERVICE_INFO",
+      "line": 135,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/cap",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_CAPABILITIES",
+      "line": 136,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/cap",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_SERVICE_CAPABILITIES",
+      "line": 137,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/devices/%1$s/settings",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_UPDATE",
+      "line": 139,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/settings",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_SETTINGS",
+      "line": 140,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/do/wakeup",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_WAKE_UP",
+      "line": 141,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/hw/do/startFwUpgrade",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_FIRMWARE_UPGRADE",
+      "line": 142,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/devices/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_DELETE_DEVICE",
+      "line": 144,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/cam/frame",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_CAM_FRAME",
+      "line": 145,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/audio/player/do/play",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_PLAY_AUDIO_TRACK",
+      "line": 146,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/audio/tracks",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_AUDIO_TRACK_LIST",
+      "line": 147,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/privacy",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_PRIVACY_LIST",
+      "line": 148,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/privacy",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_ADD_PRIVACY",
+      "line": 149,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/devices/%1$s/privacy/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_UPDATE_PRIVACY",
+      "line": 150,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/devices/%1$s/privacy/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_DELETE_PRIVACY",
+      "line": 151,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/userAccess",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_USER_ACCESS_LIST",
+      "line": 152,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/userAccess",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_ADD_USER_ACCESS",
+      "line": 153,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/devices/%1$s/userAccess/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_UPDATE_USER_ACCESS",
+      "line": 154,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/devices/%1$s/userAccess/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_DELETE_USER_ACCESS",
+      "line": 155,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/userAccessForAllDevices",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_USER_ACCESS_FOR_ALL_DEVICES",
+      "line": 156,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/directAccessGrantsForAllDevices",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_ACCESS_GRANTS_FOR_ALL_DEVICES",
+      "line": 157,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/directAccessGrants",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GRANT_DIRECT_ACCESS",
+      "line": 158,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/devices/%1$s/directAccessGrants/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_UPDATE_DIRECT_ACCESS",
+      "line": 159,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/devices/%1$s/do/sendUserInvitation",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_SEND_USER_INVITATION",
+      "line": 160,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/devices/%1$s/userInvitations/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_DELETE_USER_INVITATION",
+      "line": 161,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/userInvitationsForAllDevices",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_USER_INVITATION_FOR_ALL_DEVICES",
+      "line": 162,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/myAccessLevels",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_GET_MY_ACCESS_LEVELS",
+      "line": 163,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/hw/firmwareInfo",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_RETRIEVE_FIRMWARE_INFO",
+      "line": 164,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/devices/%1$s/cam/recentImage.jpg",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "DEVICES_RETRIEVE_CAM_RECENT_IMAGE",
+      "line": 165,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/share/invite",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SHARE_INVITE",
+      "line": 166,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/schedulers",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SCHEDULERS_LIST",
+      "line": 167,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/schedulers/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SCHEDULERS_GET_BY_ID",
+      "line": 168,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/schedulers/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SCHEDULERS_UPDATE_BY_ID",
+      "line": 169,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/schedulers",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SCHEDULERS_ADD",
+      "line": 170,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/schedulers/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SCHEDULERS_DELETE_BY_ID",
+      "line": 171,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/services/forDevice/%1$s/products",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SERVICES_PRODUCTS",
+      "line": 172,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/services/subscription/change/%1$s/availProducts",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SERVICES_AVAILABLE_SUBSCRIPTION_PRODUCTS",
+      "line": 173,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/services/subscription/change/user/availProducts",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SERVICES_USER_LEVEL_AVAILABLE_SUBSCRIPTION_PRODUCTS",
+      "line": 174,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/services/forDevice/%1$s/statusFull",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SERVICES_STATUS_FULL",
+      "line": 175,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/service/activateTrialForDevice",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "SERVICE_ACTIVATE_FREE_TRIAL",
+      "line": 176,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/users/self",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_CURRENT",
+      "line": 177,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/users/self",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_CURRENT_UPDATE",
+      "line": 178,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/users/self/do/verifyEmail",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_CURRENT_EMAIL_VERIFY",
+      "line": 179,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/users/self/do/resendEmailVerification",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_CURRENT_EMAIL_VERIFY_RESEND",
+      "line": 180,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/users/self/emailLists",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_GET_EMAIL_SUBSCRIPTION_LIST",
+      "line": 181,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/users/self/emailLists/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "USERS_EMAIL_SUBSCRIBE",
+      "line": 182,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/accessControl/roles",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "ACCESS_CONTROL_GET_ROLES",
+      "line": 183,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/friends",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FRIENDS_LIST",
+      "line": 184,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/friends/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FRIENDS_DELETE_FRIEND",
+      "line": 185,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_INFO",
+      "line": 186,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/events/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_DELETE_INFO",
+      "line": 187,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/events/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_PUT_INFO",
+      "line": 188,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_LIST",
+      "line": 189,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/events/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_SET_FAVORITE",
+      "line": 190,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/events",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_POST_INFO",
+      "line": 191,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/count",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_COUNT",
+      "line": 192,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/%1$s/media/durations",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_MEDIA_DURATIONS",
+      "line": 193,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/%1$s/media/video.m3u8",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_MEDIA_DEFINITION",
+      "line": 194,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/mediaDownloadInfo",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_MEDIA_DOWNLOAD_INFO",
+      "line": 195,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/events/deviceIdsWithEvents",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "EVENTS_GET_DEVICE_IDS_WITH_EVENTS",
+      "line": 196,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/activityLog/entries",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "ACTIVITY_LOG_ENTRIES",
+      "line": 197,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/highlights/bgMusic",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "HIGHLIGHTS_BACKGROUND_MUSIC",
+      "line": 198,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/highlights/status",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "HIGHLIGHTS_STATUS",
+      "line": 199,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/highlights/do/generate",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "HIGHLIGHTS_GENERATE",
+      "line": 200,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/uiSettings/user",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UI_SETTINGS_GET_USER",
+      "line": 201,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/uiSettings/user",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UI_SETTINGS_UPDATE_USER",
+      "line": 202,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/uiSettings/devices/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UI_SETTINGS_GET_DEVICE",
+      "line": 203,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/uiSettings/devices/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UI_SETTINGS_UPDATE_DEVICE",
+      "line": 204,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/faces/identities",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_POST_IDENTITIES",
+      "line": 205,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/faces/identities",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_GET_IDENTITIES",
+      "line": 206,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/faces/identities/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_GET_IDENTITIES_ID",
+      "line": 207,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "PUT",
+      "path": "/faces/identities/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_PUT_IDENTITIES_ID",
+      "line": 208,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/faces/identities/%1$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_DELETE_IDENTITIES_ID",
+      "line": 209,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "POST",
+      "path": "/faces/identities/%1$s/images",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_POST_IDENTITIES_ID_IMAGE",
+      "line": 210,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/faces/identities/%1$s/images/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_GET_IDENTITIES_ID_IMAGE_ID",
+      "line": 211,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "DELETE",
+      "path": "/faces/identities/%1$s/images/%2$s",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "FACES_DELETE_IDENTITIES_ID_IMAGE_ID",
+      "line": 212,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/util/appVersionSupport",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UTIL_GET_APP_VERSION_SUPPORT",
+      "line": 213,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/util/hubInfo",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "UTIL_GET_HUB_INFO",
+      "line": 214,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "/app/c/url.json",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "MOBILE_PAGE_URLS",
+      "line": 215,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/util/hubInfo",
+      "source_file": "com/seedonk/mobilesdk/RestApi.java",
+      "source_type": "Tend/Seedonk RestApi",
+      "operation": "MOBILE_COAP_INFO",
+      "line": 216,
+      "declaration_kind": "sdk_api_table"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/firmware",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/messages",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/state",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/firmware/complete",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/auto_relock",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/prepare_firmware",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/lock",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins/{pinId}",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pair",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/unlock",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 46,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins/{pinId}",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 49,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/messages",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 52,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins/{pinId}",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 55,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/lookup",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 58,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/pins/sync",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 61,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}/disconnect",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 67,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/locks/{serialNumber}",
+      "source_file": "e11/a.java",
+      "source_type": "LockServiceV6Api.kt",
+      "line": 64,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/devices/{deviceId}/hw/do/startFirmwareUpgrade",
+      "source_file": "e31/a.java",
+      "source_type": "TendDeviceFirmwareApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}/hw/firmwareInfo",
+      "source_file": "e31/a.java",
+      "source_type": "TendDeviceFirmwareApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}/net",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "cxs/api/devices/{deviceId}",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/devices/{deviceId}/do/wakeup",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}/cam/voiceDeter/voices",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}/presets/{presetId}/thumbnail",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}",
+      "source_file": "f41/a.java",
+      "source_type": "TendDeviceApi.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/snooze",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/{alertId}",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/notify",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/alerts/remind",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/linked/alerts",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/{alertId}",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/linked/alerts",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/snooze",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/alerts/snooze",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/linked/alerts",
+      "source_file": "fo0/a.java",
+      "source_type": "AlertsApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/events",
+      "source_file": "fo0/b.java",
+      "source_type": "ConsolidatedAlertsApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/events",
+      "source_file": "fo0/b.java",
+      "source_type": "ConsolidatedAlertsApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/snooze",
+      "source_file": "fo0/c.java",
+      "source_type": "DeviceSnoozeApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/snooze",
+      "source_file": "fo0/c.java",
+      "source_type": "DeviceSnoozeApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/snooze",
+      "source_file": "fo0/c.java",
+      "source_type": "DeviceSnoozeApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/snooze/eligibility",
+      "source_file": "fo0/c.java",
+      "source_type": "DeviceSnoozeApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/snooze",
+      "source_file": "fo0/c.java",
+      "source_type": "DeviceSnoozeApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices/{deviceId}/Transmitters",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices/{serialNumber}/sounds/{soundId}",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices/{serialNumber}",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices/{deviceId}",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices/{serialNumber}/sounds",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/Accounts/{accountId}/Devices",
+      "source_file": "gz0/a.java",
+      "source_type": "DeviceServiceCustom.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/partners/{partner}/webviews/{webViewId}/devices",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/schedules/{scheduleId}",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/partners/{partner}/accounts/{accountId}/devices",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/presets",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/schedules",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/partners/{partner}/webviews/connect",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/settings",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/presets/{climatePresetKey}",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/presets/{climatePresetKey}",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/threshold",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/schedules",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/schedules/{scheduleId}",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/thermostats/{serialNumber}/presets",
+      "source_file": "h01/a.java",
+      "source_type": "PartnerDevicesV1Api.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/account/feature/longitudinaldata/do/deactivate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/preferences/v1/level/account/feature/{feature}",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/preferences/v1/level/account/feature/longitudinaldata",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/account/feature/{feature}/do/deactivate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/device/feature/longitudinaldata/do/activate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/account/feature/longitudinaldata/do/activate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/device/feature/{feature}/do/deactivate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/device/feature/longitudinaldata/do/deactivate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v1/level/account/feature/{feature}/do/activate",
+      "source_file": "h61/c.java",
+      "source_type": "AnalyticsSharingApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/deviceHistory",
+      "source_file": "h61/d.java",
+      "source_type": "DeviceHistoryApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/deviceHistory",
+      "source_file": "h61/d.java",
+      "source_type": "DeviceHistoryApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/wrapped/api/v1/nudges",
+      "source_file": "h61/e.java",
+      "source_type": "NudgeApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/devices/{device_id}/do/activate_accept_consent",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 17,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/preferences/v2/accounts/{account_id}",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 20,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/devices/{device_id}/do/deactivate_revoke_consent",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 23,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/preferences/v2/accounts/{account_id}/settings",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 26,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/preferences/v2/accounts/{account_id}/user/{user_id}/settings",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 29,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/settings/do/set",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 32,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/do/deactivate_revoke_consent",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 35,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/do/deactivate",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 38,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/do/activate",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 41,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/user/{user_id}/settings/do/set",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 44,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/preferences/v2/accounts/{account_id}/do/activate_accept_consent",
+      "source_file": "h61/f.java",
+      "source_type": "PreferencesApi.kt",
+      "line": 47,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/routines/v1/households/{householdId}/routines",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}/confirm",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}/reject",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}/enable",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}/disable",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/routines/v1/households/{householdId}",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PATCH",
+      "path": "/routines/v1/households/{householdId}/routines/{routineId}",
+      "source_file": "h61/g.java",
+      "source_type": "RoutinesApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/activation/v2/preindex/{myQAccountId}/status",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/activation/v3/device/{myQAccountId}/{deviceSn}/do/activate",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/activation/v3/accounts/{myQAccountId}",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/activation/v3/accounts/{myQAccountId}/do/activate",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/activation/v3/accounts/{myQAccountId}/do/deactivate",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/activation/v3/device/{myQAccountId}/{deviceSn}/do/deactivate",
+      "source_file": "h61/h.java",
+      "source_type": "SmartSearchApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/events",
+      "source_file": "h61/i.java",
+      "source_type": "TendMotionEventsApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/geofences",
+      "source_file": "hc1/a.java",
+      "source_type": "GeofenceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/geofences/{configurationId}",
+      "source_file": "hc1/a.java",
+      "source_type": "GeofenceApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/geofences",
+      "source_file": "hc1/a.java",
+      "source_type": "GeofenceApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/geofences/{configurationId}",
+      "source_file": "hc1/a.java",
+      "source_type": "GeofenceApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/deliveries/partners",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/deliveries/partners/{deliveryPartner}/locations",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/deliveries/partners/amazon/locations",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/coowners",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/deliveries/partners/dashboard",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/deliveries/partners/{deliveryPartner}/link",
+      "source_file": "i21/a.java",
+      "source_type": "DeliveryIntegrationApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}/accessSchedules/{accessScheduleId}",
+      "source_file": "in0/a.java",
+      "source_type": "GuestAccessScheduleApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/users",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}/resend",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}/verify",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/users",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}",
+      "source_file": "in0/b.java",
+      "source_type": "GuestApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/connect/token",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 57,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/Login/UpdatePassword",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 61,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/auth/token",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 64,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/connect/token",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 68,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "connect/revocation",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 72,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/connect/token",
+      "source_file": "ip0/s.java",
+      "source_type": "MyQAuthServiceRequests.kt",
+      "line": 77,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/configurations",
+      "source_file": "k51/a.java",
+      "source_type": "RegionConfigApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/faces/myq/{accountId}/identities/{personId}",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/faces/myq/{accountId}/identities/{personId}",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "app/c/url.json",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/faces/myq/{accountId}/identities",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/faces/myq/{accountId}",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "cxs/api/faces/myq/{accountId}",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "cxs/api/faces/myq/{accountId}/identities/{personId}",
+      "source_file": "le1/a.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configurationId}/schedules/{scheduleId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configId}/snooze",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configId}/snooze",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configurationId}/schedules/{scheduleId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes/{configurationId}/schedules/{scheduleId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configurationId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes/{configurationId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes/{configurationId}/schedules",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/announcements/{configurationId}/schedules",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/scenes/{configurationId}/schedules/{scheduleId}",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/eligibility",
+      "source_file": "ly0/j.java",
+      "source_type": "WorkflowV1Api.kt",
+      "line": 46,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/v5.1/accounts/{accountId}/devices/{deviceId}/start_learn_process",
+      "source_file": "m11/a.java",
+      "source_type": "VGDOServiceApiV5.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{deviceId}/start_workflow",
+      "source_file": "m11/b.java",
+      "source_type": "VGDOServiceApiV6.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{deviceId}/typed_workflow_status",
+      "source_file": "m11/b.java",
+      "source_type": "VGDOServiceApiV6.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{deviceId}/branding_questions",
+      "source_file": "m11/b.java",
+      "source_type": "VGDOServiceApiV6.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{deviceId}/continue_workflow",
+      "source_file": "m11/b.java",
+      "source_type": "VGDOServiceApiV6.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{deviceId}/cancel_workflow",
+      "source_file": "m11/b.java",
+      "source_type": "VGDOServiceApiV6.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/OAuth2/Auth",
+      "source_file": "nd1/a.java",
+      "source_type": "AmazonServiceRequests.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/snooze",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/schedules",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/snooze",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/schedules/{scheduleId}",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/schedules/{scheduleId}",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/workflows/autosecures/{configurationId}/snooze",
+      "source_file": "nd1/b.java",
+      "source_type": "AutoSecureServiceApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/Deliveries/Settings/locks/{deviceSerialNumber}",
+      "source_file": "nd1/c.java",
+      "source_type": "DeliveryServiceV5.java",
+      "line": 6,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/Deliveries/Settings",
+      "source_file": "nd1/c.java",
+      "source_type": "DeliveryServiceV5.java",
+      "line": 9,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/Delivery/Partners/Locations",
+      "source_file": "nd1/c.java",
+      "source_type": "DeliveryServiceV5.java",
+      "line": 12,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "v1/do/computeconsensus",
+      "source_file": "nd1/d.java",
+      "source_type": "DeviceDetectionApi.kt",
+      "line": 47,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "v1/compatibilitycheckresult",
+      "source_file": "nd1/d.java",
+      "source_type": "DeviceDetectionApi.kt",
+      "line": 50,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "v1/do/processimage",
+      "source_file": "nd1/d.java",
+      "source_type": "DeviceDetectionApi.kt",
+      "line": 53,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "v1/finalscanresults",
+      "source_file": "nd1/d.java",
+      "source_type": "DeviceDetectionApi.kt",
+      "line": 56,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v1.0/app/connect/authorize",
+      "source_file": "nd1/e.java",
+      "source_type": "IdentitySetupRequests.kt",
+      "line": 17,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v1.0/externalaccounts/amazon/accesstoken",
+      "source_file": "nd1/e.java",
+      "source_type": "IdentitySetupRequests.kt",
+      "line": 20,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/connect/token",
+      "source_file": "nd1/e.java",
+      "source_type": "IdentitySetupRequests.kt",
+      "line": 23,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/my/profile/delete",
+      "source_file": "nd1/f.java",
+      "source_type": "ManageAccountServiceV6.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/partners",
+      "source_file": "nd1/g.java",
+      "source_type": "PartnerServiceV6.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/partners/newest",
+      "source_file": "nd1/g.java",
+      "source_type": "PartnerServiceV6.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v5.2/accounts/{accountId}/door_openers/{serialNumber}/exit_all_learn_mode",
+      "source_file": "nd1/i.java",
+      "source_type": "QLinkServiceRequests.kt",
+      "line": 8,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v5.2/accounts/{accountId}/door_openers/{serialNumber}/enter_all_learn_mode",
+      "source_file": "nd1/i.java",
+      "source_type": "QLinkServiceRequests.kt",
+      "line": 12,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/scenes",
+      "source_file": "nd1/j.java",
+      "source_type": "SceneServiceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/scenes/{scheduleId}",
+      "source_file": "nd1/j.java",
+      "source_type": "SceneServiceApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/scenes",
+      "source_file": "nd1/j.java",
+      "source_type": "SceneServiceApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/scenes/{scheduleId}",
+      "source_file": "nd1/j.java",
+      "source_type": "SceneServiceApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "jstart",
+      "source_file": "o31/a.java",
+      "source_type": "WifiProvisioningApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "jconfig_save",
+      "source_file": "o31/a.java",
+      "source_type": "WifiProvisioningApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "jscan_results",
+      "source_file": "o31/a.java",
+      "source_type": "WifiProvisioningApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "jconnect_serial",
+      "source_file": "o31/a.java",
+      "source_type": "WifiProvisioningApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "jconfig_save",
+      "source_file": "o31/a.java",
+      "source_type": "WifiProvisioningApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/lamps/{serialNumber}",
+      "source_file": "p01/a.java",
+      "source_type": "LampApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/lamps/{lamp_serialNumber}",
+      "source_file": "p01/a.java",
+      "source_type": "LampApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/lamps/{serialNumber}/on",
+      "source_file": "p01/a.java",
+      "source_type": "LampApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/lamps/{serialNumber}/off",
+      "source_file": "p01/a.java",
+      "source_type": "LampApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/notifications/phones/{phoneId}",
+      "source_file": "p91/a.java",
+      "source_type": "PushNotificationsApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/notifications/phones/{phoneId}",
+      "source_file": "p91/a.java",
+      "source_type": "PushNotificationsApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/traceddealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/device/{deviceId}/healthreport",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/user_dealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/fault_alert/device/{deviceId}",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/device/{deviceId}/healthreport",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/dealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/device/{deviceId}/healthreport",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/dealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/user_dealer/{dealerId}/access",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/user_dealer/{dealerId}/access",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/dealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/fault_alert",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/user_dealer/{dealerId}",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/healthreport",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 46,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/fault_alert/device/{deviceId}",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 49,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/traceddealer",
+      "source_file": "pd1/a.java",
+      "source_type": "DealerDiagnosticsServiceV6Api.kt",
+      "line": 52,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "webapi/api/search",
+      "source_file": "qe2/a.java",
+      "source_type": "MetaLocatorApi.kt",
+      "line": 32,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewayId}/stop_sensor_learn",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/gateways/{serialNumber}/stop_learning",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewayId}/sensor_connected",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewayId}/sensor_learn_status",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewaySerialNumber}/extendedwarranty",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{serialNumber}",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/gateways/{serialNumber}",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewayId}/programmable_devices",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/gateways/{serialNumber}/start_learning",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{gatewayId}/start_sensor_learn",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/{serialNumber}/preownedaccount",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways/falcon",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/gateways",
+      "source_file": "qz0/a.java",
+      "source_type": "GatewayServiceV6Api.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/history/{historyId}/videos/{videoEventId}/favorite",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/history/filters",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/history/all",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/history/{historyId}/videos/{videoEventId}/favorite",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/history/search",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/history",
+      "source_file": "r61/a.java",
+      "source_type": "UnifiedHistoryApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/cameras/{cameraSerialNumber}/gdoAssociations",
+      "source_file": "rd1/a.java",
+      "source_type": "CameraServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/cameras/SyncDeviceList",
+      "source_file": "rd1/a.java",
+      "source_type": "CameraServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/cameras/{serialNumber}/location/{cameraLocation}",
+      "source_file": "rd1/a.java",
+      "source_type": "CameraServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/cameras/{cameraSerialNumber}/gdo/{gdoSerialNumber}/gdoAssociations",
+      "source_file": "rd1/a.java",
+      "source_type": "CameraServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/cameras/{serialNumber}/location",
+      "source_file": "rd1/a.java",
+      "source_type": "CameraServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/my/accountInvitations",
+      "source_file": "rn0/a.java",
+      "source_type": "ActiveAccountInvitationApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/my/accountInvitations/{invitationId}",
+      "source_file": "rn0/a.java",
+      "source_type": "ActiveAccountInvitationApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/my/accountInvitations/{invitationId}/accept",
+      "source_file": "rn0/a.java",
+      "source_type": "ActiveAccountInvitationApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations/{invitationId}",
+      "source_file": "rn0/b.java",
+      "source_type": "InvitationApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations/{invitationId}/schedules/{scheduleId}",
+      "source_file": "rn0/b.java",
+      "source_type": "InvitationApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations",
+      "source_file": "rn0/b.java",
+      "source_type": "InvitationApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations/{invitationId}/expiration",
+      "source_file": "rn0/b.java",
+      "source_type": "InvitationApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/invitations",
+      "source_file": "rn0/b.java",
+      "source_type": "InvitationApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v2/guest/products/{product}/shippingMethods/{zipCode}",
+      "source_file": "sd1/a.java",
+      "source_type": "EcommerceGuestServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/v2/guest/products/{product}/placeOrder/googlepay",
+      "source_file": "sd1/a.java",
+      "source_type": "EcommerceGuestServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/v2/guest/products/{product}/tax",
+      "source_file": "sd1/a.java",
+      "source_type": "EcommerceGuestServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v2/guest/products/{product}/priceandavailability/{productCode}",
+      "source_file": "sd1/a.java",
+      "source_type": "EcommerceGuestServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v2/products/{product}/shippingMethods/{zipCode}",
+      "source_file": "sd1/b.java",
+      "source_type": "EcommerceServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/v2/products/{product}/tax",
+      "source_file": "sd1/b.java",
+      "source_type": "EcommerceServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v2.1/products/{product}/allProducts",
+      "source_file": "sd1/b.java",
+      "source_type": "EcommerceServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/v2/products/{product}/priceandavailability/{productCode}",
+      "source_file": "sd1/b.java",
+      "source_type": "EcommerceServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/v2/products/{product}/placeOrder/googlepay",
+      "source_file": "sd1/b.java",
+      "source_type": "EcommerceServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/users/{accountUserId}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins/{myQPinId}",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins/{myQPinId}",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins/{myQPinId}",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins/{myQPinId}",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/pins/{myQPinId}",
+      "source_file": "td1/a.java",
+      "source_type": "UserDevicePinV6ServiceApi.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/users",
+      "source_file": "ud1/a.java",
+      "source_type": "UserCreationServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v5.1/accounts/{accountId}/Devices/{serialNumber}/providerTokens",
+      "source_file": "v01/b.java",
+      "source_type": "LegacyDeviceServiceApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions/feedbackStatus",
+      "source_file": "vd1/a.java",
+      "source_type": "BetaFeedbackServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions/feedback",
+      "source_file": "vd1/a.java",
+      "source_type": "BetaFeedbackServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions/feedbackStatus",
+      "source_file": "vd1/a.java",
+      "source_type": "BetaFeedbackServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/cameras/{cameraSerialNumber}/subscriptions",
+      "source_file": "vd1/b.java",
+      "source_type": "SubscriptionServiceV6Api.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/cameras/{cameraSerialNumber}/subscriptions",
+      "source_file": "vd1/b.java",
+      "source_type": "SubscriptionServiceV6Api.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions",
+      "source_file": "vd1/b.java",
+      "source_type": "SubscriptionServiceV6Api.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions/myqvideo/sendInfo",
+      "source_file": "vd1/b.java",
+      "source_type": "SubscriptionServiceV6Api.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/subscriptions",
+      "source_file": "vd1/b.java",
+      "source_type": "SubscriptionServiceV6Api.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/activityLog/entries",
+      "source_file": "vf1/b.java",
+      "source_type": "ActivityLogService.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/devices/{deviceId}/do/wakeup",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "cxs/api/devices/{deviceId}/settings",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "cxs/api/events/{eventId}/feedback",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/users/self",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "cxs/api/devices/{deviceId}",
+      "source_file": "vf1/g.java",
+      "source_type": "TendCloudServiceV5.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}/PairedOfflineGdo",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}/vgdo/{vgdoSerialNumber}",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}/set_tx_code/{desiredTxCode}",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/vkp/{serialNumber}/doors/{doorNumber}/rename",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/vkp/{vkpSerialNumber}/out_of_band_door_learn",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/vkp",
+      "source_file": "w11/a.java",
+      "source_type": "VkpDeviceRegistrationApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}",
+      "source_file": "w31/a.java",
+      "source_type": "DeviceRegistrationApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/devices/{serialNumber}/preowned",
+      "source_file": "w31/a.java",
+      "source_type": "DeviceRegistrationApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/devices/{serialNumber}",
+      "source_file": "w31/a.java",
+      "source_type": "DeviceRegistrationApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices",
+      "source_file": "w31/a.java",
+      "source_type": "DeviceRegistrationApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}",
+      "source_file": "w31/a.java",
+      "source_type": "DeviceRegistrationApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/features",
+      "source_file": "w41/a.java",
+      "source_type": "FeatureGateApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 17,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{vgdo_serialNumber}",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 20,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/worklight_settings",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 23,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/lockmode",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 26,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/start_learning",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 29,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/open",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 32,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/{transmitterType}/rename",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 35,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/lighttimer",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 38,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/pair",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 41,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/close",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 44,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/unpair",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 47,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/exit_all_learn_mode",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 50,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/lighttimer",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 53,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/enter_all_learn_mode",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 56,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/reorder",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 59,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/accessories",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 62,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/timetoclose",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 65,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/{transmitterType}/assign",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 68,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/{transmitterType}/{txSerialNumber}/send_remove",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 71,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/timetoclose",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 74,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/transmitter",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 77,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/accessories/{accessorySerialNumber}/paired",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 80,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{apiVersion}/accounts/{accountId}/door_openers/{serialNumber}/worklight_settings",
+      "source_file": "wz0/a.java",
+      "source_type": "GdoApi.kt",
+      "line": 83,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/credentials/unassigned",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/credentials/summary",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 10,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}/stoplearning",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 16,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/lockout/reset",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 19,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/credentials/guestpasses",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 28,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 31,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 34,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/devices/{serialNumber}/lockout/settings",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 37,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 40,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "GET",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 43,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}/sync",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 46,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/assign",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 49,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "PUT",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}/startlearning",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 52,
+      "declaration_kind": "retrofit_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/credentials",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 13,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/credentials/unassigned",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 22,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "DELETE",
+      "path": "api/{apiVersion}/accounts/{accountId}/accountusers/{accountUserId}/credentials/{credentialId}",
+      "source_file": "xt0/a.java",
+      "source_type": "CredentialsApi.kt",
+      "line": 25,
+      "declaration_kind": "retrofit_http_annotation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{apiVersion}/my/co_owner_access_requests",
+      "source_file": "zx0/a.java",
+      "source_type": "DeviceCoownerAccessApi.kt",
+      "line": 7,
+      "declaration_kind": "retrofit_annotation"
+    }
+  ]
+}

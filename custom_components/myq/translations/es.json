@@ -1,0 +1,943 @@
+{
+  "title": "MyQ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conectar MyQ",
+        "description": "Integración experimental, aún no probada con MyQ: no se ha confirmado que funcione ningún método de inicio de sesión. El inicio de sesión en el navegador requiere un token de verificación de la aplicación MyQ vigente procedente de una fuente nativa autorizada. Un inicio de sesión en el navegador no puede aportar esa prueba por sí solo. Si tienes un enlace de inicio de sesión de MyQ de un solo uso, puedes usarlo en su lugar. También puedes importar un token de actualización autorizado existente.",
+        "menu_options": {
+          "browser": "Inicio de sesión en el navegador con verificación de la aplicación",
+          "onetime": "Enlace de inicio de sesión de MyQ de un solo uso",
+          "login": "Experimental: inicio de sesión con formulario de correo electrónico y contraseña",
+          "token": "Avanzado: usar un token de actualización existente"
+        }
+      },
+      "login": {
+        "title": "Iniciar sesión en MyQ",
+        "description": "Introduce las credenciales de tu cuenta de MyQ. Si MyQ presenta un desafío de verificación compatible, se te pedirá a continuación. Tu contraseña solo se usa para este inicio de sesión y no se guarda.",
+        "data": {
+          "username": "Correo electrónico",
+          "password": "Contraseña",
+          "app_check_token": "Token de verificación de la aplicación (opcional; reemplázalo si ha caducado)"
+        }
+      },
+      "mfa": {
+        "title": "Verificación de MyQ",
+        "description": "{instruction}",
+        "data": {
+          "response": "Respuesta de verificación",
+          "app_check_token": "Token de verificación de la aplicación (opcional; reemplázalo si ha caducado)"
+        }
+      },
+      "token": {
+        "title": "Usar una sesión de MyQ existente",
+        "description": "Para desarrollo y pruebas con un token de actualización de tu propia sesión autorizada. Esto no reemplaza ni elude el inicio de sesión de MyQ, la autenticación multifactor ni la verificación de la aplicación. La integración validará y renovará la sesión antes de guardarla.",
+        "data": {
+          "refresh_token": "Token de actualización"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Volver a conectar MyQ",
+        "description": "No se pudo renovar tu sesión de MyQ. Vuelve a iniciar sesión en la misma cuenta.",
+        "menu_options": {
+          "browser": "Inicio de sesión en el navegador con verificación de la aplicación",
+          "onetime": "Enlace de inicio de sesión de MyQ de un solo uso",
+          "login": "Iniciar sesión con correo electrónico y contraseña",
+          "token": "Avanzado: usar un token de actualización existente"
+        }
+      },
+      "browser": {
+        "title": "Completar el inicio de sesión de MyQ en el navegador",
+        "description": "Usa la herramienta auxiliar local para navegador descrita en la [guía de configuración]({guide_url}). Requiere un token de verificación de la aplicación MyQ vigente. Copia esta solicitud en la herramienta y luego pega a continuación el archivo de resultado privado en un plazo de diez minutos. Mantén abierta esta ventana de configuración.\n\n```json\n{request}\n```",
+        "data": {
+          "handoff": "Resultado privado del inicio de sesión"
+        }
+      },
+      "onetime": {
+        "title": "Iniciar sesión con un enlace de MyQ de un solo uso",
+        "description": "Pega un enlace de inicio de sesión de MyQ de un solo uso (empieza por {link_start}). La aplicación MyQ no envía ningún token de verificación de la aplicación con estos enlaces. Ni este ni ningún otro método de inicio de sesión se ha probado todavía con MyQ, y no se sabe dónde emite MyQ estos enlaces. Cada enlace funciona una sola vez; si después falla el descubrimiento de la cuenta, puedes volver a intentarlo con la misma sesión.",
+        "data": {
+          "link": "Enlace de inicio de sesión de un solo uso"
+        }
+      },
+      "finish": {
+        "title": "Terminar de conectar MyQ",
+        "description": "Se inició sesión, pero falló el descubrimiento de la cuenta o de los dispositivos. Pulsa Enviar para volver a intentar el descubrimiento con la misma sesión."
+      }
+    },
+    "error": {
+      "invalid_auth": "MyQ rechazó las credenciales o la sesión. Comprueba los datos de tu cuenta y vuelve a empezar si la sesión de verificación ha caducado.",
+      "invalid_code": "No se completó la verificación. Comprueba el código e inténtalo de nuevo.",
+      "cannot_connect": "No se pudo conectar con MyQ. Inténtalo de nuevo más tarde.",
+      "access_denied": "MyQ denegó esta solicitud. Puede que se requiera la verificación de la aplicación o permisos adicionales de la cuenta.",
+      "app_verification": "MyQ rechazó la verificación de la aplicación (401.122).",
+      "unsupported_auth": "MyQ mostró una pantalla de inicio de sesión o de verificación que esta integración aún no admite. Consulta las notas del protocolo; puede requerir un token de verificación de la aplicación o un nuevo formulario de autenticación multifactor.",
+      "rate_limited": "MyQ ha limitado las solicitudes. Espera antes de volver a intentarlo.",
+      "protocol_error": "MyQ devolvió una respuesta inesperada. Consulta las notas del protocolo de la integración. No se añadió ninguna cuenta.",
+      "browser_verification": "MyQ requiere la verificación en un navegador real. Inicia \"Inicio de sesión en el navegador con verificación de la aplicación\" desde el menú de configuración.",
+      "app_check_unavailable": "Se requiere un token de verificación de la aplicación MyQ vigente. El navegador no puede generarlo.",
+      "app_check_expired": "El token de verificación de la aplicación ha caducado o le quedan menos de cinco minutos de validez. Proporciona un token nuevo.",
+      "app_check_invalid": "El token de verificación de la aplicación tiene un formato incorrecto o no tiene una caducidad utilizable.",
+      "app_check_integrity": "La fuente nativa del token no pudo obtener una prueba de integridad de la aplicación.",
+      "invalid_link": "Ese enlace no es un enlace de inicio de sesión de MyQ de un solo uso utilizable. Pega el enlace completo."
+    },
+    "abort": {
+      "already_configured": "Esta cuenta de MyQ ya está configurada.",
+      "reauth_successful": "MyQ se ha vuelto a conectar correctamente.",
+      "unique_id_mismatch": "Inicia sesión en la misma cuenta de MyQ que la de la integración existente.",
+      "invalid_auth": "Se rechazó esta sesión de MyQ. Vuelve a iniciar sesión desde el principio."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de MyQ",
+        "data": {
+          "poll_interval": "Intervalo de sondeo (segundos)",
+          "enable_cameras": "Habilitar el descubrimiento de cámaras y las imágenes"
+        }
+      }
+    }
+  },
+  "selector": {
+    "schedule_feature": {
+      "options": {
+        "floodlight": "Foco de iluminación",
+        "patrol_mode": "Modo patrulla",
+        "privacy_mode": "Modo privacidad",
+        "voice_deter": "Disuasión por voz"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "Lunes",
+        "tuesday": "Martes",
+        "wednesday": "Miércoles",
+        "thursday": "Jueves",
+        "friday": "Viernes",
+        "saturday": "Sábado",
+        "sunday": "Domingo"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Conectividad"
+      },
+      "sensor_comm_error": {
+        "name": "Fallo de comunicación del sensor de puerta"
+      },
+      "dps_low_battery_mode": {
+        "name": "Batería baja del sensor de puerta"
+      },
+      "monitor_only_mode": {
+        "name": "Solo supervisión"
+      },
+      "is_unattended_open_allowed": {
+        "name": "Apertura remota permitida"
+      },
+      "is_unattended_close_allowed": {
+        "name": "Cierre remoto permitido"
+      },
+      "in_vacation_mode": {
+        "name": "Mandos a distancia desactivados"
+      },
+      "camera_online": {
+        "name": "Conectividad de la cámara"
+      },
+      "low_battery": {
+        "name": "Batería baja"
+      },
+      "auto_relock_enabled": {
+        "name": "Rebloqueo automático activado"
+      },
+      "allow_auto_relock": {
+        "name": "Rebloqueo automático disponible"
+      },
+      "is_managed": {
+        "name": "Gestionado por MyQ"
+      },
+      "attached_work_light_error_present": {
+        "name": "Luz de trabajo no emparejada"
+      },
+      "failed_credential_lockout_active": {
+        "name": "Bloqueo del PIN"
+      },
+      "failed_credential_lockout_enabled": {
+        "name": "Protección con bloqueo del PIN"
+      },
+      "faults": {
+        "name": "Fallo"
+      },
+      "backup_battery_problem": {
+        "name": "Problema de la batería de reserva"
+      },
+      "safety_sensors": {
+        "name": "Alineación de los sensores de seguridad"
+      },
+      "lock_calibration": {
+        "name": "Calibración de la cerradura"
+      },
+      "lock_door": {
+        "name": "Puerta"
+      },
+      "camera_charging": {
+        "name": "Cargando"
+      }
+    },
+    "button": {
+      "left": {
+        "name": "Girar a la izquierda"
+      },
+      "right": {
+        "name": "Girar a la derecha"
+      },
+      "up": {
+        "name": "Inclinar hacia arriba"
+      },
+      "down": {
+        "name": "Inclinar hacia abajo"
+      },
+      "zoom_in": {
+        "name": "Acercar zoom"
+      },
+      "zoom_out": {
+        "name": "Alejar zoom"
+      },
+      "stop": {
+        "name": "Detener el movimiento de la cámara"
+      },
+      "siren_on": {
+        "name": "Hacer sonar la sirena durante 10 segundos"
+      },
+      "siren_off": {
+        "name": "Detener la sirena"
+      },
+      "talkback_on": {
+        "name": "Activar el micrófono durante 30 segundos"
+      },
+      "talkback_off": {
+        "name": "Silenciar el micrófono"
+      },
+      "go_to_position": {
+        "name": "Ir a {position}"
+      },
+      "clear_pin_lockout": {
+        "name": "Quitar el bloqueo del PIN"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Cámara"
+      }
+    },
+    "event": {
+      "activity": {
+        "name": "Actividad",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "open": "Apertura",
+              "closed": "Cierre",
+              "on": "Encendido",
+              "off": "Apagado",
+              "locked": "Bloqueo",
+              "unlocked": "Desbloqueo",
+              "stopped": "Detención",
+              "accessed": "Acceso",
+              "call_answered": "Llamada respondida",
+              "call_unanswered": "Llamada sin respuesta",
+              "expired": "Caducidad",
+              "attempted": "Intento",
+              "assigned_remote": "Mando a distancia asignado",
+              "unassigned_remote": "Mando a distancia desasignado",
+              "failed_to_close": "Error al cerrar",
+              "failed_to_lock": "Error al bloquear",
+              "other": "Otro"
+            }
+          }
+        }
+      }
+    },
+    "light": {
+      "camera_light": {
+        "name": "Luz de la cámara {number}"
+      }
+    },
+    "number": {
+      "speaker_volume": {
+        "name": "Volumen del altavoz"
+      },
+      "time_to_close": {
+        "name": "Tiempo hasta el cierre (0 para desactivar)"
+      },
+      "motion_sensitivity": {
+        "name": "Sensibilidad al movimiento"
+      },
+      "siren_volume": {
+        "name": "Volumen de la sirena"
+      }
+    },
+    "select": {
+      "light_timer": {
+        "name": "Temporizador de la luz del abridor",
+        "state": {
+          "90": "90 segundos",
+          "150": "150 segundos",
+          "210": "210 segundos",
+          "270": "270 segundos"
+        }
+      },
+      "auto_relock_delay": {
+        "name": "Retardo del rebloqueo automático",
+        "state": {
+          "30": "30 segundos",
+          "60": "60 segundos",
+          "90": "90 segundos",
+          "120": "120 segundos",
+          "180": "180 segundos"
+        }
+      },
+      "automatic_lock_delay": {
+        "name": "Retardo del bloqueo automático",
+        "state": {
+          "off": "Desactivado",
+          "30": "30 segundos",
+          "60": "60 segundos",
+          "90": "90 segundos",
+          "120": "120 segundos",
+          "180": "180 segundos"
+        }
+      },
+      "rotation": {
+        "name": "Orientación de la imagen",
+        "state": {
+          "normal": "Normal",
+          "mirror": "Reflejada",
+          "mirror_flip": "Reflejada y volteada",
+          "flip": "Volteada"
+        }
+      },
+      "night_vision": {
+        "name": "Visión nocturna",
+        "state": {
+          "off": "Desactivado",
+          "on": "Activado",
+          "auto": "Automático"
+        }
+      },
+      "power_saver": {
+        "name": "Ahorro de energía",
+        "state": {
+          "auto": "Automático",
+          "on": "Activado",
+          "off": "Desactivado"
+        }
+      },
+      "chime_type": {
+        "name": "Tipo de campanilla del timbre",
+        "state": {
+          "mechanical": "Mecánica",
+          "digital": "Digital"
+        }
+      }
+    },
+    "sensor": {
+      "door_state": {
+        "name": "Estado de la puerta"
+      },
+      "battery_backup_state": {
+        "name": "Batería de reserva",
+        "state": {
+          "idle": "Inactiva",
+          "charging": "Cargando",
+          "bad": "Defectuosa",
+          "disconnected": "Desconectada",
+          "none": "Ninguna",
+          "unknown": "Desconocido"
+        }
+      },
+      "absolute_cycle_count": {
+        "name": "Ciclos de la puerta"
+      },
+      "wifi_signal_strength": {
+        "name": "Señal Wi-Fi"
+      },
+      "battery_percentage": {
+        "name": "Batería"
+      },
+      "lamp_state": {
+        "name": "Estado de la luz"
+      },
+      "offline_reason": {
+        "name": "Motivo de la desconexión"
+      },
+      "lock_state": {
+        "name": "Estado de la cerradura"
+      },
+      "bluetooth_connectability": {
+        "name": "Conexión de la cerradura"
+      },
+      "auto_relock_time": {
+        "name": "Retardo del rebloqueo automático"
+      },
+      "automatic_lock_state": {
+        "name": "Ajuste del bloqueo automático"
+      },
+      "door_sensor_state": {
+        "name": "Ajuste del sensor de puerta"
+      },
+      "door_sensor_calibration_status": {
+        "name": "Calibración del sensor de puerta"
+      },
+      "orientation": {
+        "name": "Orientación de la cerradura",
+        "state": {
+          "lefthand": "Izquierda",
+          "righthand": "Derecha",
+          "unknown": "Desconocido",
+          "calibrationfailure": "Error de calibración"
+        }
+      },
+      "failed_credential_lockout_frequency": {
+        "name": "Intentos antes del bloqueo del PIN"
+      },
+      "failed_credential_lockout_duration_seconds": {
+        "name": "Duración del bloqueo del PIN"
+      },
+      "last_update": {
+        "name": "Último cambio de estado"
+      },
+      "device_type": {
+        "name": "Tipo de dispositivo"
+      },
+      "video_res": {
+        "name": "Resolución de vídeo"
+      },
+      "video_fps": {
+        "name": "Velocidad de fotogramas del vídeo"
+      },
+      "video_quality": {
+        "name": "Calidad de vídeo"
+      },
+      "camera_battery": {
+        "name": "Batería"
+      },
+      "camera_power_source": {
+        "name": "Fuente de alimentación",
+        "state": {
+          "ac": "Corriente alterna",
+          "usb": "USB",
+          "battery": "Batería",
+          "solar": "Solar",
+          "solar_battery": "Solar y batería"
+        }
+      },
+      "camera_wifi_strength": {
+        "name": "Intensidad del Wi-Fi"
+      },
+      "accessory_battery": {
+        "name": "Batería de {accessory}",
+        "state": {
+          "good": "Buena",
+          "low": "Baja",
+          "critical": "Crítica",
+          "unknown": "Desconocido"
+        }
+      }
+    },
+    "switch": {
+      "status_led": {
+        "name": "LED de estado"
+      },
+      "chime_enabled": {
+        "name": "Campanilla del timbre"
+      },
+      "auto_tracking": {
+        "name": "Seguimiento automático PTZ"
+      },
+      "wake_on_motion": {
+        "name": "Activación por movimiento"
+      },
+      "microphone": {
+        "name": "Micrófono"
+      },
+      "motion_detection": {
+        "name": "Detección de movimiento"
+      },
+      "motion_light": {
+        "name": "Luz del abridor activada por movimiento"
+      },
+      "auto_relock": {
+        "name": "Rebloqueo automático"
+      },
+      "door_sensor": {
+        "name": "Sensor de puerta"
+      },
+      "lock_mode": {
+        "name": "Desactivar los mandos a distancia"
+      },
+      "alert_rule": {
+        "name": "Alerta: {rule}"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    }
+  },
+  "exceptions": {
+    "session_ended": {
+      "message": "MyQ finalizó la sesión. Vuelve a conectar MyQ desde Configuración > Dispositivos y servicios."
+    },
+    "session_renewal": {
+      "message": "MyQ no renovó la sesión esta vez. Se volverá a intentar."
+    },
+    "rate_limited": {
+      "message": "MyQ está limitando las solicitudes. Inténtalo de nuevo más tarde."
+    },
+    "access_denied": {
+      "message": "MyQ no permitió esta solicitud: {detail}"
+    },
+    "cannot_connect": {
+      "message": "No se pudo conectar con MyQ: {detail}"
+    },
+    "command_uncertain": {
+      "message": "MyQ no confirmó el resultado, por lo que la solicitud no se repitió: {detail}"
+    },
+    "command_rejected": {
+      "message": "La solicitud no se completó: {detail}"
+    },
+    "unexpected_response": {
+      "message": "MyQ envió una respuesta inesperada: {detail}"
+    },
+    "myq_error": {
+      "message": "La solicitud a MyQ falló: {detail}"
+    },
+    "temperature_or_range": {
+      "message": "Elige una sola temperatura o un rango de calor y frío."
+    },
+    "temperature_needs_mode": {
+      "message": "Una sola temperatura requiere el modo Calor o Frío."
+    },
+    "temperature_required": {
+      "message": "Se requiere una temperatura deseada del termostato."
+    },
+    "whole_number": {
+      "message": "El valor debe ser un número entero."
+    },
+    "whole_minutes": {
+      "message": "El tiempo hasta el cierre debe ser un número entero de minutos."
+    },
+    "unsupported_option": {
+      "message": "Esa opción no está disponible para este dispositivo."
+    },
+    "setting_unavailable": {
+      "message": "Este ajuste no está disponible para este dispositivo en este momento."
+    },
+    "no_lockout": {
+      "message": "No hay ningún bloqueo del teclado activo."
+    },
+    "entry_not_loaded": {
+      "message": "La integración de MyQ seleccionada no está cargada."
+    },
+    "device_not_found": {
+      "message": "Elige un único dispositivo MyQ registrado actualmente."
+    },
+    "legacy_entry": {
+      "message": "Esta entrada de configuración la creó la antigua integración MyQ de Home Assistant y no se puede usar. Elimínala y vuelve a añadir MyQ."
+    }
+  },
+  "services": {
+    "validate_session": {
+      "name": "Validar sesión",
+      "description": "Comprobación de solo lectura de la identidad, la cuenta y los dispositivos, con renovación opcional del token. Devuelve recuentos sin credenciales ni identificadores. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Integración",
+          "description": "La entrada de configuración de MyQ que se comprobará."
+        },
+        "refresh": {
+          "name": "Verificar la renovación del token",
+          "description": "Renueva la sesión, guarda de forma persistente los tokens rotados y verifica que la identidad sea la misma."
+        }
+      }
+    },
+    "get_accessories": {
+      "name": "Obtener accesorios",
+      "description": "Lee los accesorios emparejados con el abridor y habilita sus diagnósticos de batería para esta integración cargada. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    },
+    "rename_accessory": {
+      "name": "Renombrar accesorio",
+      "description": "Cambia el nombre de un accesorio emparejado (de 1 a 24 caracteres, que no se use ya en ese abridor) y espera la confirmación notificada. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "accessory_serial": {
+          "name": "Número de serie del accesorio",
+          "description": "Selecciona un accesorio existente devuelto por get_accessories."
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre del accesorio o PIN existente."
+        }
+      }
+    },
+    "remove_accessory": {
+      "name": "Eliminar accesorio",
+      "description": "Elimina un accesorio emparejado y espera a que se confirme su ausencia. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "accessory_serial": {
+          "name": "Número de serie del accesorio",
+          "description": "Selecciona un accesorio existente devuelto por get_accessories."
+        }
+      }
+    },
+    "set_auto_relock": {
+      "name": "Establecer rebloqueo automático",
+      "description": "Establece el rebloqueo automático de una cerradura de generación anterior compatible y espera la confirmación notificada. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Estado de activación deseado."
+        },
+        "seconds": {
+          "name": "Retardo",
+          "description": "Retardo nativo del rebloqueo automático, en segundos."
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "Obtener programaciones",
+      "description": "Lee las programaciones de una configuración de función de cámara existente. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "feature": {
+          "name": "Función de la cámara",
+          "description": "Función asociada a la configuración de flujo de trabajo existente."
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "Habilitar o deshabilitar programación",
+      "description": "Habilita o deshabilita una programación de flujo de trabajo de cámara existente y confirma el cambio. No se puede habilitar una programación mientras se solape con otra programación habilitada de la misma función. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "feature": {
+          "name": "Función de la cámara",
+          "description": "Función asociada a la configuración de flujo de trabajo existente."
+        },
+        "configuration_id": {
+          "name": "ID de configuración",
+          "description": "Una configuración existente que pertenece al dispositivo y a la función seleccionados."
+        },
+        "schedule_id": {
+          "name": "ID de programación",
+          "description": "ID de una programación existente; omítelo al añadir una programación."
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Estado de activación deseado."
+        }
+      }
+    },
+    "save_schedule": {
+      "name": "Guardar programación",
+      "description": "Añade o actualiza una programación de flujo de trabajo de cámara y confirma la finalización notificada. Sin un ID de configuración, crea la primera configuración de función compatible solo si no existe ninguna. Una programación habilitada no puede solaparse con otra programación habilitada de la misma función. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "feature": {
+          "name": "Función de la cámara",
+          "description": "Función asociada a la configuración de flujo de trabajo existente."
+        },
+        "configuration_id": {
+          "name": "ID de configuración",
+          "description": "ID de una configuración existente. Omítelo solo para crear la primera configuración de función compatible."
+        },
+        "schedule_id": {
+          "name": "ID de programación",
+          "description": "ID de una programación existente; omítelo al añadir una programación."
+        },
+        "label": {
+          "name": "Etiqueta",
+          "description": "Etiqueta de la programación."
+        },
+        "days": {
+          "name": "Días",
+          "description": "Días de la semana en la zona horaria de la configuración existente."
+        },
+        "start_time": {
+          "name": "Hora de inicio",
+          "description": "Hora local en formato HH:mm:00."
+        },
+        "end_time": {
+          "name": "Hora de finalización",
+          "description": "Hora local en formato HH:mm:00; distinta de la hora de inicio."
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Estado de activación deseado."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Eliminar programación",
+      "description": "Elimina una programación de flujo de trabajo de cámara existente y confirma su ausencia. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "feature": {
+          "name": "Función de la cámara",
+          "description": "Función asociada a la configuración de flujo de trabajo existente."
+        },
+        "configuration_id": {
+          "name": "ID de configuración",
+          "description": "Una configuración existente que pertenece al dispositivo y a la función seleccionados."
+        },
+        "schedule_id": {
+          "name": "ID de programación",
+          "description": "ID de una programación existente; omítelo al añadir una programación."
+        }
+      }
+    },
+    "get_pins": {
+      "name": "Obtener PIN",
+      "description": "Lee los nombres, ID, accesos y estados de los PIN de las cerraduras remotas. Los PIN numéricos nunca se devuelven. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    },
+    "save_pin": {
+      "name": "Guardar PIN",
+      "description": "Crea o actualiza el PIN de una cerradura remota a partir de un archivo local privado y espera al estado sincronizado. La integración no conserva el PIN; elimina el archivo después de usarlo. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre del accesorio o PIN existente."
+        },
+        "pin_file": {
+          "name": "Archivo de PIN privado",
+          "description": "Nombre de un archivo JSON situado directamente en el directorio de configuración de HA, con los dígitos en la clave «pin»; propiedad de HA y legible solo por su propietario. Solo este nombre de archivo pasa por el bus de servicios."
+        },
+        "pin_id": {
+          "name": "ID del PIN",
+          "description": "ID existente devuelto por get_pins; omítelo para añadir uno."
+        }
+      }
+    },
+    "delete_pin": {
+      "name": "Eliminar PIN",
+      "description": "Elimina el PIN de una cerradura remota y espera a que se confirme su ausencia. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "pin_id": {
+          "name": "ID del PIN",
+          "description": "ID existente devuelto por get_pins; omítelo para añadir uno."
+        }
+      }
+    },
+    "get_guests": {
+      "name": "Obtener invitados",
+      "description": "Lee los invitados de MyQ existentes y las programaciones de sus dispositivos permitidos. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    },
+    "set_guest_devices": {
+      "name": "Establecer dispositivos del invitado",
+      "description": "Reemplaza la lista de dispositivos de una programación de invitado existente conservando sus restricciones horarias. Solo se aceptan los tipos de dispositivo que la aplicación MyQ te permite compartir. Quitar un teclado con vídeo no elimina el PIN del invitado en él; elimínalo antes en la aplicación. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "account_user_id": {
+          "name": "ID del invitado",
+          "description": "Un invitado existente devuelto por get_guests."
+        },
+        "access_schedule_id": {
+          "name": "Programación de acceso del invitado",
+          "description": "Programación de invitado existente devuelta por get_guests."
+        },
+        "allowed_serials": {
+          "name": "Números de serie de los dispositivos permitidos",
+          "description": "Dispositivos existentes en la misma cuenta de MyQ. Una lista vacía elimina todo el acceso a dispositivos de esta programación."
+        }
+      }
+    },
+    "remove_guest": {
+      "name": "Eliminar invitado",
+      "description": "Revoca un invitado existente y confirma su ausencia. Esta acción no puede eliminar a propietarios ni copropietarios. A diferencia de la aplicación MyQ, no elimina primero los PIN de teclado del invitado; elimínalos previamente en la aplicación. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "account_user_id": {
+          "name": "ID del invitado",
+          "description": "Un invitado existente devuelto por get_guests."
+        }
+      }
+    },
+    "assign_accessory": {
+      "name": "Asignar accesorio",
+      "description": "Asigna un accesorio emparejado a un invitado existente que ya tiene acceso al abridor. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "accessory_serial": {
+          "name": "Número de serie del accesorio",
+          "description": "Selecciona un accesorio existente devuelto por get_accessories."
+        },
+        "account_user_id": {
+          "name": "ID del invitado",
+          "description": "Un invitado existente devuelto por get_guests."
+        }
+      }
+    },
+    "set_auto_lock": {
+      "name": "Establecer bloqueo automático",
+      "description": "Configura el bloqueo automático en una cerradura Wi-Fi nativa compatible. Cero lo desactiva; los retardos admitidos son 30, 60, 90, 120 y 180 segundos. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "seconds": {
+          "name": "Retardo",
+          "description": "Retardo en segundos antes de que la cerradura se bloquee sola; 0 desactiva el bloqueo automático."
+        }
+      }
+    },
+    "set_door_sensor": {
+      "name": "Establecer sensor de puerta",
+      "description": "Habilita o deshabilita el sensor de puerta configurado y calibrado de una cerradura Wi-Fi nativa y confirma el estado notificado. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "enabled": {
+          "name": "Activado",
+          "description": "Estado de activación deseado."
+        }
+      }
+    },
+    "rename_device": {
+      "name": "Renombrar dispositivo",
+      "description": "Cambia el nombre de un dispositivo MyQ en la cuenta de MyQ (hasta 24 caracteres, como en la aplicación) y confirma el nuevo nombre. Solo para el propietario de la cuenta. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nuevo nombre en MyQ, de 1 a 24 caracteres."
+        }
+      }
+    },
+    "get_device_history": {
+      "name": "Obtener historial del dispositivo",
+      "description": "Devuelve una página del historial de actividad de MyQ del dispositivo, las entradas más antiguas primero: qué ocurrió, cuándo y quién lo hizo. Se omiten los identificadores de usuario. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "continuation": {
+          "name": "Continuación",
+          "description": "Valor de continuación de una respuesta anterior, para leer la página siguiente."
+        }
+      }
+    },
+    "get_alerts": {
+      "name": "Obtener alertas",
+      "description": "Devuelve las reglas de notificación de MyQ del dispositivo e indica si cada una está habilitada. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    },
+    "snooze_alerts": {
+      "name": "Pausar alertas",
+      "description": "Pausa todas las notificaciones de MyQ de la cuenta del dispositivo durante un número de minutos. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        },
+        "minutes": {
+          "name": "Minutos",
+          "description": "Duración de la pausa, de 1 minuto a 7 días."
+        }
+      }
+    },
+    "cancel_alert_snooze": {
+      "name": "Cancelar la pausa de alertas",
+      "description": "Finaliza una pausa activa de las notificaciones de MyQ de la cuenta del dispositivo. Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    },
+    "get_thermostat_programs": {
+      "name": "Obtener programas del termostato",
+      "description": "Devuelve los preajustes y las programaciones de un termostato vinculado (solo lectura). Requiere un administrador de Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Dispositivo",
+          "description": "Dispositivo MyQ registrado actualmente."
+        }
+      }
+    }
+  }
+}

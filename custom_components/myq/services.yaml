@@ -1,0 +1,367 @@
+validate_session:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: myq
+    refresh:
+      required: false
+      selector:
+        boolean: {}
+get_accessories:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+rename_accessory:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    accessory_serial:
+      required: true
+      selector:
+        text: {}
+    name:
+      required: true
+      selector:
+        text: {}
+remove_accessory:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    accessory_serial:
+      required: true
+      selector:
+        text: {}
+set_auto_relock:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    enabled:
+      required: true
+      selector:
+        boolean: {}
+    seconds:
+      required: true
+      selector:
+        select:
+          options:
+          - '30'
+          - '60'
+          - '90'
+          - '120'
+          - '180'
+get_schedules:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    feature:
+      required: true
+      selector:
+        select:
+          translation_key: schedule_feature
+          options:
+          - floodlight
+          - patrol_mode
+          - privacy_mode
+          - voice_deter
+set_schedule_enabled:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    feature:
+      required: true
+      selector:
+        select:
+          translation_key: schedule_feature
+          options:
+          - floodlight
+          - patrol_mode
+          - privacy_mode
+          - voice_deter
+    configuration_id:
+      required: true
+      selector:
+        text: {}
+    schedule_id:
+      required: true
+      selector:
+        text: {}
+    enabled:
+      required: true
+      selector:
+        boolean: {}
+save_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    feature:
+      required: true
+      selector:
+        select:
+          translation_key: schedule_feature
+          options:
+          - floodlight
+          - patrol_mode
+          - privacy_mode
+          - voice_deter
+    configuration_id:
+      required: false
+      selector:
+        text: {}
+    schedule_id:
+      required: false
+      selector:
+        text: {}
+    label:
+      required: true
+      selector:
+        text: {}
+    days:
+      required: true
+      selector:
+        select:
+          translation_key: weekday
+          options:
+          - monday
+          - tuesday
+          - wednesday
+          - thursday
+          - friday
+          - saturday
+          - sunday
+          multiple: true
+    start_time:
+      required: true
+      selector:
+        text: {}
+    end_time:
+      required: true
+      selector:
+        text: {}
+    enabled:
+      required: true
+      selector:
+        boolean: {}
+delete_schedule:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    feature:
+      required: true
+      selector:
+        select:
+          translation_key: schedule_feature
+          options:
+          - floodlight
+          - patrol_mode
+          - privacy_mode
+          - voice_deter
+    configuration_id:
+      required: true
+      selector:
+        text: {}
+    schedule_id:
+      required: true
+      selector:
+        text: {}
+get_pins:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+save_pin:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    name:
+      required: true
+      selector:
+        text: {}
+    pin_file:
+      required: true
+      selector:
+        text: {}
+    pin_id:
+      required: false
+      selector:
+        text: {}
+delete_pin:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    pin_id:
+      required: true
+      selector:
+        text: {}
+get_guests:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+set_guest_devices:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    account_user_id:
+      required: true
+      selector:
+        text: {}
+    access_schedule_id:
+      required: true
+      selector:
+        text: {}
+    allowed_serials:
+      required: true
+      selector:
+        object: {}
+remove_guest:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    account_user_id:
+      required: true
+      selector:
+        text: {}
+assign_accessory:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    accessory_serial:
+      required: true
+      selector:
+        text: {}
+    account_user_id:
+      required: true
+      selector:
+        text: {}
+set_auto_lock:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    seconds:
+      required: true
+      selector:
+        select:
+          options:
+          - '0'
+          - '30'
+          - '60'
+          - '90'
+          - '120'
+          - '180'
+set_door_sensor:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    enabled:
+      required: true
+      selector:
+        boolean: {}
+rename_device:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    name:
+      required: true
+      selector:
+        text: {}
+get_device_history:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    continuation:
+      required: false
+      selector:
+        text: {}
+get_alerts:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+snooze_alerts:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+    minutes:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
+          mode: box
+cancel_alert_snooze:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq
+get_thermostat_programs:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: myq

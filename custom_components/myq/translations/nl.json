@@ -1,0 +1,943 @@
+{
+  "title": "MyQ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "MyQ verbinden",
+        "description": "Experimentele integratie, nog niet getest met MyQ: van geen enkele inlogmethode is bevestigd dat ze werkt. Inloggen via de browser vereist een actueel MyQ-app-verificatietoken uit een geautoriseerde native bron. Alleen inloggen in de browser kan dat bewijs niet leveren. Als je een eenmalige MyQ-inloglink hebt, kun je die in plaats daarvan gebruiken. Je kunt ook een bestaand geautoriseerd refreshtoken importeren.",
+        "menu_options": {
+          "browser": "Inloggen via browser met app-verificatie",
+          "onetime": "Eenmalige MyQ-inloglink",
+          "login": "Experimenteel: inloggen via formulier met e-mail/wachtwoord",
+          "token": "Geavanceerd: een bestaand refreshtoken gebruiken"
+        }
+      },
+      "login": {
+        "title": "Inloggen bij MyQ",
+        "description": "Vul de inloggegevens van je MyQ-account in. Als MyQ een ondersteunde verificatiestap toont, word je daar vervolgens om gevraagd. Je wachtwoord wordt alleen voor deze aanmelding gebruikt en niet opgeslagen.",
+        "data": {
+          "username": "E-mail",
+          "password": "Wachtwoord",
+          "app_check_token": "App-verificatietoken (optioneel; vervangen als het verlopen is)"
+        }
+      },
+      "mfa": {
+        "title": "MyQ-verificatie",
+        "description": "{instruction}",
+        "data": {
+          "response": "Verificatieantwoord",
+          "app_check_token": "App-verificatietoken (optioneel; vervangen als het verlopen is)"
+        }
+      },
+      "token": {
+        "title": "Een bestaande MyQ-sessie gebruiken",
+        "description": "Voor ontwikkeling en testen met een refreshtoken uit je eigen geautoriseerde sessie. Dit vervangt of omzeilt het inloggen bij MyQ, MFA of app-verificatie niet. De integratie valideert en vernieuwt de sessie voordat deze wordt opgeslagen.",
+        "data": {
+          "refresh_token": "Refreshtoken"
+        }
+      },
+      "reauth_confirm": {
+        "title": "MyQ opnieuw verbinden",
+        "description": "Je MyQ-sessie kon niet worden vernieuwd. Log opnieuw in bij hetzelfde account.",
+        "menu_options": {
+          "browser": "Inloggen via browser met app-verificatie",
+          "onetime": "Eenmalige MyQ-inloglink",
+          "login": "Inloggen met e-mail en wachtwoord",
+          "token": "Geavanceerd: een bestaand refreshtoken gebruiken"
+        }
+      },
+      "browser": {
+        "title": "Inloggen bij MyQ voltooien in je browser",
+        "description": "Gebruik de lokale browserhelper die wordt beschreven in de [configuratiehandleiding]({guide_url}). Hiervoor is een actueel MyQ-app-verificatietoken nodig. Kopieer dit verzoek naar de helper en plak daarna binnen tien minuten hieronder het privébestand met het resultaat. Houd dit configuratievenster open.\n\n```json\n{request}\n```",
+        "data": {
+          "handoff": "Privé-inlogresultaat"
+        }
+      },
+      "onetime": {
+        "title": "Inloggen met een eenmalige MyQ-link",
+        "description": "Plak een eenmalige MyQ-inloglink (die begint met {link_start}). De MyQ-app stuurt bij deze links geen app-verificatietoken mee. Deze en alle andere inlogmethoden zijn nog niet met MyQ getest, en het is niet bekend waar MyQ deze links uitgeeft. Elke link werkt één keer; als het detecteren van het account daarna mislukt, kun je het opnieuw proberen met dezelfde sessie.",
+        "data": {
+          "link": "Eenmalige inloglink"
+        }
+      },
+      "finish": {
+        "title": "Verbinden met MyQ voltooien",
+        "description": "Inloggen is gelukt, maar het detecteren van het account of de apparaten is mislukt. Verzend het formulier om de detectie opnieuw te proberen met dezelfde sessie."
+      }
+    },
+    "error": {
+      "invalid_auth": "MyQ heeft de inloggegevens of de sessie geweigerd. Controleer je accountgegevens en begin opnieuw als de verificatiesessie is verlopen.",
+      "invalid_code": "De verificatie is niet voltooid. Controleer de code en probeer het opnieuw.",
+      "cannot_connect": "Kan geen verbinding maken met MyQ. Probeer het later opnieuw.",
+      "access_denied": "MyQ heeft dit verzoek geweigerd. Mogelijk zijn app-verificatie of extra accountrechten vereist.",
+      "app_verification": "MyQ heeft de verificatie van de applicatie geweigerd (401.122).",
+      "unsupported_auth": "MyQ toonde een inlog- of verificatiescherm dat deze integratie nog niet ondersteunt. Zie de protocolnotities; hiervoor is mogelijk een app-verificatietoken of een nieuw MFA-formulier nodig.",
+      "rate_limited": "MyQ heeft het aantal verzoeken beperkt. Wacht voordat je het opnieuw probeert.",
+      "protocol_error": "MyQ gaf een onverwacht antwoord. Raadpleeg de protocolnotities van de integratie. Er is geen account toegevoegd.",
+      "browser_verification": "MyQ vereist verificatie in een echte browser. Start \"Inloggen via browser met app-verificatie\" vanuit het configuratiemenu.",
+      "app_check_unavailable": "Een actueel MyQ-app-verificatietoken is vereist. De browser kan dit niet genereren.",
+      "app_check_expired": "Het app-verificatietoken is verlopen of nog maar minder dan vijf minuten geldig. Geef een nieuw token op.",
+      "app_check_invalid": "Het app-verificatietoken is onjuist opgemaakt of heeft geen bruikbare vervaltijd.",
+      "app_check_integrity": "De native tokenbron kon geen integriteitsbewijs voor de applicatie verkrijgen.",
+      "invalid_link": "Dat is geen bruikbare eenmalige MyQ-inloglink. Plak de volledige link."
+    },
+    "abort": {
+      "already_configured": "Dit MyQ-account is al geconfigureerd.",
+      "reauth_successful": "MyQ is opnieuw verbonden.",
+      "unique_id_mismatch": "Log in bij hetzelfde MyQ-account als bij de bestaande integratie.",
+      "invalid_auth": "Deze MyQ-sessie is geweigerd. Start een nieuwe aanmelding."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MyQ-opties",
+        "data": {
+          "poll_interval": "Polling-interval (seconden)",
+          "enable_cameras": "Detectie en beelden van camera's inschakelen"
+        }
+      }
+    }
+  },
+  "selector": {
+    "schedule_feature": {
+      "options": {
+        "floodlight": "Schijnwerper",
+        "patrol_mode": "Patrouillemodus",
+        "privacy_mode": "Privacymodus",
+        "voice_deter": "Afschrikking met stem"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "Maandag",
+        "tuesday": "Dinsdag",
+        "wednesday": "Woensdag",
+        "thursday": "Donderdag",
+        "friday": "Vrijdag",
+        "saturday": "Zaterdag",
+        "sunday": "Zondag"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Connectiviteit"
+      },
+      "sensor_comm_error": {
+        "name": "Communicatiefout deursensor"
+      },
+      "dps_low_battery_mode": {
+        "name": "Batterij deursensor bijna leeg"
+      },
+      "monitor_only_mode": {
+        "name": "Alleen bewaking"
+      },
+      "is_unattended_open_allowed": {
+        "name": "Op afstand openen toegestaan"
+      },
+      "is_unattended_close_allowed": {
+        "name": "Op afstand sluiten toegestaan"
+      },
+      "in_vacation_mode": {
+        "name": "Afstandsbedieningen uitgeschakeld"
+      },
+      "camera_online": {
+        "name": "Cameraconnectiviteit"
+      },
+      "low_battery": {
+        "name": "Batterij bijna leeg"
+      },
+      "auto_relock_enabled": {
+        "name": "Automatisch opnieuw vergrendelen ingeschakeld"
+      },
+      "allow_auto_relock": {
+        "name": "Automatisch opnieuw vergrendelen beschikbaar"
+      },
+      "is_managed": {
+        "name": "Beheerd door MyQ"
+      },
+      "attached_work_light_error_present": {
+        "name": "Werklamp niet gekoppeld"
+      },
+      "failed_credential_lockout_active": {
+        "name": "PIN-blokkering"
+      },
+      "failed_credential_lockout_enabled": {
+        "name": "Bescherming met PIN-blokkering"
+      },
+      "faults": {
+        "name": "Storing"
+      },
+      "backup_battery_problem": {
+        "name": "Probleem met back-upbatterij"
+      },
+      "safety_sensors": {
+        "name": "Uitlijning veiligheidssensoren"
+      },
+      "lock_calibration": {
+        "name": "Kalibratie slot"
+      },
+      "lock_door": {
+        "name": "Deur"
+      },
+      "camera_charging": {
+        "name": "Opladen"
+      }
+    },
+    "button": {
+      "left": {
+        "name": "Naar links pannen"
+      },
+      "right": {
+        "name": "Naar rechts pannen"
+      },
+      "up": {
+        "name": "Omhoog kantelen"
+      },
+      "down": {
+        "name": "Omlaag kantelen"
+      },
+      "zoom_in": {
+        "name": "Inzoomen"
+      },
+      "zoom_out": {
+        "name": "Uitzoomen"
+      },
+      "stop": {
+        "name": "Camerabeweging stoppen"
+      },
+      "siren_on": {
+        "name": "Sirene 10 seconden laten klinken"
+      },
+      "siren_off": {
+        "name": "Sirene stoppen"
+      },
+      "talkback_on": {
+        "name": "Microfoon 30 seconden inschakelen"
+      },
+      "talkback_off": {
+        "name": "Microfoon dempen"
+      },
+      "go_to_position": {
+        "name": "Naar {position} gaan"
+      },
+      "clear_pin_lockout": {
+        "name": "PIN-blokkering opheffen"
+      }
+    },
+    "camera": {
+      "camera": {
+        "name": "Camera"
+      }
+    },
+    "event": {
+      "activity": {
+        "name": "Activiteit",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "open": "Geopend",
+              "closed": "Gesloten",
+              "on": "Ingeschakeld",
+              "off": "Uitgeschakeld",
+              "locked": "Vergrendeld",
+              "unlocked": "Ontgrendeld",
+              "stopped": "Gestopt",
+              "accessed": "Toegang verkregen",
+              "call_answered": "Oproep beantwoord",
+              "call_unanswered": "Oproep niet beantwoord",
+              "expired": "Verlopen",
+              "attempted": "Geprobeerd",
+              "assigned_remote": "Afstandsbediening toegewezen",
+              "unassigned_remote": "Toewijzing afstandsbediening opgeheven",
+              "failed_to_close": "Sluiten mislukt",
+              "failed_to_lock": "Vergrendelen mislukt",
+              "other": "Overig"
+            }
+          }
+        }
+      }
+    },
+    "light": {
+      "camera_light": {
+        "name": "Cameralamp {number}"
+      }
+    },
+    "number": {
+      "speaker_volume": {
+        "name": "Luidsprekervolume"
+      },
+      "time_to_close": {
+        "name": "Tijd tot sluiten (0 schakelt uit)"
+      },
+      "motion_sensitivity": {
+        "name": "Bewegingsgevoeligheid"
+      },
+      "siren_volume": {
+        "name": "Sirenevolume"
+      }
+    },
+    "select": {
+      "light_timer": {
+        "name": "Timer openerverlichting",
+        "state": {
+          "90": "90 seconden",
+          "150": "150 seconden",
+          "210": "210 seconden",
+          "270": "270 seconden"
+        }
+      },
+      "auto_relock_delay": {
+        "name": "Vertraging automatisch opnieuw vergrendelen",
+        "state": {
+          "30": "30 seconden",
+          "60": "60 seconden",
+          "90": "90 seconden",
+          "120": "120 seconden",
+          "180": "180 seconden"
+        }
+      },
+      "automatic_lock_delay": {
+        "name": "Vertraging automatisch vergrendelen",
+        "state": {
+          "off": "Uit",
+          "30": "30 seconden",
+          "60": "60 seconden",
+          "90": "90 seconden",
+          "120": "120 seconden",
+          "180": "180 seconden"
+        }
+      },
+      "rotation": {
+        "name": "Beeldoriëntatie",
+        "state": {
+          "normal": "Normaal",
+          "mirror": "Gespiegeld",
+          "mirror_flip": "Gespiegeld en omgedraaid",
+          "flip": "Omgedraaid"
+        }
+      },
+      "night_vision": {
+        "name": "Nachtzicht",
+        "state": {
+          "off": "Uit",
+          "on": "Aan",
+          "auto": "Auto"
+        }
+      },
+      "power_saver": {
+        "name": "Energiebesparing",
+        "state": {
+          "auto": "Auto",
+          "on": "Aan",
+          "off": "Uit"
+        }
+      },
+      "chime_type": {
+        "name": "Type deurbelgong",
+        "state": {
+          "mechanical": "Mechanisch",
+          "digital": "Digitaal"
+        }
+      }
+    },
+    "sensor": {
+      "door_state": {
+        "name": "Deurstatus"
+      },
+      "battery_backup_state": {
+        "name": "Back-upbatterij",
+        "state": {
+          "idle": "Inactief",
+          "charging": "Opladen",
+          "bad": "Defect",
+          "disconnected": "Losgekoppeld",
+          "none": "Geen",
+          "unknown": "Onbekend"
+        }
+      },
+      "absolute_cycle_count": {
+        "name": "Deurcycli"
+      },
+      "wifi_signal_strength": {
+        "name": "Wi-Fi-signaal"
+      },
+      "battery_percentage": {
+        "name": "Batterij"
+      },
+      "lamp_state": {
+        "name": "Status verlichting"
+      },
+      "offline_reason": {
+        "name": "Reden offline"
+      },
+      "lock_state": {
+        "name": "Slotstatus"
+      },
+      "bluetooth_connectability": {
+        "name": "Verbinding slot"
+      },
+      "auto_relock_time": {
+        "name": "Vertraging automatisch opnieuw vergrendelen"
+      },
+      "automatic_lock_state": {
+        "name": "Instelling automatisch vergrendelen"
+      },
+      "door_sensor_state": {
+        "name": "Instelling deursensor"
+      },
+      "door_sensor_calibration_status": {
+        "name": "Kalibratie deursensor"
+      },
+      "orientation": {
+        "name": "Oriëntatie slot",
+        "state": {
+          "lefthand": "Links",
+          "righthand": "Rechts",
+          "unknown": "Onbekend",
+          "calibrationfailure": "Kalibratie mislukt"
+        }
+      },
+      "failed_credential_lockout_frequency": {
+        "name": "Pogingen tot PIN-blokkering"
+      },
+      "failed_credential_lockout_duration_seconds": {
+        "name": "Duur PIN-blokkering"
+      },
+      "last_update": {
+        "name": "Laatste statuswijziging"
+      },
+      "device_type": {
+        "name": "Apparaattype"
+      },
+      "video_res": {
+        "name": "Videoresolutie"
+      },
+      "video_fps": {
+        "name": "Videoframesnelheid"
+      },
+      "video_quality": {
+        "name": "Videokwaliteit"
+      },
+      "camera_battery": {
+        "name": "Batterij"
+      },
+      "camera_power_source": {
+        "name": "Stroombron",
+        "state": {
+          "ac": "Netstroom",
+          "usb": "USB",
+          "battery": "Batterij",
+          "solar": "Zonne-energie",
+          "solar_battery": "Zonne-energie en batterij"
+        }
+      },
+      "camera_wifi_strength": {
+        "name": "Wi-Fi-sterkte"
+      },
+      "accessory_battery": {
+        "name": "Batterij {accessory}",
+        "state": {
+          "good": "Goed",
+          "low": "Laag",
+          "critical": "Kritiek",
+          "unknown": "Onbekend"
+        }
+      }
+    },
+    "switch": {
+      "status_led": {
+        "name": "Status-LED"
+      },
+      "chime_enabled": {
+        "name": "Deurbelgong"
+      },
+      "auto_tracking": {
+        "name": "Automatisch PTZ-volgen"
+      },
+      "wake_on_motion": {
+        "name": "Ontwaken bij beweging"
+      },
+      "microphone": {
+        "name": "Microfoon"
+      },
+      "motion_detection": {
+        "name": "Bewegingsdetectie"
+      },
+      "motion_light": {
+        "name": "Openerverlichting bij beweging"
+      },
+      "auto_relock": {
+        "name": "Automatisch opnieuw vergrendelen"
+      },
+      "door_sensor": {
+        "name": "Deursensor"
+      },
+      "lock_mode": {
+        "name": "Afstandsbedieningen uitschakelen"
+      },
+      "alert_rule": {
+        "name": "Melding: {rule}"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    }
+  },
+  "exceptions": {
+    "session_ended": {
+      "message": "MyQ heeft de sessie beëindigd. Verbind MyQ opnieuw via Instellingen > Apparaten & diensten."
+    },
+    "session_renewal": {
+      "message": "MyQ heeft de sessie deze keer niet vernieuwd. Dit wordt opnieuw geprobeerd."
+    },
+    "rate_limited": {
+      "message": "MyQ beperkt het aantal verzoeken. Probeer het later opnieuw."
+    },
+    "access_denied": {
+      "message": "MyQ heeft dit verzoek niet toegestaan: {detail}"
+    },
+    "cannot_connect": {
+      "message": "Kan geen verbinding maken met MyQ: {detail}"
+    },
+    "command_uncertain": {
+      "message": "MyQ heeft het resultaat niet bevestigd, dus het verzoek is niet herhaald: {detail}"
+    },
+    "command_rejected": {
+      "message": "Het verzoek is niet voltooid: {detail}"
+    },
+    "unexpected_response": {
+      "message": "MyQ stuurde een onverwacht antwoord: {detail}"
+    },
+    "myq_error": {
+      "message": "Het MyQ-verzoek is mislukt: {detail}"
+    },
+    "temperature_or_range": {
+      "message": "Kies één temperatuur of een bereik voor verwarmen en koelen."
+    },
+    "temperature_needs_mode": {
+      "message": "Eén temperatuur vereist de modus verwarmen of koelen."
+    },
+    "temperature_required": {
+      "message": "Een doeltemperatuur voor de thermostaat is vereist."
+    },
+    "whole_number": {
+      "message": "De waarde moet een geheel getal zijn."
+    },
+    "whole_minutes": {
+      "message": "De tijd tot sluiten moet een geheel aantal minuten zijn."
+    },
+    "unsupported_option": {
+      "message": "Die optie is niet beschikbaar voor dit apparaat."
+    },
+    "setting_unavailable": {
+      "message": "Deze instelling is momenteel niet beschikbaar voor dit apparaat."
+    },
+    "no_lockout": {
+      "message": "Er is geen blokkering van het toetsenpaneel actief."
+    },
+    "entry_not_loaded": {
+      "message": "De geselecteerde MyQ-integratie is niet geladen."
+    },
+    "device_not_found": {
+      "message": "Kies één momenteel geregistreerd MyQ-apparaat."
+    },
+    "legacy_entry": {
+      "message": "Dit configuratie-item is gemaakt door de vroegere MyQ-integratie van Home Assistant en kan niet worden gebruikt. Verwijder het en voeg MyQ daarna opnieuw toe."
+    }
+  },
+  "services": {
+    "validate_session": {
+      "name": "Sessie valideren",
+      "description": "Alleen-lezen controle van identiteit, account en apparaten, met optionele vernieuwing van het token. Geeft aantallen terug zonder inloggegevens of ID's. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Integratie",
+          "description": "Het MyQ-configuratie-item dat moet worden gecontroleerd."
+        },
+        "refresh": {
+          "name": "Tokenvernieuwing controleren",
+          "description": "Vernieuwt de sessie, slaat geroteerde tokens op en controleert of de identiteit dezelfde is."
+        }
+      }
+    },
+    "get_accessories": {
+      "name": "Accessoires ophalen",
+      "description": "Leest de gekoppelde accessoires van de opener uit en schakelt hun batterijdiagnose in voor deze geladen integratie. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    },
+    "rename_accessory": {
+      "name": "Accessoire hernoemen",
+      "description": "Hernoemt een gekoppeld accessoire (1 tot 24 tekens, nog niet in gebruik op die opener) en wacht op de gemelde bevestiging. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "accessory_serial": {
+          "name": "Serienummer accessoire",
+          "description": "Selecteer een bestaand accessoire uit get_accessories."
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Naam voor het bestaande accessoire of de PIN."
+        }
+      }
+    },
+    "remove_accessory": {
+      "name": "Accessoire verwijderen",
+      "description": "Verwijdert een gekoppeld accessoire en wacht op bevestiging dat het niet meer aanwezig is. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "accessory_serial": {
+          "name": "Serienummer accessoire",
+          "description": "Selecteer een bestaand accessoire uit get_accessories."
+        }
+      }
+    },
+    "set_auto_relock": {
+      "name": "Automatisch opnieuw vergrendelen instellen",
+      "description": "Stelt automatisch opnieuw vergrendelen in voor een ondersteund ouder slot en wacht op de gemelde bevestiging. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Gewenste inschakelstatus."
+        },
+        "seconds": {
+          "name": "Vertraging",
+          "description": "Native vertraging voor automatisch opnieuw vergrendelen in seconden."
+        }
+      }
+    },
+    "get_schedules": {
+      "name": "Schema's ophalen",
+      "description": "Leest de schema's van een bestaande configuratie van een camerafunctie. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "feature": {
+          "name": "Camerafunctie",
+          "description": "Functie die bij de bestaande workflowconfiguratie hoort."
+        }
+      }
+    },
+    "set_schedule_enabled": {
+      "name": "Schema in- of uitschakelen",
+      "description": "Schakelt een bestaand workflowschema van een camera in of uit en bevestigt de wijziging. Een schema kan niet worden ingeschakeld zolang het overlapt met een ander ingeschakeld schema van dezelfde functie. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "feature": {
+          "name": "Camerafunctie",
+          "description": "Functie die bij de bestaande workflowconfiguratie hoort."
+        },
+        "configuration_id": {
+          "name": "Configuratie-ID",
+          "description": "Een bestaande configuratie die bij het geselecteerde apparaat en de geselecteerde functie hoort."
+        },
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Bestaand schema-ID; weglaten bij het toevoegen van een schema."
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Gewenste inschakelstatus."
+        }
+      }
+    },
+    "save_schedule": {
+      "name": "Schema opslaan",
+      "description": "Voegt een workflowschema van een camera toe of werkt het bij en bevestigt de gemelde voltooiing. Zonder configuratie-ID wordt de eerste ondersteunde functieconfiguratie alleen aangemaakt als er nog geen bestaat. Een ingeschakeld schema mag niet overlappen met een ander ingeschakeld schema van dezelfde functie. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "feature": {
+          "name": "Camerafunctie",
+          "description": "Functie die bij de bestaande workflowconfiguratie hoort."
+        },
+        "configuration_id": {
+          "name": "Configuratie-ID",
+          "description": "Bestaand configuratie-ID. Alleen weglaten om de eerste ondersteunde functieconfiguratie aan te maken."
+        },
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Bestaand schema-ID; weglaten bij het toevoegen van een schema."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Label van het schema."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Dagen van de week in de tijdzone van de bestaande configuratie."
+        },
+        "start_time": {
+          "name": "Starttijd",
+          "description": "Lokale tijd in de notatie HH:mm:00."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Lokale tijd in de notatie HH:mm:00; moet verschillen van de starttijd."
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Gewenste inschakelstatus."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Schema verwijderen",
+      "description": "Verwijdert een bestaand workflowschema van een camera en bevestigt dat het niet meer bestaat. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "feature": {
+          "name": "Camerafunctie",
+          "description": "Functie die bij de bestaande workflowconfiguratie hoort."
+        },
+        "configuration_id": {
+          "name": "Configuratie-ID",
+          "description": "Een bestaande configuratie die bij het geselecteerde apparaat en de geselecteerde functie hoort."
+        },
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Bestaand schema-ID; weglaten bij het toevoegen van een schema."
+        }
+      }
+    },
+    "get_pins": {
+      "name": "PIN's ophalen",
+      "description": "Leest namen, ID's, toegang en status van de PIN's van een op afstand bedienbaar slot. Numerieke PIN's worden nooit teruggegeven. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    },
+    "save_pin": {
+      "name": "PIN opslaan",
+      "description": "Maakt een PIN voor een op afstand bedienbaar slot aan of werkt deze bij vanuit een lokaal privébestand en wacht tot de status gesynchroniseerd is. De integratie bewaart de PIN niet; verwijder het bestand na gebruik. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Naam voor het bestaande accessoire of de PIN."
+        },
+        "pin_file": {
+          "name": "Privé-PIN-bestand",
+          "description": "Naam van een JSON-bestand direct in de HA-configuratiemap, met de cijfers onder de sleutel ‘pin’; eigendom van HA en alleen leesbaar voor de eigenaar. Alleen deze bestandsnaam komt op de servicebus."
+        },
+        "pin_id": {
+          "name": "PIN-ID",
+          "description": "Bestaand ID uit get_pins; weglaten om toe te voegen."
+        }
+      }
+    },
+    "delete_pin": {
+      "name": "PIN verwijderen",
+      "description": "Verwijdert een PIN van een op afstand bedienbaar slot en wacht op bevestiging dat deze niet meer bestaat. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "pin_id": {
+          "name": "PIN-ID",
+          "description": "Bestaand ID uit get_pins; weglaten om toe te voegen."
+        }
+      }
+    },
+    "get_guests": {
+      "name": "Gasten ophalen",
+      "description": "Leest bestaande MyQ-gasten en hun schema's voor toegestane apparaten. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    },
+    "set_guest_devices": {
+      "name": "Gastapparaten instellen",
+      "description": "Vervangt de apparatenlijst van een bestaand gastschema en behoudt de tijdsbeperkingen ervan. Alleen apparaattypen die je in de MyQ-app kunt delen worden geaccepteerd. Als je de toegang tot een videotoetsenpaneel weghaalt, wordt de PIN van de gast daarop niet verwijderd; verwijder die eerst in de app. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "account_user_id": {
+          "name": "Gast-ID",
+          "description": "Een bestaande gast uit get_guests."
+        },
+        "access_schedule_id": {
+          "name": "Toegangsschema gast",
+          "description": "Bestaand gastschema uit get_guests."
+        },
+        "allowed_serials": {
+          "name": "Serienummers toegestane apparaten",
+          "description": "Bestaande apparaten in hetzelfde MyQ-account. Een lege lijst verwijdert alle toegang tot apparaten voor dit schema."
+        }
+      }
+    },
+    "remove_guest": {
+      "name": "Gast verwijderen",
+      "description": "Trekt de toegang van een bestaande gast in en bevestigt dat deze niet meer aanwezig is. Eigenaren en mede-eigenaren kunnen niet met deze actie worden verwijderd. Anders dan de MyQ-app verwijdert dit niet eerst de toetsenpaneel-PIN's van de gast; verwijder die vooraf in de app. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "account_user_id": {
+          "name": "Gast-ID",
+          "description": "Een bestaande gast uit get_guests."
+        }
+      }
+    },
+    "assign_accessory": {
+      "name": "Accessoire toewijzen",
+      "description": "Wijst een gekoppeld accessoire toe aan een bestaande gast die al toegang heeft tot de opener. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "accessory_serial": {
+          "name": "Serienummer accessoire",
+          "description": "Selecteer een bestaand accessoire uit get_accessories."
+        },
+        "account_user_id": {
+          "name": "Gast-ID",
+          "description": "Een bestaande gast uit get_guests."
+        }
+      }
+    },
+    "set_auto_lock": {
+      "name": "Automatisch vergrendelen instellen",
+      "description": "Configureert automatisch vergrendelen op een ondersteund native Wi-Fi-slot. Nul schakelt het uit; ondersteunde vertragingen zijn 30, 60, 90, 120 en 180 seconden. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "seconds": {
+          "name": "Vertraging",
+          "description": "Vertraging in seconden voordat het slot zichzelf vergrendelt; 0 schakelt automatisch vergrendelen uit."
+        }
+      }
+    },
+    "set_door_sensor": {
+      "name": "Deursensor instellen",
+      "description": "Schakelt de geconfigureerde, gekalibreerde deursensor van een native Wi-Fi-slot in of uit en bevestigt de gemelde status. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "enabled": {
+          "name": "Ingeschakeld",
+          "description": "Gewenste inschakelstatus."
+        }
+      }
+    },
+    "rename_device": {
+      "name": "Apparaat hernoemen",
+      "description": "Hernoemt een MyQ-apparaat in het MyQ-account (maximaal 24 tekens, zoals in de app) en bevestigt de nieuwe naam. Alleen voor de accounteigenaar. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Nieuwe MyQ-naam, 1 tot 24 tekens."
+        }
+      }
+    },
+    "get_device_history": {
+      "name": "Apparaatgeschiedenis ophalen",
+      "description": "Geeft één pagina van de MyQ-activiteitengeschiedenis van het apparaat terug, oudste eerst: wat er is gebeurd, wanneer en door wie. Gebruikers-ID's worden weggelaten. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "continuation": {
+          "name": "Vervolg",
+          "description": "Vervolgwaarde uit een eerder antwoord, om de volgende pagina te lezen."
+        }
+      }
+    },
+    "get_alerts": {
+      "name": "Meldingen ophalen",
+      "description": "Geeft de MyQ-notificatieregels van het apparaat terug en of elke regel is ingeschakeld. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    },
+    "snooze_alerts": {
+      "name": "Meldingen sluimeren",
+      "description": "Laat alle MyQ-notificaties voor het account van het apparaat een aantal minuten sluimeren. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        },
+        "minutes": {
+          "name": "Minuten",
+          "description": "Sluimerduur, 1 minuut tot 7 dagen."
+        }
+      }
+    },
+    "cancel_alert_snooze": {
+      "name": "Sluimeren van meldingen annuleren",
+      "description": "Beëindigt het actieve sluimeren van MyQ-notificaties voor het account van het apparaat. Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    },
+    "get_thermostat_programs": {
+      "name": "Thermostaatprogramma's ophalen",
+      "description": "Geeft de voorinstellingen en schema's van een gekoppelde thermostaat terug (alleen-lezen). Vereist een Home Assistant-beheerder.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "Momenteel geregistreerd MyQ-apparaat."
+        }
+      }
+    }
+  }
+}
