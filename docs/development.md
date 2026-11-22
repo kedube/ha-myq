@@ -82,6 +82,18 @@ This writes two archives to `dist/`, each with a `.sha256` file:
 The component includes its icon in `brand/` (a neutral garage drawing; MyQ and
 Chamberlain marks are not used).
 
+For a private installation that includes an existing App Check registration:
+
+```sh
+python scripts/package.py --private-registration myq_app_check.json
+```
+
+This creates `analysis/private/install/myq-install-private.zip`, with mode `0600`.
+Extract it at Home Assistant's configuration root: it contains
+`custom_components/myq/` and `myq_app_check.json`. The private ZIP stays outside
+`dist/`, which the release workflow publishes. Public archives exclude registration
+files even if one is accidentally placed inside the component or documentation.
+
 CI builds both archives on every push, so a packaging problem shows up before a
 release.
 

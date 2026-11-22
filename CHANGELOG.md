@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- A private install ZIP can include both the integration and an existing App Check
+  registration, installing them together into Home Assistant's configuration
+  directory. Public release archives continue to exclude registration credentials.
+
 ## [0.06] - 2026-11-22
 
 ### Fixed

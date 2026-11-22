@@ -105,6 +105,11 @@ Both install from **releases**, not from the latest commit: each release attache
 
 **Manually**
 
+For the private install ZIP (`myq-install-private.zip`), extract it into Home
+Assistant's configuration directory (usually `/config/`) and restart. It includes
+both the integration folder and the app-verification registration, ready for the
+email/password setup. Keep this ZIP private.
+
 Copy the `custom_components/myq/` folder from this repository into the
 `custom_components/` folder of your Home Assistant configuration directory, so that
 `config/custom_components/myq/manifest.json` exists, and restart. Alternatively,

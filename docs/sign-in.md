@@ -15,18 +15,21 @@ Your password and verification code are used for this sign-in only and are not
 saved. There is no sign-in menu, browser-helper handoff, refresh-token import,
 or manual app-verification token field.
 
-Before signing in, install the private App Check registration file as
-`myq_app_check.json` in Home Assistant's configuration directory (usually
-`/config/myq_app_check.json`). The integration exchanges that registered
-credential with Firebase automatically; there is no token-paste step. Keep the
-file private and readable by Home Assistant. It is not included in release ZIPs.
-See [registration configuration](#registration-configuration).
+The private install ZIP includes the registration needed for automatic app
+verification. Extract `myq-install-private.zip` into Home Assistant's configuration
+directory (usually `/config/`), preserving the folders in the archive, and restart
+Home Assistant. It installs both `custom_components/myq/` and
+`myq_app_check.json`; there is no separate JSON-file installation step. Keep this
+ZIP private because it contains the reusable registration credential.
 
-Installing the integration ZIP alone does not install this file. Copy your
-private registration into the same directory as `configuration.yaml`, not into
-`custom_components/myq`. Then submit your email and password again; this file
-is read on each attempt, so adding or correcting it does not require a restart.
-The integration checks the file before sending credentials or requesting a code.
+Public release ZIPs contain the integration code only. If installing one of those,
+provide `myq_app_check.json` beside `configuration.yaml` separately. The integration
+exchanges that registered credential with Firebase automatically; there is no
+token-paste step. See [registration configuration](#registration-configuration).
+
+The registration remains outside the component folder so integration updates
+preserve it. It is read on each sign-in attempt, before credentials are sent;
+updating just that file does not require a restart.
 
 Firebase proof acquisition has been verified with the supplied registration.
 End-to-end MyQ sign-in remains unverified; a hosted browser challenge or MyQ's
