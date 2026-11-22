@@ -354,10 +354,14 @@ connection type 12, an accept response whose server options may contain `kvs`,
 `j81/KvsModel.java` fields for channel URL/ARN/name, endpoints, ICE servers,
 and region, and `h81/KvsCredsPushDto.java` for pushed credentials. The bundled
 `VideoConnectionManager`/`SscpRtpConnection` also use SDK/native signaling.
-The recovered mode-12 handshake and HA media transport are implemented in 0.1.7
-as described below. Legacy SDK/native RTP transport remains unimplemented.
+The recovered mode-12 handshake and HA media transport were implemented in
+0.1.7 as described below. Legacy transport was not implemented in that release;
+the November 22 update below records the later TC mode-9 addition.
 
 ### Camera investigation — November 20, 2026 (0.1.7)
+
+This section records the implementation and validation limits of 0.1.7 at that
+time. The November 22 update below describes the subsequent TC transport work.
 
 This pass reused the exact 5.324 APK and artifact inventory from the door
 investigation. Code tracing used the existing JADX 1.5.7 output, plus targeted
@@ -432,3 +436,49 @@ or call sites. Literal paths retain their original prefixes; base URLs require
 separate resolution. The inventory may include bundled-library routes not used
 by MyQ. It omits unresolved runtime/native behavior and is not a list of
 implemented features or proof of server authorization.
+
+### TC live-video addition — November 22, 2026
+
+The reported snapshot-only behavior exposed a missing route: the integration
+previously required `cap.cam.kvsWebRTC == true` to advertise live video. Known
+TC cameras can use the older Tend mode-9 transport without that KVS capability.
+Katherine's [November 3 report on PR #7](https://github.com/bvdcode/home-assistant-myq/pull/7#issuecomment-6607828120)
+confirms snapshots and live video on both of her openers with the other
+integration's v0.2.8 release. This is physical evidence for the route; it is not
+a test of the new implementation in this repository.
+
+The new code was written afresh from protocol observations, using the existing
+integration's signaling and browser relay. Reference implementation code was
+not copied. An explicit true KVS capability still selects mode 12. A known TC
+serial with a false or absent KVS capability selects mode 9, requiring an exact,
+unique camera alias in the authenticated Tend inventory. The accepted relay
+endpoint and registration supply the paired UDP transport parameters and
+optional AES material. The receiver extracts and decodes H.264 into the existing
+native HA WebRTC relay, rather than adding the reference's loopback HTTP/HLS
+stream source.
+
+The existing limits and ownership remain: one camera session shared by up to
+four viewers, a 600-second limit, no automatic live retry, shared live snapshots,
+and cleanup on last-viewer closure, failure, camera changes and unload. TC media
+is video-only; camera audio and talkback are not implemented. Browser WebRTC is
+still required, and the macOS companion app limitation is not fixed.
+
+The fragment wrapper is only partially understood. Its first four bytes are a
+little-endian group identifier. The
+[PR's test fixture](https://github.com/bvdcode/home-assistant-myq/blob/ecd8db991dc36b5fb9946be6c50c4f1f660176d1/tests/test_tend_stream.py#L113)
+uses a second 32-bit value of zero or one, but the receiver under test ignores
+it. The [upstream talkback sender](https://github.com/KyleBoyer/homebridge-myq-camera/blob/c91b54e90059c1e2314b946134f0305919d52211/src/p2p.ts#L171)
+instead writes a 16-bit one at offset four and leaves bytes six and seven zero.
+Neither proves the received-video index/count semantics. The new receiver
+therefore keeps bytes 4–7 opaque, bounds arrival-order assembly and suppresses
+duplicate datagrams. It does not claim to fix fragment reordering. The older
+PR's [reordering and duplicate-buffer review](https://github.com/bvdcode/home-assistant-myq/pull/7#issuecomment-6693718981)
+remains relevant evidence of the limitation.
+
+Validation of these changes is local only. No live camera session was opened
+for this work. Exact camera association, acceptance of the new mode-9 requests,
+UDP reachability, sustained decoding and cleanup on the user's devices still
+need physical verification. Separately, the MyQ panel and door card now observe
+HA's selected stream type: MJPEG fallback ends live mode and resumes snapshots
+with a failure message; setup events and real WebRTC/HLS selections preserve
+live mode. That fixes misleading UI state, not a failed media connection.

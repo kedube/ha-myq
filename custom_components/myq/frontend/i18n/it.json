@@ -68,7 +68,8 @@
     "expand": "Apri telecamera",
     "unavailable": "Telecamera non disponibile",
     "updated": "Aggiornato {time}",
-    "loading": "Caricamento immagine…"
+    "loading": "Caricamento immagine…",
+    "live_failed": "Video in diretta non riuscito. Vengono mostrate istantanee."
   },
   "card": {
     "name": "Porta del garage MyQ",

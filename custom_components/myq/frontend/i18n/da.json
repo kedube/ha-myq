@@ -68,7 +68,8 @@
     "expand": "Åbn kamera",
     "unavailable": "Kamera utilgængeligt",
     "updated": "Opdateret {time}",
-    "loading": "Indlæser billede…"
+    "loading": "Indlæser billede…",
+    "live_failed": "Livevideo mislykkedes. Viser øjebliksbilleder."
   },
   "card": {
     "name": "MyQ-garageport",

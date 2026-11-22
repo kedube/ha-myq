@@ -68,7 +68,8 @@
     "expand": "Kamera öffnen",
     "unavailable": "Kamera nicht verfügbar",
     "updated": "Aktualisiert {time}",
-    "loading": "Bild wird geladen…"
+    "loading": "Bild wird geladen…",
+    "live_failed": "Livevideo fehlgeschlagen. Es werden Momentaufnahmen angezeigt."
   },
   "card": {
     "name": "MyQ-Garagentor",

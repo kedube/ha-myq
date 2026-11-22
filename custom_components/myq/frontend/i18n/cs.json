@@ -76,7 +76,8 @@
     "expand": "Otevřít kameru",
     "unavailable": "Kamera nedostupná",
     "updated": "Aktualizováno {time}",
-    "loading": "Načítání obrázku…"
+    "loading": "Načítání obrázku…",
+    "live_failed": "Živé video se nezdařilo. Zobrazují se snímky."
   },
   "card": {
     "name": "Garážová vrata MyQ",

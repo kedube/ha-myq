@@ -64,7 +64,8 @@
     "expand": "打开摄像头",
     "unavailable": "摄像头不可用",
     "updated": "上次更新：{time}",
-    "loading": "正在加载图像…"
+    "loading": "正在加载图像…",
+    "live_failed": "实时视频播放失败。正在显示快照。"
   },
   "card": {
     "name": "MyQ 车库门",

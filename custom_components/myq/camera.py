@@ -1,4 +1,4 @@
-"""Refreshed camera snapshots and capability-gated Tend/KVS WebRTC live view."""
+"""Refreshed camera snapshots and native Tend video relayed over WebRTC."""
 
 import asyncio
 import time
@@ -19,6 +19,7 @@ from webrtc_models import RTCIceCandidateInit
 
 from .api.errors import AuthenticationError, CommandRejected, MyQError
 from .api.live import MAX_VIEWERS, LiveSession
+from .api.models import Device
 from .api.video import camera_enabled, camera_online, wakeable
 from .const import CONF_ENABLE_CAMERAS
 from .entity import MyQEntity, discover_entities
@@ -26,6 +27,24 @@ from .exceptions import myq_error
 
 PARALLEL_UPDATES = 0
 LIVE_IMAGE_SECONDS = 2  # Reuse an encoded live frame briefly; frames keep arriving.
+
+
+def _live_route(device: Device | None, details: dict) -> str | None:
+    """Select a verified native transport; a missing KVS flag is not a live-video veto."""
+    alias = details.get("alias")
+    if not isinstance(alias, str) or not 0 < len(alias) <= 256:
+        return None
+    capability = details.get("cap", {}).get("cam", {}).get("kvsWebRTC")
+    if capability is True:
+        return "kvs"
+    if (
+        (capability is False or capability is None)
+        and device is not None
+        and device.is_camera
+        and device.serial.startswith("TC")
+    ):
+        return "legacy"
+    return None
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -102,12 +121,7 @@ class MyQCamera(MyQEntity, Camera):
 
     @property
     def _can_stream(self) -> bool:
-        alias = self.details.get("alias")
-        return (
-            self.details.get("cap", {}).get("cam", {}).get("kvsWebRTC") is True
-            and isinstance(alias, str)
-            and 0 < len(alias) <= 256
-        )
+        return _live_route(self.device, self.details) is not None
 
     @property
     def is_on(self) -> bool:
@@ -191,7 +205,12 @@ class MyQCamera(MyQEntity, Camera):
                 self.close_webrtc_session(session_id)
         else:
             for stream in {id(item): item for item in self._live_sessions.values()}.values():
-                stream.configure_controls(self.details, can_control=self._can_control)
+                if stream.legacy != (_live_route(self.device, self.details) == "legacy"):
+                    for session_id, active in list(self._live_sessions.items()):
+                        if active is stream:
+                            self.close_webrtc_session(session_id)
+                else:
+                    stream.configure_controls(self.details, can_control=self._can_control)
         super()._handle_coordinator_update()
 
     async def async_handle_async_webrtc_offer(
@@ -199,8 +218,11 @@ class MyQCamera(MyQEntity, Camera):
     ) -> None:
         # Captured once: a poll may drop the device while this offer is still starting.
         device = self.device
-        if device is None or not self.available or not self.is_on or not self._can_stream:
-            send_message(WebRTCError("unavailable", "This camera does not offer KVS live video"))
+        route = _live_route(device, self.details)
+        if device is None or not self.available or not self.is_on or route is None:
+            send_message(
+                WebRTCError("unavailable", "This camera does not offer supported live video")
+            )
             return
         existing = self._stream
         if existing is not None or self._live_starts or self._live_cleanup:
@@ -235,10 +257,12 @@ class MyQCamera(MyQEntity, Camera):
                 for ice in async_get_ice_servers(self.hass)
             ],
             allow_talkback=(
-                self._can_control
+                route == "kvs"
+                and self._can_control
                 and self.details.get("cap", {}).get("spk", {}).get("talkback") is True
             ),
             on_status=self._status_changed,
+            **({"legacy": True} if route == "legacy" else {}),
         )
         self._live_sessions[session_id] = stream
         self._senders[session_id] = send_message
@@ -246,13 +270,8 @@ class MyQCamera(MyQEntity, Camera):
         try:
             await self.coordinator.async_acquire_live(stream)
             details = await self.coordinator.video.wakeup(device, self.details)
-            if (
-                details.get("cap", {}).get("cam", {}).get("kvsWebRTC") is not True
-                or not camera_enabled(details)
-                or not isinstance(details.get("alias"), str)
-                or not details["alias"]
-            ):
-                raise CommandRejected("The camera is no longer available for KVS live video")
+            if _live_route(device, details) != route or not camera_enabled(details):
+                raise CommandRejected("The camera is no longer available for this live video route")
             can_control = False
             if self._can_control:
                 access = (await self.coordinator.management.account_access()).get(device.account_id)

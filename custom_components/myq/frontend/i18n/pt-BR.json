@@ -68,7 +68,8 @@
     "expand": "Abrir câmera",
     "unavailable": "Câmera indisponível",
     "updated": "Atualizado {time}",
-    "loading": "Carregando imagem…"
+    "loading": "Carregando imagem…",
+    "live_failed": "Falha no vídeo ao vivo. Exibindo imagens estáticas."
   },
   "card": {
     "name": "Portão de garagem MyQ",

@@ -1,4 +1,4 @@
-"""Receive Tend/KVS video and relay it to Home Assistant WebRTC viewers.
+"""Receive Tend camera video and relay it to Home Assistant WebRTC viewers.
 
 One native session per camera (Tend, KVS signaling and the camera-facing peer) is
 shared by up to MAX_VIEWERS browser-facing peers through an aiortc MediaRelay. The
@@ -22,14 +22,17 @@ from aiortc import (
     RTCPeerConnection,
     RTCRtpSender,
     RTCSessionDescription,
+    VideoStreamTrack,
 )
 from aiortc.contrib.media import MediaRelay
+from aiortc.mediastreams import MediaStreamError
 from aiortc.sdp import SessionDescription, candidate_from_sdp, candidate_to_sdp
 
 from .errors import CannotConnect, CommandRejected, MyQError, ProtocolError
 from .kvs import KvsConfig, KvsSession
 from .live_controls import LiveControls, MutedMicrophone
 from .tend import TendSession
+from .tend_legacy import LegacyTendSession
 
 START_TIMEOUT = 45
 MAX_VIEW_SECONDS = 600
@@ -38,6 +41,98 @@ MAX_CANDIDATES = 128
 MAX_VIEWERS = 4  # Local CPU bound: each viewer is encoded separately.
 PRIMARY = "primary"
 FRAME_TIMEOUT = 2
+LEGACY_FRAME_TIMEOUT = 15
+MAX_H264_RECORD = 4 * 1024 * 1024
+
+
+class _LegacyVideoTrack(VideoStreamTrack):
+    """Decode the native Annex-B stream once, keeping only recent video frames."""
+
+    def __init__(self, source: LegacyTendSession, on_error: Callable[[MyQError], None]) -> None:
+        super().__init__()
+        self._source = source
+        self._on_error = on_error
+        self._codec = av.CodecContext.create("h264", "r")
+        self._codec.thread_count = 1
+        self._frames: asyncio.Queue[av.VideoFrame | None] = asyncio.Queue(maxsize=2)
+        self._first_frame = asyncio.Event()
+        self._error: MyQError | None = None
+        self._started = asyncio.get_running_loop().time()
+        self._last_frame = self._started
+        self._last_pts = -1
+        self._task = asyncio.create_task(self._receive(), name="decode MyQ legacy video")
+
+    def _decode(self, data: bytes) -> list[av.VideoFrame]:
+        frames = []
+        for packet in self._codec.parse(data):
+            frames.extend(self._codec.decode(packet))
+        return frames
+
+    def _put(self, frame: av.VideoFrame | None) -> None:
+        if self._frames.full():
+            self._frames.get_nowait()
+        self._frames.put_nowait(frame)
+
+    async def _receive(self) -> None:
+        try:
+            while self.readyState == "live":
+                async with asyncio.timeout(LEGACY_FRAME_TIMEOUT):
+                    data = await self._source.recv()
+                if not isinstance(data, bytes) or not 0 < len(data) <= MAX_H264_RECORD:
+                    raise ProtocolError("Invalid camera video record")
+                try:
+                    frames = await asyncio.to_thread(self._decode, data)
+                except av.error.FFmpegError:
+                    # A missing UDP packet can damage a frame; a later keyframe recovers.
+                    frames = []
+                for frame in frames:
+                    if not isinstance(frame, av.VideoFrame):
+                        continue
+                    now = asyncio.get_running_loop().time()
+                    frame.pts = max(self._last_pts + 1, int((now - self._started) * 90000))
+                    frame.time_base = Fraction(1, 90000)
+                    self._last_pts, self._last_frame = frame.pts, now
+                    self._put(frame)
+                    self._first_frame.set()
+                if asyncio.get_running_loop().time() - self._last_frame > LEGACY_FRAME_TIMEOUT:
+                    raise CannotConnect("The camera stopped providing video frames")
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self._error = (
+                error
+                if isinstance(error, MyQError)
+                else CannotConnect("Unable to decode the camera video stream")
+            )
+            self._first_frame.set()
+            self._put(None)
+            # This callback schedules session cleanup; it never awaits this task.
+            self._on_error(self._error)
+
+    async def wait_ready(self) -> None:
+        await self._first_frame.wait()
+        if self._error is not None:
+            raise self._error
+        if self.readyState != "live":
+            raise CannotConnect("The camera video stream ended")
+
+    async def recv(self) -> av.VideoFrame:
+        if self.readyState != "live":
+            raise MediaStreamError
+        frame = await self._frames.get()
+        if frame is None:
+            raise MediaStreamError
+        return frame
+
+    def stop(self) -> None:
+        super().stop()
+        self._task.cancel()
+        self._first_frame.set()
+        self._put(None)
+
+    async def close(self) -> None:
+        self.stop()
+        await asyncio.gather(self._task, return_exceptions=True)
 
 
 def _offer_kinds(offer_sdp: str) -> list[str]:
@@ -103,10 +198,13 @@ class LiveSession:
         browser_ice_servers: list[RTCIceServer] | None = None,
         allow_talkback: bool = False,
         on_status: Callable[[], None] | None = None,
+        legacy: bool = False,
     ) -> None:
         self._http = session
         self._on_error = on_error
         self._browser_ice = browser_ice_servers or []
+        self._legacy = legacy
+        self._legacy_video: _LegacyVideoTrack | None = None
         self._tend: TendSession | None = None
         self._kvs: KvsSession | None = None
         self._camera: RTCPeerConnection | None = None
@@ -122,7 +220,7 @@ class LiveSession:
         self._connected = False
         self._cleanup_task: asyncio.Task[None] | None = None
         self._timer: asyncio.TimerHandle | None = None
-        self._allow_talkback = allow_talkback is True
+        self._allow_talkback = allow_talkback is True and not legacy
         self._on_status = on_status
         self._microphone: MutedMicrophone | None = None
         self._controls: LiveControls | None = None
@@ -139,6 +237,10 @@ class LiveSession:
     @property
     def ready(self) -> bool:
         return self._ready and not self._closed
+
+    @property
+    def legacy(self) -> bool:
+        return self._legacy
 
     @property
     def viewers(self) -> int:
@@ -179,6 +281,8 @@ class LiveSession:
             if self._microphone is not None:
                 self._microphone.enable(False)
             return
+        if self._legacy:
+            raise CommandRejected("Talkback is unavailable for this camera stream")
         self._require_controls().require("talkback")
         if self._microphone is None or self._microphone.readyState != "live":
             raise CommandRejected("The viewer must offer a microphone audio track")
@@ -287,12 +391,19 @@ class LiveSession:
         entry = await self._prepare_viewer(viewer, offer_sdp, primary=True)
         kinds = entry.kinds
 
-        self._tend = TendSession()
+        self._tend = LegacyTendSession() if self._legacy else TendSession()
         self._tend.on_status = self._on_status
         options = await self._tend.start(alias, token)
         self._controls = LiveControls(self._tend)
         self._controls.configure(self._control_details, can_control=self._can_control)
         self._spawn(self._watch_tend())
+        if isinstance(self._tend, LegacyTendSession):
+            self._legacy_video = _LegacyVideoTrack(
+                self._tend, lambda error: self._spawn(self._fail(error))
+            )
+            self._sources["video"] = self._legacy_video
+            await self._legacy_video.wait_ready()
+            return await self._answer_viewer(entry)
         config = KvsConfig.from_server_options(options)
         # PeerConnectionModel: MAXBUNDLE with rtcp-mux, one transport for both lines.
         self._camera = RTCPeerConnection(
@@ -363,6 +474,11 @@ class LiveSession:
         await self._answer
         if self._closed or "video" not in self._sources:
             raise ProtocolError("The MyQ session did not negotiate a video track")
+        return await self._answer_viewer(entry)
+
+    async def _answer_viewer(self, entry: _Viewer) -> str:
+        if self._closed:
+            raise CannotConnect("The camera session ended before video could start")
         self._attach(entry)
         await entry.peer.setLocalDescription(await entry.peer.createAnswer())
         answer = entry.peer.localDescription.sdp
@@ -524,7 +640,7 @@ class LiveSession:
         # Viewers stay listed, closed, so callers can inspect the ended session.
         viewers = list(self._viewers.values())
         # Closing every peer stops their DTLS/SRTP/ICE tasks, receivers and relay feeds.
-        resources = [self._kvs, self._camera, self._tend]
+        resources = [self._kvs, self._camera, self._tend, self._legacy_video]
         await asyncio.gather(
             *(viewer.close() for viewer in viewers),
             *(resource.close() for resource in resources if resource is not None),

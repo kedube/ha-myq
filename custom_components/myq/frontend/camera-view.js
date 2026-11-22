@@ -36,6 +36,8 @@ export class CameraView {
     this.hass = null;
     this.active = false;
     this.live = false;
+    this._liveFailed = false;
+    this._liveRequest = 0;
     this._visible = true;
     this._timer = 0;
     this._capturedAt = 0;
@@ -168,11 +170,15 @@ export class CameraView {
       return;
     }
     if (!this.canStream) return;
-    if (!(await ensureCameraPlayer())) {
+    const request = ++this._liveRequest;
+    this._liveFailed = false;
+    this._render();
+    const ready = await ensureCameraPlayer();
+    if (request !== this._liveRequest || !this.active || this.live || !this.canStream) return;
+    if (!ready) {
       moreInfo(this.host, this.entityId);
       return;
     }
-    if (!this.active || this.live) return;
     const player = /** @type {any} */ (document.createElement("ha-camera-stream"));
     player.className = "camera-player";
     // Older frontends read hass directly; newer ones use context from the page.
@@ -185,6 +191,12 @@ export class CameraView {
     player.setAttribute("muted", "");
     player.setAttribute("controls", "");
     player.setAttribute("allow-exoplayer", "");
+    player.addEventListener("stream-type-changed", (event) => {
+      // HA may fall back to snapshots after live video fails. Undefined means setup is pending.
+      if (this._player !== player || event.detail?.type !== "mjpeg") return;
+      this._stopLive(true);
+      this._schedule();
+    });
     this._player = player;
     this.live = true;
     // update() restarts snapshots only while no timer is set, so clear the ID along with the timer.
@@ -194,11 +206,12 @@ export class CameraView {
     this._render();
   }
 
-  _stopLive() {
+  _stopLive(failed = false) {
+    ++this._liveRequest;
     this._player?.remove();
     this._player = null;
-    if (!this.live) return;
     this.live = false;
+    this._liveFailed = failed;
     this._render();
   }
 
@@ -242,9 +255,11 @@ export class CameraView {
     this.el.classList.toggle("live", this.live);
     this._message.textContent = !this.available
       ? t("camera.unavailable")
-      : hasImage || this.live
-        ? ""
-        : t("camera.loading");
+      : this._liveFailed
+        ? t("camera.live_failed")
+        : hasImage || this.live
+          ? ""
+          : t("camera.loading");
     this.liveButton.hidden = !this.canStream;
     this._liveLabel.textContent = this.live ? t("camera.stop_live") : t("camera.live");
     this._liveIcon.setAttribute("icon", this.live ? "mdi:image-outline" : "mdi:play");

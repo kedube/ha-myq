@@ -5,8 +5,11 @@ discovery switched on in the integration's options (it is on by default). Each
 camera MyQ returns as its own device gets a camera entity. A camera built into a
 garage door opener is listed under that opener.
 
-All of this is implemented from the MyQ app's protocol and tested locally. It
-has not yet been tried with a real MyQ camera.
+The new TC live-video path is implemented from protocol observations and tested
+locally. It has not yet been verified on a physical camera. Katherine confirmed
+live video on both of her openers with another integration's v0.2.8 release in
+[PR #7](https://github.com/bvdcode/home-assistant-myq/pull/7#issuecomment-6607828120);
+that establishes the route's usefulness, not validation of this implementation.
 
 ## Snapshots
 
@@ -43,10 +46,16 @@ live view wakes it.
 
 ## Live video
 
-Live video works on cameras that support MyQ's WebRTC route. Open the camera
-entity, or a camera card with live viewing. Starting a view wakes a sleeping
-camera first. Home Assistant relays the video and audio, which uses some CPU on
-the Home Assistant host.
+Open the camera entity, or a camera card with live viewing. Cameras advertising
+MyQ's WebRTC capability keep using that route. Known TC camera serials with a
+false or missing WebRTC capability use Tend's older video route, after the
+authenticated camera inventory confirms the exact camera alias. Other cameras
+retain snapshots and recordings.
+
+Starting a view wakes a sleeping camera first. Home Assistant relays media to
+the browser over WebRTC, which uses some CPU on the Home Assistant host. TC
+video is video-only: camera audio and talkback are not implemented for that
+route. MyQ WebRTC cameras retain their supported audio features.
 
 - **Several viewers:** up to four people can watch one camera at once. They
   share a single MyQ session, so MyQ sees one viewer. A fifth viewer, or one who
@@ -55,14 +64,20 @@ the Home Assistant host.
   is switched off, goes offline or is removed, the integration unloads, or ten
   minutes have passed since the session started. Reopen the camera to start a
   new one. A failed view does not reconnect by itself.
+- **Failed live view:** the MyQ panel and door card report when Home Assistant
+  falls back to snapshots, then resume snapshot polling. Starting live video
+  again requires another press of **Live**.
 - **Not available:** permanent RTSP or HLS addresses, casting, and recording a
-  live stream with `camera.record`. Older cameras that don't support the WebRTC
-  route have snapshots and recordings only.
+  live stream with `camera.record`.
 
-Home Assistant needs outbound HTTPS, access to MyQ's video service (Tend) on
-port 5104, and WebRTC access to the AWS servers MyQ provides for each session.
-Viewing from outside your network also relies on Home Assistant's normal WebRTC
-setup.
+Home Assistant needs outbound HTTPS and access to MyQ's video service (Tend) on
+TCP port 5104. The MyQ WebRTC route also needs access to the AWS servers supplied
+for each session. The TC route needs UDP access to Tend's relay and the camera
+on your network. Viewing from outside your network also relies on Home
+Assistant's normal WebRTC setup.
+
+Both routes require WebRTC in the viewing browser. The TC addition does not
+provide an HLS fallback or fix the macOS companion app's WebRTC limitation.
 
 ## Camera controls
 
@@ -89,7 +104,9 @@ their brightness. A sleeping camera is woken before a setting is changed.
 
 ## Two-way audio
 
-The **MyQ live view** card adds talkback. It loads automatically; add it to a
+For cameras using MyQ's WebRTC route, the **MyQ live view** card adds talkback.
+TC cameras using the older Tend route do not support talkback here. The card
+loads automatically; add it to a
 dashboard and choose the camera and its two microphone buttons in the card
 editor, or use YAML with your own entity IDs:
 

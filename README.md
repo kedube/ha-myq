@@ -44,7 +44,7 @@ UI, reused with her permission.
 | Lamps | A `light` entity with on/off. An opener's work light is not treated as a lamp. |
 | Locks | A `lock` entity for Wi-Fi, partner and gateway-connected locks. Also: PIN lockout state and a **Clear PIN lockout** button, door contact, calibration, auto-lock settings and firmware. |
 | Thermostats | A `climate` entity with the device's modes, fan modes and setpoint limits. Presets and schedules are readable through an action. |
-| Cameras | Snapshots taken the way the app takes them, and live WebRTC video for cameras that support it. Up to four viewers can share one MyQ session. Pan/tilt/zoom, siren, saved positions and two-way audio. Camera settings such as motion, microphone, night vision, LED and chime. |
+| Cameras | Snapshots and live video through MyQ's WebRTC route or the older TC-camera Tend route, relayed to a WebRTC browser. Up to four viewers share one MyQ session. TC live video has no audio or talkback. Pan/tilt/zoom, siren, saved positions, two-way audio and settings are offered where supported. |
 | Recordings | Recorded clips in **Media → MyQ recordings**, with thumbnails, detection labels and a **Door events** folder. |
 | Device health | Connectivity, battery, charging, Wi-Fi strength, fault codes, door cycles, last state change, backup battery and firmware updates, when MyQ reports them. |
 | Activity and alerts | Optional **Activity** event entities per device, switches for each notification rule, and actions to read history and snooze alerts. |
@@ -56,9 +56,10 @@ Details: [devices and entities](docs/devices.md), [cameras](docs/cameras.md),
 
 **Not supported:** garage door stop or position control, Bluetooth-only lock
 operations, device pairing and setup, firmware installation, and push
-notifications for doors and locks (state is polled). Live video needs a camera
-that supports MyQ's WebRTC route; older cameras have snapshots and recordings
-only.
+notifications for doors and locks (state is polled). Live video needs MyQ's
+WebRTC capability or a supported TC camera. Other cameras retain snapshots and
+recordings. The new TC live-video implementation is tested locally; it has not
+yet been verified on a physical camera.
 
 ## Requirements
 
@@ -67,8 +68,11 @@ only.
 - A registered Firebase debug token for app verification, entered during setup
   or supplied by an existing registration file. Sign-in still depends on MyQ
   accepting the application's verification; see [Set up](#set-up).
-- For live video: outbound access to MyQ's video service (Tend, port 5104) and
-  to AWS WebRTC servers. The `aiortc` dependency is installed automatically.
+- For live video: a WebRTC-capable browser and access to MyQ's video service
+  (Tend, TCP port 5104). The MyQ WebRTC route also needs AWS WebRTC access;
+  TC cameras need UDP access to Tend's relay and the camera on your network.
+  The `aiortc` dependency is installed automatically. The macOS companion app's
+  WebRTC limitation is not addressed by the TC transport addition.
 
 ## Install
 

@@ -76,7 +76,8 @@
     "expand": "Otwórz kamerę",
     "unavailable": "Kamera niedostępna",
     "updated": "Zaktualizowano {time}",
-    "loading": "Wczytywanie obrazu…"
+    "loading": "Wczytywanie obrazu…",
+    "live_failed": "Transmisja na żywo nie powiodła się. Wyświetlane są zdjęcia."
   },
   "card": {
     "name": "Brama garażowa MyQ",

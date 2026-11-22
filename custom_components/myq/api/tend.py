@@ -167,7 +167,9 @@ def _alias(value: Any) -> str:
 
 def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tuple[str, int] | None:
     """Honor only observed hub/datacenter redirects within Tend's DNS domains."""
-    if response.action == 519 and "1" in login:
+    if response.action == 519 and "redirectHost" in login and "alias" not in login:
+        host, port = login["redirectHost"], current_port
+    elif response.action == 519 and "1" in login:
         parts = login["1"].split(":")
         if len(parts) != 2 or not parts[1].isdigit() or not 1 <= int(parts[1]) <= 65535:
             raise ProtocolError("Invalid Tend hub redirect")
@@ -235,6 +237,9 @@ class TendSession:
         self._recipient = 0
         self._device_alias = ""
         self._user_alias = ""
+        self._login_inventory = ""
+        self._video_mode = 12
+        self._video_alias = ""
         self._requested = False
         self._authenticated = False
         self._tasks: list[asyncio.Task] = []
@@ -281,7 +286,7 @@ class TendSession:
             or (self._closed.done() and not cleanup)
         ):
             raise CommandRejected("Open a live view before controlling this camera")
-        parts = [command, self._user_alias, *actions[0], ""]
+        parts = [command, self._video_alias or self._user_alias, *actions[0], ""]
         try:
             async with asyncio.timeout(HANDSHAKE_TIMEOUT):
                 await self._command("|".join(parts))
@@ -399,6 +404,8 @@ class TendSession:
             self._sender, self._recipient = response.sender, response.recipient
             self._authenticated = True
             self._user_alias = _alias(login.get("alias"))
+            if self._video_mode == 9:
+                self._login_inventory = login.get("device-info-list", "")
 
     async def _read_frame(self) -> Frame:
         if self._reader is None:
@@ -468,10 +475,13 @@ class TendSession:
         messages = _messages(response)
         for message in messages:
             parts = message.strip().split("|")
+            if parts[0] == "videomid" and len(parts) >= 5:
+                parts = parts[4:]
             if parts[0] == "kick-out" or (
                 parts[0] == "deny-video-receive"
                 and len(parts) > 1
-                and parts[1] == self._device_alias
+                and parts[1]
+                and parts[1] in {self._device_alias, self._video_alias}
             ):
                 raise AccessDenied("Tend camera connection was denied or ended")
         return messages
@@ -552,7 +562,10 @@ class TendSession:
                                         "CorrelationID": self._correlation,
                                     }
                                 ),
-                                f"stop-video-receive|{self._user_alias}|12|".encode(),
+                                (
+                                    f"stop-video-receive|{self._video_alias or self._user_alias}|"
+                                    f"{self._video_mode}|"
+                                ).encode(),
                             ).encode()
                         )
                     if self._authenticated:
@@ -566,6 +579,7 @@ class TendSession:
                 await self._close_socket()
         if self._closed is not None and not self._closed.done():
             self._closed.set_result(None)
+        self._login_inventory = ""
 
     async def _close_socket(self) -> None:
         writer, self._writer = self._writer, None

@@ -2,10 +2,10 @@
 
 How MyQ cameras work in Android **5.324.0.1132442**: camera identity and
 capabilities, snapshots, settings, sleep and wake, the Tend live handshake,
-Cxnet framing, and KVS WebRTC signalling and media. Without an accepted API
-session, no real image, stream, capability response or setting change has been
-observed; this is static analysis. The [camera guide](../cameras.md) describes
-what the integration offers.
+Cxnet framing, and KVS WebRTC signalling and media. The TC mode-9 section also
+uses protocol observations from the referenced camera implementations. The new
+TC transport has local tests only; its live operation remains unverified. The
+[camera guide](../cameras.md) describes what the integration offers.
 
 ## The camera system has several distinct layers
 
@@ -28,10 +28,14 @@ flowchart LR
     G --> H[Signed KVS URL and temporary ICE credentials]
     H --> I[WebSocket SDP and ICE signaling]
     I --> J[WebRTC camera audio and video]
+    F --> T[TLS Cxnet login and mode-9 handshake for TC cameras]
+    T --> U[Paired UDP channels and H.264 decoding]
+    J --> V[HA relay to WebRTC browser]
+    U --> V
 ```
 
-The diagram shows the established mode-12 route and the separate recorded-event
-path. It does not imply that all camera products or accounts expose either.
+The diagram shows both live routes and the separate recorded-event path.
+It does not imply that all camera products or accounts expose them.
 Video-call, recorded-media and older SDK/native interfaces cannot be substituted
 for the live-view handshake just because their paths contain `video` or `webrtc`.
 
@@ -183,8 +187,11 @@ notifications or full-account FCM. See the
 The app selects mode 12 using `cap.cam.kvsWebRTC` and the remote feature flag
 `enable_mode12_live_streaming` (`f81/g.java:a,b`, `ag1/a.java:h`). The integration
 uses the explicit camera capability and alias; it does not import the app's
-remote rollout flags. A supported static route does not prove that the user's
-device actually receives that flag or capability.
+remote rollout flags. A true `cap.cam.kvsWebRTC` always selects mode 12. A known
+TC camera serial with that capability false or absent selects the mode-9 route
+described below; a missing KVS capability alone does not establish that a camera
+cannot stream. Malformed capability values and other unknown camera routes do
+not enable live viewing.
 
 ```mermaid
 sequenceDiagram
@@ -246,6 +253,37 @@ matches the camera alias and mode rather than accepting an unrelated push.
 The response's server-options JSON contains `kvs`. Denial, kick-out, signaling
 loss, malformed frames or timeout end the attempted view.
 
+## Legacy TC live video
+
+The TC route uses the existing authenticated TLS/Cxnet session with video mode
+**9**. It requires exactly one matching camera destination in the authenticated
+`device-info-list`; it does not select another camera when that alias is absent
+or ambiguous. The registration supplies the camera address and optional AES
+material, while the matching acceptance supplies the RTP relay endpoint.
+
+Paired UDP media/control channels perform Tend's rendezvous and receive camera
+media. The receiver assembles the proprietary fragments, validates the RTP and
+`w1` media envelope, decrypts AES-CBC/PKCS#7 payloads when indicated, and extracts
+H.264 records. Decoded frames enter the existing native HA WebRTC relay and
+shared live-snapshot path. This implementation adds no loopback HTTP or live
+HLS source. Legacy audio and talkback are not implemented.
+
+The fragment wrapper has an observed little-endian 32-bit group identifier at
+bytes 0–3. The meaning of bytes 4–7 remains unresolved: the older PR's synthetic
+fixtures and upstream talkback sender do not establish a consistent index/count
+contract for received video. The receiver bounds arrival-order assembly and
+suppresses duplicate datagrams. It does not guess those fields or claim to
+repair out-of-order fragments; packet loss or reordering can still discard a
+frame.
+
+Katherine reported working live video on both openers with the other
+integration's v0.2.8 release in
+[PR #7](https://github.com/bvdcode/home-assistant-myq/pull/7#issuecomment-6607828120).
+That is evidence for the TC route, not for this new code's physical operation.
+The implementation was written afresh using protocol observations; reference
+implementation code was not copied. Local regression tests cover the new
+negotiation, media and relay behavior; live validation remains outstanding.
+
 ## Cxnet framing
 
 `fg1/h.java` (`CxnetParser`) and `fg1/f.java` define a **27-byte fixed header**
@@ -277,7 +315,7 @@ Action 438 conveys direct command content with server options. Action 501
 contains batched records with a one-byte kind and four-byte little-endian length
 before each record's payload. The implementation extracts understood command
 records and keeps binary/legacy media payload actions out of its string parser.
-This framing support is for signaling; it is not a decoder for legacy video.
+Legacy UDP media is decoded separately from this signaling parser.
 
 ## KVS credentials, WebSocket messages and media
 
@@ -338,12 +376,12 @@ runtime systems. The integration's design should not be attributed to the app:
 
 | Integration decision | Reason / practical result |
 | --- | --- |
-| Two `aiortc` peers per view | Camera-facing peer uses the freshly returned ICE credentials; tracks feed a separate browser-facing peer. Browser-facing ICE comes from HA. |
-| Receive media by default; explicitly enabled talkback | Ordinary viewing receives camera audio/video. The optional microphone card offers an audio uplink, muted until fresh authorization and explicit activation; a 30-second local timeout mutes it. No browser camera video is forwarded. |
+| Separate camera input and browser-facing `aiortc` peers | KVS uses a camera-facing peer with returned ICE credentials; TC uses a decoded UDP video track. Both feed the existing browser-facing relay. Browser-facing ICE comes from HA. |
+| Receive media by default; explicitly enabled KVS talkback | KVS viewing receives supported camera audio/video. The optional microphone card offers an audio uplink, muted until fresh authorization and explicit activation; a 30-second local timeout mutes it. TC is video-only. No browser camera video is forwarded. |
 | One native session per camera, up to four relayed viewers | Later viewers join the open session through an aiortc MediaRelay; a viewer arriving during startup or cleanup is refused as busy. Not a measured MyQ account limit. |
 | 45-second overall startup bound | Bounds native/KVS/media setup failures; distinct from native five-second accept wait. |
 | Ten-minute view limit | Local policy, not an observed service limit. Reopen to start a new view. |
-| Explicit lifecycle ownership | Viewer closure, cancellation, errors, privacy/offline/removal/capability changes and unload close signaling and both media peers. |
+| Explicit lifecycle ownership | Viewer closure, cancellation, errors, privacy/offline/removal/capability changes and unload close signaling, UDP/decoder resources when used, and media peers. |
 | No automatic reconnection | An uncertain start or lost connection is surfaced rather than replayed. |
 | Tokens, signed URLs and TURN credentials excluded from diagnostics | Connection material remains internal; exception text is sanitized. |
 
@@ -353,8 +391,14 @@ provide live recording/cast or `camera.record`. Existing cloud recordings use
 the separate authenticated HLS media browser described below. The implementation
 itself saves no video or image files.
 
+Both live routes require browser WebRTC support. The TC transport addition does
+not address the macOS companion app's WebRTC limitation. If HA falls back to
+MJPEG snapshots, the MyQ panel and door card exit live mode, display the failure,
+and resume snapshot polling without automatically retrying live video.
+
 The code is split into `api/video.py` (REST/snapshots/wake), `api/tend.py`
-(Cxnet), `api/kvs.py` (credential validation and WebSocket signaling),
+(Cxnet), `api/tend_legacy.py` (TC negotiation), `api/tend_rtp.py` (UDP media),
+`api/kvs.py` (credential validation and WebSocket signaling),
 `api/live.py` (media bridge), `api/status.py` (idle status lifecycle),
 `camera.py` (HA lifecycle),
 `api/camera_settings.py` / `camera_entities.py` (additional settings),
@@ -364,8 +408,8 @@ The code is split into `api/video.py` (REST/snapshots/wake), `api/tend.py`
 ## Implemented session controls and recorded media
 
 The integration adds capability- and permission-gated manual pan/tilt/zoom, stop,
-siren activation, and muted-by-default microphone uplink to an already open
-KVS/Tend session. The supplied `custom:myq-live-card` provides an optional
+siren activation, and, for KVS sessions, muted-by-default microphone uplink.
+The supplied `custom:myq-live-card` provides an optional
 microphone viewer using HA's native WebRTC API. Explicit controls re-read
 permissions and camera state; local watchdogs and cleanup send best-effort
 stops without replaying uncertain activation commands. These timers are client
@@ -389,7 +433,7 @@ require account validation.
 
 | Surface | What the app artifact establishes | Integration status and remaining limits |
 | --- | --- | --- |
-| Legacy live media | `VideoConnectionManager` and `SscpRtpConnection` expose SDK/native signaling/media paths alongside mode 12 | Full native/RTP protocol, supported models and transport behavior unresolved; no live transport without established KVS support. Snapshot and authorized recording access are separate. |
+| Legacy live media | `VideoConnectionManager` and `SscpRtpConnection` expose SDK/native signaling/media paths alongside mode 12; the referenced TC route has a physical-user success report | TC mode-9 negotiation and UDP H.264 reception feed the HA WebRTC relay. Local tests only for this implementation; fragment ordering, other models, audio and talkback remain unsupported or unresolved. |
 | Manual PTZ and siren | `g81/a.java` builds `set-ptz` and `trigger-siren-action`; `g81/f.java` dispatches through authenticated Tend IM | Implemented finite steps, zoom, stop, siren buttons and local watchdog/cleanup; physical acknowledgements and firmware variants remain unverified |
 | PTZ presets/patrol | `f41/a.java:f,h,j,i` declares typed settings updates and preset thumbnails | Eligible PTZ patrol schedules are supported by the workflow module. Preset editing, immediate patrol actuation and complete travel/state semantics remain incomplete. |
 | Recorded events | `h61/i.java` declares `GET cxs/api/events`; `RestApi.java` declares event and media routes | Account/camera-scoped HA browsing, pagination and finalized-state verification implemented; real entitlement, ordering and retention remain unverified |
@@ -398,7 +442,7 @@ require account validation.
 | Video-call metadata | `WebRtcAppRemoteApi.java` declares `GET webrtc-app/api/v1/videoCalls/{callId}/metadata` | Separate call handling; not the established garage live-view credential source |
 | Call notifications | `NotificationAppRemoteApi.java` declares register/unregister routes | Separate notification lifecycle; not proof of a general HA push subscription |
 | Camera status and credentials push | SDK device updates and `KvsCredsPush` are present | Read-only idle Tend monitor and active live sessions trigger REST refresh from understood camera-alias messages; polling remains fallback. Full-account FCM and KVS credential-push reconnect remain unimplemented. |
-| Talkback | Mode-12 player adds a muted local audio track and explicitly enables it | Implemented KVS audio uplink, fresh authorization, mute/watchdog/cleanup and optional HA viewer card; physical audio/echo behavior and legacy RTP talkback remain unverified |
+| Talkback | Mode-12 player adds a muted local audio track and explicitly enables it | Implemented KVS audio uplink, fresh authorization, mute/watchdog/cleanup and optional HA viewer card; physical audio/echo behavior remains unverified. Legacy RTP talkback is not implemented. |
 | Detection zones, AI policies and voice deterrence | Capability/setting DTOs; voice list declaration at `/cam/voiceDeter/voices` | Eligible voice-deterrence schedules are supported; geometry, AI policy, voice selection and other coupled-setting writes remain incomplete. |
 | Firmware and local/DVR recording | Status and capability sections name these facilities | No complete safe firmware or DVR administration procedure established |
 

@@ -68,7 +68,8 @@
     "expand": "Camera openen",
     "unavailable": "Camera niet beschikbaar",
     "updated": "Bijgewerkt {time}",
-    "loading": "Afbeelding wordt geladen…"
+    "loading": "Afbeelding wordt geladen…",
+    "live_failed": "Livevideo mislukt. Momentopnamen worden weergegeven."
   },
   "card": {
     "name": "MyQ-garagedeur",

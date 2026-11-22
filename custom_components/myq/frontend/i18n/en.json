@@ -68,7 +68,8 @@
     "expand": "Open camera",
     "unavailable": "Camera unavailable",
     "updated": "Updated {time}",
-    "loading": "Loading image…"
+    "loading": "Loading image…",
+    "live_failed": "Live video failed. Showing snapshots."
   },
   "card": {
     "name": "MyQ garage door",
