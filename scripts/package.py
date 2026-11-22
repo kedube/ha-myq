@@ -6,9 +6,8 @@ import json
 import zipfile
 from pathlib import Path
 
-# Loaded only by the desktop scripts, which read api/ from the source tree; HA never
-# imports them, and curl_http needs packages HA does not install.
-DESKTOP_ONLY = frozenset({"api/browser.py", "api/curl_http.py", "api/har.py"})
+# Loaded only by the desktop scripts, which read api/ from the source tree.
+DESKTOP_ONLY = frozenset({"api/browser.py", "api/har.py"})
 SUFFIXES = frozenset({".py", ".json", ".yaml", ".js", ".png"})
 HA_ZIP = "myq.zip"  # hacs.json "filename"
 

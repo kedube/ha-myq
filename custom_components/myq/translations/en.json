@@ -40,10 +40,10 @@
       "rate_limited": "MyQ has limited requests. Wait before trying again.",
       "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
       "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
-      "app_check_unavailable": "A current MyQ app verification token is required. The browser cannot generate it.",
-      "app_check_expired": "The app verification token is expired or has less than five minutes remaining. Supply a fresh token.",
-      "app_check_invalid": "The app verification token is malformed or has no usable expiry.",
-      "app_check_integrity": "The native token source could not obtain application integrity proof."
+      "app_check_unavailable": "App verification is not configured or is unavailable. Check the sign-in guide.",
+      "app_check_expired": "The app verification provider returned an expiring token. Try again.",
+      "app_check_invalid": "The app verification configuration or returned token is invalid.",
+      "app_check_integrity": "The app verification provider rejected the configured registration."
     },
     "abort": {
       "already_configured": "This MyQ account is already configured.",
@@ -58,7 +58,16 @@
         "title": "MyQ options",
         "data": {
           "poll_interval": "Poll interval (seconds)",
-          "enable_cameras": "Enable camera discovery and images"
+          "enable_cameras": "Enable camera discovery and images",
+          "panel_enabled": "Show the garage panel in the sidebar",
+          "panel_title": "Sidebar title",
+          "panel_icon": "Sidebar icon",
+          "panel_require_admin": "Only administrators can open the panel"
+        },
+        "data_description": {
+          "panel_enabled": "Garage doors and cameras on this account are added to the panel automatically.",
+          "panel_title": "With several MyQ accounts, the first account that shows the panel sets its title and icon.",
+          "panel_require_admin": "Door appearance can only be changed by administrators."
         }
       }
     }

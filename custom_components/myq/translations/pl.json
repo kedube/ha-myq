@@ -40,10 +40,10 @@
       "rate_limited": "Usługa MyQ ograniczyła liczbę żądań. Odczekaj przed ponowną próbą.",
       "protocol_error": "Usługa MyQ zwróciła nieoczekiwaną odpowiedź. Sprawdź notatki integracji dotyczące protokołu. Nie dodano żadnego konta.",
       "browser_verification": "MyQ wymaga weryfikacji w przeglądarce, której ta integracja nie może ukończyć.",
-      "app_check_unavailable": "Wymagany jest aktualny token weryfikacji aplikacji MyQ. Przeglądarka nie może go wygenerować.",
-      "app_check_expired": "Token weryfikacji aplikacji wygasł lub pozostało mu mniej niż pięć minut ważności. Podaj nowy token.",
-      "app_check_invalid": "Token weryfikacji aplikacji ma nieprawidłowy format lub nie zawiera użytecznego czasu wygaśnięcia.",
-      "app_check_integrity": "Natywne źródło tokenu nie mogło uzyskać dowodu integralności aplikacji."
+      "app_check_unavailable": "Weryfikacja aplikacji nie jest skonfigurowana lub jest niedostępna. Sprawdź instrukcję logowania.",
+      "app_check_expired": "Usługa weryfikacji zwróciła token, który wkrótce wygaśnie. Spróbuj ponownie.",
+      "app_check_invalid": "Konfiguracja weryfikacji lub otrzymany token jest nieprawidłowy.",
+      "app_check_integrity": "Usługa weryfikacji odrzuciła skonfigurowaną rejestrację."
     },
     "abort": {
       "already_configured": "To konto MyQ jest już skonfigurowane.",
@@ -58,7 +58,16 @@
         "title": "Opcje MyQ",
         "data": {
           "poll_interval": "Interwał odpytywania (sekundy)",
-          "enable_cameras": "Włącz wykrywanie kamer i ich obrazy"
+          "enable_cameras": "Włącz wykrywanie kamer i ich obrazy",
+          "panel_enabled": "Pokaż panel garażu w pasku bocznym",
+          "panel_title": "Tytuł w pasku bocznym",
+          "panel_icon": "Ikona w pasku bocznym",
+          "panel_require_admin": "Panel mogą otwierać tylko administratorzy"
+        },
+        "data_description": {
+          "panel_enabled": "Bramy garażowe i kamery z tego konta są dodawane do panelu automatycznie.",
+          "panel_title": "Przy kilku kontach MyQ tytuł i ikonę ustala pierwsze konto, które pokazuje panel.",
+          "panel_require_admin": "Wygląd bram mogą zmieniać tylko administratorzy."
         }
       }
     }

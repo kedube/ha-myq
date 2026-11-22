@@ -17,13 +17,42 @@ REDIRECT_URI = "com.myqops://android"
 # Keep equal to manifest.json and pyproject.toml; tests/test_metadata.py enforces it.
 VERSION = "0.03"
 USER_AGENT = f"ha-myq/{VERSION}"
-# y92/b.s -> ft0/i0: model + "/Android " + release. This selected compatibility
-# profile uses the documented emulator identity, not an attested device claim.
-NATIVE_USER_AGENT = "Pixel 9 Pro XL/Android 17"
+ANDROID_PACKAGE = "com.chamberlain.android.liftmaster.myq"
+APP_VERSION = "5.324.0.1132442"
+BRAND_ID = "1"
+# Actual Build values, not the AVD's display name. See the runtime evidence in
+# docs/research/android-request-profile.md. These labels are not attestation.
+ANDROID_MODEL = "sdk_gphone64_arm64"
+ANDROID_RELEASE = "17"
+ANDROID_BUILD = "CE2A.260420.051.A2"
+NATIVE_USER_AGENT = f"{ANDROID_MODEL}/Android {ANDROID_RELEASE}"
+FIREBASE_USER_AGENT = (
+    f"Dalvik/2.1.0 (Linux; U; Android {ANDROID_RELEASE}; {ANDROID_MODEL} Build/{ANDROID_BUILD})"
+)
+# The working unified flow identifies hosted navigation as mobile Chrome.
+# Android 10/K is its reduced browser UA, independent of the native device UA.
+HOSTED_BROWSER_VERSION = "153"
+HOSTED_USER_AGENT = (
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 "
+    f"(KHTML, like Gecko) Chrome/{HOSTED_BROWSER_VERSION}.0.0.0 Mobile Safari/537.36"
+)
+HOSTED_HEADERS = {
+    "User-Agent": HOSTED_USER_AGENT,
+    "Sec-CH-UA": f'"Chromium";v="{HOSTED_BROWSER_VERSION}", '
+    f'"Google Chrome";v="{HOSTED_BROWSER_VERSION}", "Not_A Brand";v="99"',
+    "Sec-CH-UA-Mobile": "?1",
+    "Sec-CH-UA-Platform": '"Android"',
+}
+HOSTED_NAVIGATION_HEADERS = {
+    **HOSTED_HEADERS,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,*/*;q=0.8",
+    "Upgrade-Insecure-Requests": "1",
+}
 NATIVE_HEADERS = {
     "User-Agent": NATIVE_USER_AGENT,
-    "BrandId": "1",
-    "App-Version": "5.324.0.1132442",
+    "BrandId": BRAND_ID,
+    "App-Version": APP_VERSION,
     # OkHttp BridgeInterceptor defaults; HTTP/2 transports omit Connection.
     "Accept-Encoding": "gzip",
     "Connection": "Keep-Alive",

@@ -1,5 +1,6 @@
 """Transport failures remain useful without revealing authentication URLs."""
 
+import json
 import ssl
 import traceback
 from types import SimpleNamespace
@@ -131,12 +132,16 @@ async def test_accepted_door_command_with_lost_response_is_not_resent(
             monkeypatch.setattr("custom_components.myq.api.client.NATIVE_API_BASES", {base})
         middleware_chain = (session_middleware,)
         async with aiohttp.ClientSession(middlewares=middleware_chain) as session:
-            with pytest.raises(CommandUncertain, match="outcome is unknown"):
-                await Client(session, tokens).command(door, "open")
+            client = Client(session, tokens)
+            try:
+                with pytest.raises(CommandUncertain, match="outcome is unknown"):
+                    await client.command(door, "open")
+            finally:
+                await client.close()
             assert len(received) == 1
             assert received[0][0] == "PUT"
-            assert b'"action": "open"' in received[0][1]
-            assert received[0][2] == "retained"
+            assert json.loads(received[0][1])["action"] == "open"
+            assert received[0][2] == (None if native else "retained")
             assert session._middlewares is middleware_chain
             assert session._retry_connection is True
             assert not session.closed

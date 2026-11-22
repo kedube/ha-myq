@@ -63,8 +63,9 @@ uses `signUp=false`, `unifiedFlow=true`, `isMFA=false`. Bare `unified_flow` belo
 to the separate authenticated MFA-settings flow (`ip0/j.q`); it is not the same
 as the normal sign-in parameter. A hidden-WebView credential-injection path
 (`ip0/j.x`, `j0`, `i0(false,false)`) instead produces `acr_values=  brand:myq`.
-The repository retains a provisional raw-form transport using that legacy path,
-but interactive browser handling is the practical transport for hosted pages.
+The repository's email/password client now selects the unified path by default,
+following the user-provided working reference. The legacy flag is retained for
+explicit research calls. Both paths use this integration's state/PKCE checks.
 
 The inspected Android URL builder does not add OAuth `state`. The integration
 adds it as its own transaction-binding protection. It validates the exact
@@ -94,8 +95,9 @@ identity origin:
 | Website landing | GET `/Home/Secure` | HTTP 200; a website session, not an API-token response |
 
 The SSO JavaScript performs its lookup on email focus-out. The repository's
-diagnostic form transport checks once when that identity-origin script is
-present, and asks for browser SSO if the result is true. The captured false
+legacy diagnostic form transport checks once when that identity-origin script is
+present, and reports SSO as unsupported if the result is true. The unified flow
+submits the credentials directly, without emulating this focus-out event. The captured false
 result establishes only that particular lookup, not global SSO availability.
 
 The observed MFA form uses `Otp` plus the current hidden fields
@@ -110,6 +112,23 @@ transport accepts only HTTPS identity-origin forms/redirects, preserves current
 hidden fields and cookies, and refuses POST replay through 307/308 redirects.
 It does not invent a new password endpoint or hard-code captured anti-forgery
 values. Passwords, OTPs and captured cookies are not reused from HAR files.
+
+A read-only review of the user-reported working checkout established additional
+unified-flow behavior. The current parser selects unambiguous email/password
+and OTP controls from their metadata. On `/AccountMfa/VerifyOtp`, a single code
+input can also be identified from that endpoint's context. Readonly and disabled
+controls are not chosen for credentials or OTPs; checked fields and repeated
+values are preserved in submissions. If that page reports SMS selected and
+email is not explicitly disabled, setup requests `selectedMfaMethod=Email` once.
+
+After MFA, the known `/Consent` form is submitted with its current controls and
+`button=yes`. When it returns a page instead of redirecting, the client resumes
+the form action's `returnUrl` only if it is the identity service's exact
+`/connect/authorize/callback` route. Consent is not automatically replayed after
+an uncertain result. Validation-summary and field-validation errors are detected
+without displaying their potentially sensitive text. These behaviors were
+implemented in the existing state machine and tested with new synthetic pages;
+reference code and fixtures were not copied.
 
 ### Browser challenge versus API rejection
 
@@ -154,26 +173,25 @@ lifetime has been observed here.
 | --- | --- | --- |
 | `BrandId` | `1`; `yk/a0` through `sa2/b` | Included on token and supported MyQ account/device requests |
 | `App-Version` | `5.324.0.1132442`; `yk/b0` through `ta2/f` | Tied to the analyzed protocol build |
-| `User-Agent` | Android model plus `/Android ` and OS version | Selected compatibility profile: `Pixel 9 Pro XL/Android 17`; these model/OS values come from the previously documented emulator, not an accepted native exchange |
+| `User-Agent` | Android model plus `/Android ` and OS version | Measured runtime identity: `sdk_gphone64_arm64/Android 17`; the AVD display name is not Build.MODEL |
 | `Accept-Encoding` | `gzip`; OkHttp `BridgeInterceptor` | Native requests use gzip only |
 | `Connection` | `Keep-Alive` on HTTP/1; omitted by OkHttp's HTTP/2 codec | Included for the integration's native HTTP/1 requests |
 | `Authorization` | Bearer access token on authenticated service requests | Added for authenticated calls, not a substitute for code-exchange proof |
 
 Native requests suppress automatic `Accept`, browser fetch/client-hint headers
 and browser cookies. The inspected app's native OkHttp client uses `NoCookies`;
-its browser authorization session is separate. The curl probe likewise uses a
-separate native session without browser impersonation or browser-cookie reuse.
-Browser navigation retains its existing identity, and the native metadata is
-not added to Tend camera requests.
+its browser authorization session is separate. HA uses a separate native curl session with the measured Android TLS/HTTP2
+profile. Browser navigation uses the working reference's mobile Chrome identity, and native metadata
+is not added to Tend camera requests.
 
 Code exchange, refresh and revocation use the inspected OkHttp form escaping:
 spaces become `+`, literal `+` becomes `%2B`, `~` becomes `%7E`, and `*` stays
 literal. The form examples above show decoded fields, not encoded wire bytes.
 
-These changes match verified request details, not the complete Android network
-stack. TLS ClientHello, HTTP/2 behavior and backend acceptance remain
-unverified. No new App Check producer is implemented, and changing headers does
-not establish that `401.122` is resolved. The
+The native TLS ClientHello and principal HTTP/2 settings have been compared
+with a local replay using the APK's OkHttp on Android. Complete network
+identity and MyQ acceptance remain unverified. Firebase debug-token acquisition
+is implemented and separately verified. The
 [Android request profile evidence](../research/android-request-profile.md)
 records the source locations, profile choice and remaining differences.
 
@@ -322,11 +340,13 @@ The following behavior belongs to this repository, with synthetic/local tests:
   MFA when requested. Browser handoff, refresh-token import and manual proof
   fields are no longer offered. The form keeps OAuth state and the PKCE verifier
   in memory; transactions expire after ten minutes and are lost on restart or
-  cancellation. It does not yet acquire App Check proof automatically.
+  cancellation. `FirebaseDebugAppCheckProvider` obtains proof automatically using
+  the private registered credential in HA's `myq_app_check.json` file.
 - The research API retains `SuppliedAppCheckProvider` for externally supplied
   proof. `FileAppCheckProvider`
   reloads externally maintained proof; `CachedAppCheckProvider` wraps an external
-  async loader. None mints or renews native attestation itself.
+  async loader. The Firebase provider exchanges a registered debug token; it does
+  not mint Play Integrity proof or create Firebase registrations.
 - Providers require more than five minutes of remaining validity, using locally
   decoded JWT expiry only as a freshness hint. They do not verify the signature
   or establish authenticity. Acquisition has a timeout and concurrency guard.

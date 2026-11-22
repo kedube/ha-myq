@@ -1,5 +1,6 @@
 """Loopback evidence for native request formatting and browser-session isolation."""
 
+import asyncio
 from contextlib import AsyncExitStack
 from urllib.parse import parse_qs
 
@@ -9,11 +10,12 @@ from aiohttp import web
 
 from custom_components.myq.api.client import Client
 from custom_components.myq.api.const import NATIVE_HEADERS, NATIVE_USER_AGENT, PROFILES
+from custom_components.myq.api.errors import CannotConnect
 from custom_components.myq.api.http import Http
 from custom_components.myq.api.native import encode_form
 
 
-@pytest.mark.parametrize("transport_kind", ["aiohttp", "curl"])
+@pytest.mark.parametrize("transport_kind", ["aiohttp", "curl", "ha_android"])
 async def test_native_auth_wire_profile_and_browser_isolation(
     transport_kind, monkeypatch, socket_enabled
 ):
@@ -70,18 +72,24 @@ async def test_native_auth_wire_profile_and_browser_isolation(
             "Sec-CH-UA": '"SyntheticBrowser";v="1"',
             "Upgrade-Insecure-Requests": "1",
             "Origin": base,
+            "X-Requested-With": "synthetic.browser.package",
             "Referer": base + "/browser",
         }
         async with AsyncExitStack() as stack:
             session = None
-            if transport_kind == "aiohttp":
+            if transport_kind in {"aiohttp", "ha_android"}:
                 session = await stack.enter_async_context(
                     aiohttp.ClientSession(
                         headers=browser_headers,
                         cookie_jar=aiohttp.CookieJar(unsafe=True),
                     )
                 )
-                transport = Http(session)
+                if transport_kind == "ha_android":
+                    client_transport = Client(session)
+                    stack.push_async_callback(client_transport.close)
+                    transport = client_transport.http
+                else:
+                    transport = Http(session)
             else:
                 transport = await stack.enter_async_context(CurlHttp())
 
@@ -133,7 +141,7 @@ async def test_native_auth_wire_profile_and_browser_isolation(
         for _, headers, _, cookies in received[1:-1]:
             for name, value in NATIVE_HEADERS.items():
                 assert headers[name] == value
-            assert headers["User-Agent"] == NATIVE_USER_AGENT == "Pixel 9 Pro XL/Android 17"
+            assert headers["User-Agent"] == NATIVE_USER_AGENT == "sdk_gphone64_arm64/Android 17"
             assert "Accept" not in headers
             assert "Cookie" not in headers
             assert not cookies
@@ -180,3 +188,16 @@ async def test_native_auth_wire_profile_and_browser_isolation(
 
 def test_okhttp_form_escapes_keys_and_percent_encoded_looking_values():
     assert encode_form({"a~* +é": "%2F /~*"}) == b"a%7E*+%2B%C3%A9=%252F+%2F%7E*"
+
+
+async def test_concurrent_unload_and_shutdown_close_pools_once():
+    """HA can dispose an entry and shut down its coordinator concurrently."""
+    async with aiohttp.ClientSession() as session:
+        client = Client(session)
+        # The test fixture blocks C-level networking before any handle is sent.
+        with pytest.raises(CannotConnect):
+            await client.http.request("GET", PROFILES, headers=NATIVE_HEADERS)
+        await asyncio.gather(client.close(), client.close())
+        assert not session.closed
+        with pytest.raises(CannotConnect, match="transport is closed"):
+            await client.http.request("GET", PROFILES, headers=NATIVE_HEADERS)

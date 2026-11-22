@@ -8,10 +8,21 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from custom_components.myq.api.errors import CannotConnect
 from custom_components.myq.api.history import HistoryPage
 from custom_components.myq.api.http import Response
 from custom_components.myq.api.models import Device
 from custom_components.myq.api.tokens import Tokens
+
+
+@pytest.fixture(autouse=True)
+def block_curl_cloud_access(request, monkeypatch):
+    """pytest-socket cannot intercept C-level sockets; opt in only for local peers."""
+    if "socket_enabled" not in request.fixturenames:
+        monkeypatch.setattr(
+            "curl_cffi.requests.AsyncSession.request",
+            AsyncMock(side_effect=CannotConnect("Network disabled in synthetic test")),
+        )
 
 
 @pytest.fixture(autouse=True)

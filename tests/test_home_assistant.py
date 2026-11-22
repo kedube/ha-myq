@@ -410,9 +410,10 @@ async def test_config_flow_saves_only_tokens_and_verified_identity(hass, tokens)
 async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
     from urllib.parse import parse_qs, urlsplit
 
+    from custom_components.myq.api.app_check import AppCheckProof
     from custom_components.myq.api.http import Response
 
-    from .conftest import json_response
+    from .conftest import app_check_jwt, json_response
     from .test_auth import MFA_PAGE, PASSWORD_PAGE
 
     state = None
@@ -438,7 +439,11 @@ async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
         )
 
     with (
-        patch("custom_components.myq.api.http.Http.request", request),
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch(
+            "custom_components.myq.api.firebase.FirebaseDebugAppCheckProvider.acquire",
+            AsyncMock(return_value=AppCheckProof.from_token(app_check_jwt())),
+        ),
         patch(
             "custom_components.myq.api.client.Client.profile",
             AsyncMock(return_value={"user_id": "verified-user"}),
@@ -619,7 +624,7 @@ async def test_refused_renewal_keeps_polling_without_reauth(hass, entry, door):
     coordinator = await setup(hass, entry, door)
     coordinator.client.auth.tokens = Tokens("expired", "kept-refresh", 0)
     with patch(
-        "custom_components.myq.api.http.Http.request",
+        "custom_components.myq.api.android_http.AndroidHttp.request",
         AsyncMock(return_value=json_response({"error": "invalid_request"}, 400)),
     ):
         await coordinator.async_refresh()
@@ -642,7 +647,7 @@ async def test_lingering_401_after_renewal_does_not_start_reauth(hass, entry, do
     async def request(method, url, **kwargs):
         return answers.pop(0) if answers else Response(401, {}, b"")
 
-    with patch("custom_components.myq.api.http.Http.request", side_effect=request):
+    with patch("custom_components.myq.api.android_http.AndroidHttp.request", side_effect=request):
         coordinator._last_full = 0  # Force a full poll through Client.request.
         await coordinator.async_refresh()
     assert not coordinator.last_update_success
@@ -660,7 +665,7 @@ async def test_removing_the_entry_revokes_its_session(hass, entry, door, tokens)
 
     await setup(hass, entry, door)
     with patch(
-        "custom_components.myq.api.http.Http.request",
+        "custom_components.myq.api.android_http.AndroidHttp.request",
         AsyncMock(return_value=Response(200, {}, b"")),
     ) as request:
         assert await hass.config_entries.async_remove(entry.entry_id)
@@ -674,7 +679,7 @@ async def test_removing_the_entry_revokes_its_session(hass, entry, door, tokens)
 async def test_removal_does_not_depend_on_reaching_myq(hass, entry, door):
     await setup(hass, entry, door)
     with patch(
-        "custom_components.myq.api.http.Http.request",
+        "custom_components.myq.api.android_http.AndroidHttp.request",
         AsyncMock(side_effect=CannotConnect("offline")),
     ):
         assert await hass.config_entries.async_remove(entry.entry_id)

@@ -7,13 +7,24 @@ method in Home Assistant, including when reconnecting an existing account.
 2. Enter your MyQ account email and password.
 3. Complete the verification prompt if MyQ asks for a method or code.
 
+Setup prefers email when the verification page offers that method. It handles
+the known application-consent step automatically and continues to the token
+exchange; a consent acknowledgement page alone is not a completed sign-in.
+
 Your password and verification code are used for this sign-in only and are not
 saved. There is no sign-in menu, browser-helper handoff, refresh-token import,
 or manual app-verification token field.
 
-End-to-end sign-in remains unverified. MyQ may require a browser challenge or
-app-verification proof that the integration cannot currently provide. Simplifying
-the form does not remove those server requirements; see [what is known](#what-is-known).
+Before signing in, install the private App Check registration file as
+`myq_app_check.json` in Home Assistant's configuration directory (usually
+`/config/myq_app_check.json`). The integration exchanges that registered
+credential with Firebase automatically; there is no token-paste step. Keep the
+file private and readable by Home Assistant. It is not included in release ZIPs.
+See [registration configuration](#registration-configuration).
+
+Firebase proof acquisition has been verified with the supplied registration.
+End-to-end MyQ sign-in remains unverified; a hosted browser challenge or MyQ's
+rejection of that proof can still stop it.
 
 ## Finishing setup
 
@@ -66,19 +77,37 @@ MyQ's sign-in has two halves:
    authorization code. This has worked in an ordinary browser.
 2. **Token exchange.** The app exchanges that code for API tokens. The Android
    app adds a Firebase App Check token, obtained from Google Play Integrity on a
-   genuine device, to this request. Home Assistant cannot create one, and the
-   MyQ web pages inspected do not request one.
+   genuine device, to this request. This integration obtains a Firebase token
+   through a registered debug provider instead. It sends the proof in
+   `Firebase-AppCheck-Token` on the code exchange only.
 
-The only real exchange tried so far used an early version of this code without
-an App Check token, and MyQ refused it with HTTP 401. Its exact reason was not
-recorded. The missing App Check token is one possible cause, but that was never
-confirmed. The sign-in code has changed a lot since, and the current version
-has not been tried.
+Firebase accepted the supplied registration and issued a fresh App Check token.
+The registration's app/project differs from the APK's production registration;
+MyQ acceptance still needs a complete sign-in test. Earlier MyQ code exchanges
+without usable proof failed, including the reported `401.122` rejection.
 
-The form retains the Android OAuth parameters, PKCE and native exchange
-[request profile](research/android-request-profile.md). It does not yet acquire
-genuine App Check proof. Automatic renewal of an established session remains
-implemented; refresh-token import is no longer part of setup.
+The form uses unified Android OAuth parameters and PKCE. Its mobile Chrome headers
+and native TLS/HTTP2 implementation are described in the
+[request profile](research/android-request-profile.md). Browser challenge
+execution and complete network equivalence remain unverified. The working
+reference also uses Python/aiohttp for hosted pages, so that TLS difference
+alone is not established as a login blocker.
+
+## Registration configuration
+
+The private JSON file contains `project`, `application` (Firebase Android app ID),
+`api_key`, `debug_token`, `package`, and `certificate` (40 hexadecimal SHA1
+characters). These must describe a registered debug provider, not an arbitrary
+UUID or the public APK configuration alone. The package is
+`com.chamberlain.android.liftmaster.myq`. There is no registration-creation API
+call in the integration.
+
+A registered debug token is a credential; it is not embedded or XOR-obfuscated
+in source. Keep the file out of public repositories and shared release bundles.
+The integration reloads it when acquiring a fresh proof, and stores only the
+resulting OAuth session in the Home Assistant entry. A missing or invalid
+registration fails before the one-time MyQ code is sent. Firebase rejection
+and MyQ rejection are reported separately.
 
 The [authentication reference](api/authentication.md) describes the protocol,
 and the [research notes](research/sign-in-investigation.md) record what has been

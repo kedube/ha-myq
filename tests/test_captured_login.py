@@ -93,14 +93,14 @@ async def test_captured_website_sequence_and_email_mfa_are_not_api_authenticatio
         "__RequestVerificationToken": "synthetic-mfa-csrf",
     }
     assert calls[8].kwargs["headers"]["Origin"] == IDENTITY
-    assert calls[8].kwargs["headers"]["Sec-Fetch-Site"] == "same-origin"
+    assert "Sec-Fetch-Site" not in calls[8].kwargs["headers"]
     assert calls[9].kwargs["headers"]["Referer"] == IDENTITY + MFA_PATH
     manager.exchange_code.assert_not_awaited()
 
 
 @pytest.mark.parametrize("reply", [True, None, {"enabled": False}])
 async def test_sso_lookup_rejects_unsupported_or_malformed_results_before_password(http, reply):
-    login = Login(http, AsyncMock())
+    login = Login(http, AsyncMock(), unified=False)
     http.request.side_effect = [
         Response(200, {}, PASSWORD_PAGE),
         Response(200, {}, json.dumps(reply).encode()),

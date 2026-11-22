@@ -40,10 +40,10 @@
       "rate_limited": "O MyQ limitou as solicitações. Aguarde antes de tentar novamente.",
       "protocol_error": "O MyQ retornou uma resposta inesperada. Consulte as notas de protocolo da integração. Nenhuma conta foi adicionada.",
       "browser_verification": "O MyQ exige uma verificação no navegador que esta integração não consegue concluir.",
-      "app_check_unavailable": "É necessário um token atual de verificação do aplicativo MyQ. O navegador não consegue gerá-lo.",
-      "app_check_expired": "O token de verificação do aplicativo expirou ou tem menos de cinco minutos restantes. Forneça um token novo.",
-      "app_check_invalid": "O token de verificação do aplicativo está malformado ou não tem uma validade utilizável.",
-      "app_check_integrity": "A fonte nativa do token não conseguiu obter a prova de integridade do aplicativo."
+      "app_check_unavailable": "A verificação do aplicativo não está configurada ou está indisponível. Consulte o guia de login.",
+      "app_check_expired": "O serviço de verificação retornou um token próximo do vencimento. Tente novamente.",
+      "app_check_invalid": "A configuração de verificação ou o token recebido é inválido.",
+      "app_check_integrity": "O serviço de verificação rejeitou o registro configurado."
     },
     "abort": {
       "already_configured": "Esta conta MyQ já está configurada.",
@@ -58,7 +58,16 @@
         "title": "Opções do MyQ",
         "data": {
           "poll_interval": "Intervalo de consulta (segundos)",
-          "enable_cameras": "Ativar a descoberta de câmeras e as imagens"
+          "enable_cameras": "Ativar a descoberta de câmeras e as imagens",
+          "panel_enabled": "Mostrar o painel da garagem na barra lateral",
+          "panel_title": "Título na barra lateral",
+          "panel_icon": "Ícone na barra lateral",
+          "panel_require_admin": "Somente administradores podem abrir o painel"
+        },
+        "data_description": {
+          "panel_enabled": "Os portões de garagem e as câmeras desta conta são adicionados ao painel automaticamente.",
+          "panel_title": "Com várias contas MyQ, a primeira conta que mostra o painel define o título e o ícone.",
+          "panel_require_admin": "Somente administradores podem alterar a aparência dos portões."
         }
       }
     }

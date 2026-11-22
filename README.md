@@ -9,10 +9,11 @@
 
 A Home Assistant integration for Chamberlain and LiftMaster **MyQ** garage door
 openers, gates, lamps, cameras, locks and linked thermostats. It is an
-independent, clean-room implementation written from the MyQ Android app
+independent client implementation written from the MyQ Android app protocol
 (version 5.324.0.1132442) and MyQ's hosted sign-in pages. It does not use any
-other MyQ library or integration, and the repository contains no decompiled app
-code.
+other MyQ client library, and the repository contains no decompiled app code.
+The sidebar panel, dashboard door card and door artwork are Katherine Dubé's
+UI, reused with her permission.
 
 > **Unofficial.** Not affiliated with or endorsed by The Chamberlain Group, which
 > owns the MyQ, Chamberlain and LiftMaster brands. MyQ's API is private and can
@@ -37,6 +38,7 @@ code.
 
 | Area | What you get |
 | --- | --- |
+| Garage panel | Optional sidebar with animated, customizable door drawings, camera views, activity and open-door warnings. The same doors can appear as dashboard cards. |
 | Garage doors and gates | A `cover` entity with open/close and reported state. The app's safety checks apply: monitor-only, PIN lockout, work-light error, virtual-opener sensor fault and the unattended open/close flags. |
 | Opener settings | Light timer, time-to-close, motion-activated light and **Disable remotes** (lock mode), for the account owner, as in the app. |
 | Lamps | A `light` entity with on/off. An opener's work light is not treated as a lamp. |
@@ -115,12 +117,37 @@ opens directly to email and password. Enter your credentials, then complete
 MyQ's verification prompt if one appears. Your password is not saved.
 
 Email/password is the only setup and reconnect method. End-to-end sign-in is
-still unverified, and MyQ's browser and app-verification requirements remain
-unresolved. The [sign-in guide](docs/sign-in.md) explains reauthentication and
-what happens when you remove the integration.
+still unverified. App Check acquisition is implemented and verified with a
+registered debug credential. Install the private `myq_app_check.json` file in
+the Home Assistant configuration directory before signing in; it is not part
+of the release ZIP. The [sign-in guide](docs/sign-in.md) explains this prerequisite,
+reauthentication and the remaining validation.
 
-**Options:** the poll interval (60–900 seconds, default 60) and whether cameras
-are discovered (on by default).
+**Options:** the poll interval (60–900 seconds, default 60), whether cameras
+are discovered (on by default), and the sidebar panel's visibility, title, icon
+and administrator-only access.
+
+### Garage panel and door card
+
+Open MyQ's **Configure** options under **Settings → Devices & services**, turn on
+**Show the garage panel in the sidebar**, and save. Doors and cameras are added
+automatically. Administrators can customize the door drawings (style, color,
+windows, trim and hardware), arrange the doors, set the open-door warning time,
+and enable command confirmation. These preferences are shared with other viewers
+and survive restarts. Sidebar changes apply without reconnecting to MyQ.
+
+The **MyQ garage door** dashboard card is registered automatically, including when the
+sidebar is hidden. Select it in the card picker or add it in YAML:
+
+```yaml
+type: custom:myq-door-card
+entity: cover.your_garage
+```
+
+Use `compact: true` for a smaller card. Cameras associated with an opener appear
+with that door; other cameras have their own panel cards. Live video uses the
+existing Home Assistant camera entity and its supported streaming capabilities.
+The separate [live camera card](docs/cameras.md) remains available.
 
 ## How it behaves
 

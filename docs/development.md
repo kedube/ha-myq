@@ -8,6 +8,7 @@ The project targets Python 3.13 and Home Assistant 2026.2.3.
 python3.13 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install --group test
+npm ci
 ```
 
 `--group` needs pip 25.1 or later. The `test` dependency group (in
@@ -31,11 +32,15 @@ These are the same checks CI runs:
 .venv/bin/python -m ruff format --check .
 .venv/bin/python -m mypy
 .venv/bin/python -m pytest -q
+npm run typecheck
+npm test
 ```
 
-The pytest run includes the live card's Node tests (`tests/test_live_card.mjs`)
-when `node` is installed. Browser sign-in tests are opt-in because they open
-Chrome:
+Use a current Node LTS release. The sidebar and door card's browser-module tests
+run under Node with jsdom (`tests/frontend/`); TypeScript checks their JavaScript
+without a build step. The pytest run also includes the separate live card's Node
+tests (`tests/test_live_card.mjs`). Browser sign-in tests are opt-in because they
+open Chrome:
 
 ```sh
 MYQ_BROWSER_TESTS=1 .venv/bin/python -m pytest -q tests/test_browser_auth.py
@@ -69,7 +74,7 @@ This writes two archives to `dist/`, each with a `.sha256` file:
 
 - `myq.zip` is the Home Assistant component, which HACS extracts into
   `custom_components/myq`. It leaves out the desktop-only modules
-  (`api/browser.py`, `api/curl_http.py`, `api/har.py`).
+  (`api/browser.py`, `api/har.py`). The curl transport is now a runtime dependency.
 - `myq-<version>.zip` is the full bundle: the component, the sign-in
   helper and probe scripts, the README, the changelog, the license and the
   `docs` folder.
@@ -113,6 +118,7 @@ becomes the release notes. The workflow pushes to `main` with the built-in
 | Path | Contents |
 | --- | --- |
 | `custom_components/myq/` | Home Assistant platforms, config flow, coordinator, services, media source and the live card (`www/`) |
+| `custom_components/myq/frontend/` | Katherine Dubé's sidebar panel, dashboard door card, SVG door scenes and UI translations; adapted to the current entity registry by `panel.py` |
 | `custom_components/myq/api/` | The MyQ client, independent of Home Assistant: sign-in (`oauth`, `tokens`, `auth`, `app_check`, `handoff`), HTTP transport, device families, cameras (`video`, `tend`, `kvs`, `live`, `status`), recordings and management |
 | `scripts/` | The browser sign-in helper, the read-only account probe, the iPhone capture helper, APK route extraction and packaging |
 | `tests/` | Unit tests for the client and Home Assistant tests that load the integration |
@@ -122,6 +128,9 @@ becomes the release notes. The workflow pushes to `main` with the built-in
 
 `api/app_check.py` defines where sign-in gets its App Check token:
 
+- `FirebaseDebugAppCheckProvider` (`api/firebase.py`): HA's default. Reads private
+  registered credentials from `myq_app_check.json` and exchanges them with
+  Firebase, checking app/audience and TTL before caching the proof.
 - `SuppliedAppCheckProvider`: a token supplied for one sign-in.
 - `FileAppCheckProvider`: a JSON or raw token file kept current by an external
   source. It reloads the file when the cached token gets stale or is rejected;
@@ -137,7 +146,9 @@ only for the sign-in code exchange and is never saved.
 
 - **Clean room:** the integration is written from observed protocol behaviour.
   Do not copy decompiled app code into the repository; cite source locations
-  instead, as the API reference does.
+  instead, as the API reference does. The panel and door artwork are reused
+  from Katherine Dubé's own UI with her express permission; that permission
+  does not extend to the reference checkout's authentication code.
 - **Keep research outside the repository.** APKs, decompiled sources, HAR files,
   tokens and captures stay out of git (see `.gitignore`); `analysis/private/` is
   for local notes only.

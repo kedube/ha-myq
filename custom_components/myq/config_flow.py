@@ -2,6 +2,7 @@
 
 import time
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -25,16 +26,23 @@ from .api.errors import (
     SessionRenewalFailed,
     UnsupportedAuthStep,
 )
+from .api.firebase import REGISTRATION_FILE, FirebaseDebugAppCheckProvider
+from .api.http import Http
 from .api.oauth import ui_locale
 from .api.tokens import Tokens
 from .const import (
     CONF_ENABLE_CAMERAS,
+    CONF_PANEL_ENABLED,
+    CONF_PANEL_ICON,
+    CONF_PANEL_REQUIRE_ADMIN,
+    CONF_PANEL_TITLE,
     CONF_POLL_INTERVAL,
     CONF_TOKENS,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
     MIN_POLL_INTERVAL,
 )
+from .panel_options import panel_options
 
 SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
@@ -64,6 +72,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._session: aiohttp.ClientSession | None = None
+        self._proof_session: aiohttp.ClientSession | None = None
         self._client: Client | None = None
         self._login: Login | None = None
         self._email = ""
@@ -85,6 +94,12 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     @callback
     def _close(self) -> None:
+        if self._client is not None:
+            self.hass.async_create_task(self._client.close())
+            self._client = None
+        if self._proof_session is not None:
+            self._proof_session.detach()
+            self._proof_session = None
         if self._session is not None:
             # HA owns the shared connector; release this flow's cookie session.
             self._session.detach()
@@ -132,7 +147,16 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             self._email = user_input["username"].strip()
             client = await self._new_client()
             try:
-                self._login = Login(client.http, client.auth, locale=self._locale)
+                # Firebase never shares the hosted login's cookies or headers.
+                self._proof_session = async_create_clientsession(
+                    self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
+                )
+                provider = FirebaseDebugAppCheckProvider(
+                    Http(self._proof_session), Path(self.hass.config.path(REGISTRATION_FILE))
+                )
+                self._login = Login(
+                    client.http, client.auth, locale=self._locale, app_check_provider=provider
+                )
                 result = await self._login.start(self._email, user_input["password"])
                 if isinstance(result, Challenge):
                     return await self.async_step_mfa()
@@ -172,7 +196,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
-                if isinstance(err, AuthenticationError) or self._login.oauth.used:
+                if isinstance(err, (AuthenticationError, AppCheckError)) or self._login.oauth.used:
                     self._close()
         challenge = self._login.challenge if self._login else None
         if challenge is None:
@@ -225,7 +249,9 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 class MyQOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            options = {**self.config_entry.options, **user_input}
+            return self.async_create_entry(title="", data={**options, **panel_options(options)})
+        panel = panel_options(self.config_entry.options)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -243,6 +269,12 @@ class MyQOptionsFlow(OptionsFlow):
                             CONF_ENABLE_CAMERAS,
                             True,
                         ),
+                    ): bool,
+                    vol.Optional(CONF_PANEL_ENABLED, default=panel["panel_enabled"]): bool,
+                    vol.Optional(CONF_PANEL_TITLE, default=panel["panel_title"]): str,
+                    vol.Optional(CONF_PANEL_ICON, default=panel["panel_icon"]): str,
+                    vol.Optional(
+                        CONF_PANEL_REQUIRE_ADMIN, default=panel["panel_require_admin"]
                     ): bool,
                 }
             ),

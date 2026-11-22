@@ -40,10 +40,10 @@
       "rate_limited": "MyQ heeft het aantal verzoeken beperkt. Wacht voordat je het opnieuw probeert.",
       "protocol_error": "MyQ gaf een onverwacht antwoord. Raadpleeg de protocolnotities van de integratie. Er is geen account toegevoegd.",
       "browser_verification": "MyQ vereist een browserverificatie die deze integratie niet kan voltooien.",
-      "app_check_unavailable": "Een actueel MyQ-app-verificatietoken is vereist. De browser kan dit niet genereren.",
-      "app_check_expired": "Het app-verificatietoken is verlopen of nog maar minder dan vijf minuten geldig. Geef een nieuw token op.",
-      "app_check_invalid": "Het app-verificatietoken is onjuist opgemaakt of heeft geen bruikbare vervaltijd.",
-      "app_check_integrity": "De native tokenbron kon geen integriteitsbewijs voor de applicatie verkrijgen."
+      "app_check_unavailable": "App-verificatie is niet ingesteld of niet beschikbaar. Raadpleeg de aanmeldgids.",
+      "app_check_expired": "De verificatiedienst heeft een bijna verlopen token teruggestuurd. Probeer het opnieuw.",
+      "app_check_invalid": "De verificatieconfiguratie of het ontvangen token is ongeldig.",
+      "app_check_integrity": "De verificatiedienst heeft de ingestelde registratie geweigerd."
     },
     "abort": {
       "already_configured": "Dit MyQ-account is al geconfigureerd.",
@@ -58,7 +58,16 @@
         "title": "MyQ-opties",
         "data": {
           "poll_interval": "Polling-interval (seconden)",
-          "enable_cameras": "Detectie en beelden van camera's inschakelen"
+          "enable_cameras": "Detectie en beelden van camera's inschakelen",
+          "panel_enabled": "Garagepaneel in de zijbalk tonen",
+          "panel_title": "Titel in de zijbalk",
+          "panel_icon": "Pictogram in de zijbalk",
+          "panel_require_admin": "Alleen beheerders kunnen het paneel openen"
+        },
+        "data_description": {
+          "panel_enabled": "Garagedeuren en camera's van dit account worden automatisch aan het paneel toegevoegd.",
+          "panel_title": "Bij meerdere MyQ-accounts bepaalt het eerste account dat het paneel toont de titel en het pictogram.",
+          "panel_require_admin": "Alleen beheerders kunnen het uiterlijk van de deuren wijzigen."
         }
       }
     }

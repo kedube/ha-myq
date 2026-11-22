@@ -18,8 +18,9 @@ from .api.client import Client
 from .api.const import VERSION
 from .api.errors import MyQError
 from .api.tokens import Tokens
-from .const import CONF_TOKENS, DOMAIN, PLATFORMS
+from .const import CONF_TOKENS, DOMAIN, PANEL_OPTION_KEYS, PLATFORMS
 from .coordinator import MyQCoordinator
+from .panel import async_setup_panel
 from .services import async_register_services
 
 type MyQConfigEntry = ConfigEntry[MyQCoordinator]
@@ -47,6 +48,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         add_extra_js_url(hass, CARD_URL)
     # Registered once, independent of entries; handlers require a loaded entry.
     async_register_services(hass)
+    await async_setup_panel(hass)
     return True
 
 
@@ -75,6 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyQConfigEntry) -> bool:
         backoff=backoff,
     )
     coordinator = MyQCoordinator(hass, entry, client)
+    entry.async_on_unload(client.close)
     coordinator.track_registered_accessories()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
@@ -88,8 +91,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyQConfigEntry) -> bool:
 
 
 async def async_options_updated(hass: HomeAssistant, entry: MyQConfigEntry) -> None:
-    # Token rotations also update data. Only options changes should reload.
-    if entry.options != entry.runtime_data.loaded_options:
+    # The panel follows entry changes itself. Only backend options require a reload.
+    current = {key: value for key, value in entry.options.items() if key not in PANEL_OPTION_KEYS}
+    loaded = {
+        key: value
+        for key, value in entry.runtime_data.loaded_options.items()
+        if key not in PANEL_OPTION_KEYS
+    }
+    if current != loaded:
         await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -127,6 +136,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: MyQConfigEntry) -> None
     except (MyQError, TimeoutError) as err:
         _LOGGER.debug("MyQ session revocation failed (%s)", type(err).__name__)
         return
+    finally:
+        await client.close()
     _LOGGER.debug("MyQ session revocation %s", "confirmed" if revoked else "not confirmed")
 
 

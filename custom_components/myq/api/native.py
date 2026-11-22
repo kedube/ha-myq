@@ -29,6 +29,7 @@ def browser_header(name: str) -> bool:
         "accept-language",
         "upgrade-insecure-requests",
         "priority",
+        "x-requested-with",
     }
 
 

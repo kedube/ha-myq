@@ -114,6 +114,7 @@ async def main(
             connector = aiohttp.TCPConnector(ssl=ssl.create_default_context(cafile=certifi.where()))
             session = await stack.enter_async_context(aiohttp.ClientSession(connector=connector))
             client = Client(session)
+            stack.push_async_callback(client.close)
         try:
             if mode in {"b", "h"}:
                 if not connection_check:

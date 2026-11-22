@@ -40,10 +40,10 @@
       "rate_limited": "MyQ ha limitado las solicitudes. Espera antes de volver a intentarlo.",
       "protocol_error": "MyQ devolvió una respuesta inesperada. Consulta las notas del protocolo de la integración. No se añadió ninguna cuenta.",
       "browser_verification": "MyQ requiere un paso de verificación en el navegador que esta integración no puede completar.",
-      "app_check_unavailable": "Se requiere un token de verificación de la aplicación MyQ vigente. El navegador no puede generarlo.",
-      "app_check_expired": "El token de verificación de la aplicación ha caducado o le quedan menos de cinco minutos de validez. Proporciona un token nuevo.",
-      "app_check_invalid": "El token de verificación de la aplicación tiene un formato incorrecto o no tiene una caducidad utilizable.",
-      "app_check_integrity": "La fuente nativa del token no pudo obtener una prueba de integridad de la aplicación."
+      "app_check_unavailable": "La verificación de la aplicación no está configurada o no está disponible. Consulta la guía de inicio de sesión.",
+      "app_check_expired": "El proveedor de verificación devolvió un token próximo a caducar. Inténtalo de nuevo.",
+      "app_check_invalid": "La configuración de verificación o el token recibido no son válidos.",
+      "app_check_integrity": "El proveedor de verificación rechazó el registro configurado."
     },
     "abort": {
       "already_configured": "Esta cuenta de MyQ ya está configurada.",
@@ -58,7 +58,16 @@
         "title": "Opciones de MyQ",
         "data": {
           "poll_interval": "Intervalo de sondeo (segundos)",
-          "enable_cameras": "Habilitar el descubrimiento de cámaras y las imágenes"
+          "enable_cameras": "Habilitar el descubrimiento de cámaras y las imágenes",
+          "panel_enabled": "Mostrar el panel del garaje en la barra lateral",
+          "panel_title": "Título en la barra lateral",
+          "panel_icon": "Icono en la barra lateral",
+          "panel_require_admin": "Solo los administradores pueden abrir el panel"
+        },
+        "data_description": {
+          "panel_enabled": "Las puertas de garaje y las cámaras de esta cuenta se añaden al panel automáticamente.",
+          "panel_title": "Con varias cuentas de MyQ, la primera cuenta que muestra el panel define su título e icono.",
+          "panel_require_admin": "Solo los administradores pueden cambiar el aspecto de las puertas."
         }
       }
     }

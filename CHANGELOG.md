@@ -5,6 +5,32 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- Katherine Dubé's sidebar panel, dashboard door card and customizable animated
+  door artwork, reused with permission. Includes appearance and layout settings,
+  camera views, activity, translations and open-door warnings.
+- Panel inventory uses this integration's account-scoped entity IDs, associated
+  camera devices and Home Assistant read permissions. Sidebar options apply
+  without reloading the MyQ connection.
+
+### Changed
+
+- Email/password sign-in now acquires Firebase App Check proof automatically
+  using a private registered debug-provider configuration. Proof is cached with
+  expiry checks and attached only to the one-time code exchange. Firebase
+  acquisition was verified; a complete MyQ sign-in is still unverified.
+- Hosted form requests use the unified authorization flow and mobile Chrome
+  identity from the working-reference behavior. Credential/OTP field variants,
+  email MFA selection, checked controls and post-MFA consent are supported,
+  including resuming authorization after consent returns HTTP 200.
+- Native OAuth and MyQ API requests use a measured Android TLS/HTTP2
+  profile through curl_cffi, now a runtime dependency. Cookie isolation and
+  native connection-pool cleanup are covered by local tests.
+- The selected model is corrected from the emulator's display name to its actual
+  Build.MODEL. The private `myq_app_check.json` registration is excluded from
+  source control and release archives; install it in HA's configuration directory.
+
 ## [0.03] - 2026-11-21
 
 ### Changed

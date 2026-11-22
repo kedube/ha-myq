@@ -72,9 +72,9 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, 
             }
             assert request.headers["Origin"] == IDENTITY
             assert request.headers["Referer"] == IDENTITY + "/signin"
-            assert request.headers["Sec-Fetch-Site"] == "same-origin"
-            assert request.headers["Sec-Fetch-Mode"] == "navigate"
-            assert request.headers["Sec-Fetch-User"] == "?1"
+            assert "Sec-Fetch-Site" not in request.headers
+            assert "Sec-Fetch-Mode" not in request.headers
+            assert "Sec-Fetch-User" not in request.headers
             return web.Response(
                 text='<form method="post" action="/mfa">'
                 '<input name="csrf" type="hidden" value="next-csrf">'
@@ -141,7 +141,6 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, 
         assert received == [
             ("GET", "/connect/authorize"),
             ("GET", "/signin"),
-            ("POST", "/api/v1.0/externalaccounts/IsSSOEnabledForDomain"),
             ("POST", "/signin"),
             ("POST", "/mfa"),
             ("POST", "/connect/token"),

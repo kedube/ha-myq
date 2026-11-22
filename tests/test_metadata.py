@@ -95,10 +95,25 @@ def test_ha_install_zip_excludes_desktop_modules(tmp_path):
     assert ha_zip.name == HA_ZIP == json.loads((ROOT / "hacs.json").read_text())["filename"]
     names = set(zipfile.ZipFile(ha_zip).namelist())
     assert {"manifest.json", "__init__.py", "www/myq-live-card.js", "translations/en.json"} <= names
+    assert {
+        "panel.py",
+        "panel_options.py",
+        "frontend/myq-panel.js",
+        "frontend/myq-card.js",
+        "frontend/door-scene.js",
+        "frontend/i18n/en.json",
+    } <= names
     assert not names & DESKTOP_ONLY
+    assert {
+        "api/android_http.py",
+        "api/android_tls.py",
+        "api/curl_http.py",
+        "api/firebase.py",
+    } <= names
     full = set(zipfile.ZipFile(bundle).namelist())
     assert {f"custom_components/myq/{name}" for name in DESKTOP_ONLY} <= full
     assert "scripts/probe_account.py" in full
+    assert not any(name.endswith("myq_app_check.json") for name in names | full)
 
 
 def test_dependency_pins_agree():

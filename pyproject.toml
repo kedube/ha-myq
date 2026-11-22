@@ -4,13 +4,13 @@ version = "0.03"
 description = "Experimental MyQ integration derived from the Android app protocol"
 requires-python = ">=3.13"
 license = "AGPL-3.0-only"
-dependencies = ["aiohttp>=3.12", "aiortc==1.16.0"]
+dependencies = ["aiohttp>=3.12", "aiortc==1.16.0", "curl_cffi==0.15.0"]
 
 # For the desktop sign-in helper and research tools, which import the installed package.
 [project.optional-dependencies]
 probe = ["certifi>=2025.1.31"]
 browser = ["certifi>=2025.1.31", "playwright>=1.50,<2"]
-curl = ["certifi>=2025.1.31", "curl_cffi>=0.15,<0.16"]
+curl = ["certifi>=2025.1.31", "curl_cffi==0.15.0"]
 
 # For the checks: `pip install --group test` installs these without the project. The tests
 # import the integration from the checkout; installing it as well (an editable install
@@ -19,7 +19,7 @@ curl = ["certifi>=2025.1.31", "curl_cffi>=0.15,<0.16"]
 test = [
     "aiortc==1.16.0",
     "certifi>=2025.1.31",
-    "curl_cffi>=0.15,<0.16",
+    "curl_cffi==0.15.0",
     "homeassistant==2026.2.3",
     # Pinned: a new release can format differently or add checks and fail an unrelated push.
     "mypy==2.4.1",
@@ -51,7 +51,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-# Desktop-only probe transport (never imported by HA). curl_cffi's stubs are
+# curl_cffi's stubs are
 # narrower than its runtime API, e.g. verify= accepts a CA bundle path.
 module = "myq.api.curl_http"  # mypy roots the package at custom_components/
 disable_error_code = ["arg-type"]
@@ -64,4 +64,4 @@ build-backend = "setuptools.build_meta"
 include = ["custom_components.myq*"]
 
 [tool.setuptools.package-data]
-"custom_components.myq" = ["*.json", "*.yaml", "translations/*.json", "www/*.js"]
+"custom_components.myq" = ["*.json", "*.yaml", "translations/*.json", "www/*.js", "frontend/*.js", "frontend/i18n/*.json"]

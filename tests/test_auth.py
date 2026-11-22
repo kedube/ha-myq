@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from custom_components.myq.api.auth import Challenge, Login
-from custom_components.myq.api.const import IDENTITY
+from custom_components.myq.api.const import HOSTED_USER_AGENT, IDENTITY
 from custom_components.myq.api.errors import (
     AccessDenied,
     AuthenticationError,
@@ -56,6 +56,21 @@ async def test_password_and_mfa_preserve_form_csrf_and_pkce(http, tokens):
     assert http.request.call_args.kwargs["headers"]["Origin"] == IDENTITY
     assert http.request.call_args.kwargs["headers"]["Referer"].startswith(IDENTITY + "/")
     assert await login.respond("123456") == tokens
+    initial, password, mfa = [call.kwargs["headers"] for call in http.request.call_args_list]
+    for headers in (initial, password, mfa):
+        assert headers["User-Agent"] == HOSTED_USER_AGENT
+        assert "X-Requested-With" not in headers
+        assert headers["Sec-CH-UA-Platform"] == '"Android"'
+        assert '"Google Chrome";v="153"' in headers["Sec-CH-UA"]
+        assert headers["Accept-Language"] == "en-US,en;q=0.9"
+        assert "BrandId" not in headers
+    assert not any(name.startswith("Sec-Fetch-") for name in initial)
+    assert query["acr_values"][0].split() == ["unified_flow:v1", "brand:myq"]
+    for headers in (password, mfa):
+        assert "Sec-Fetch-User" not in headers
+        assert headers["Content-Type"] == "application/x-www-form-urlencoded"
+        assert headers["Origin"] == IDENTITY
+        assert not any(name.startswith("Sec-Fetch-") for name in headers)
     assert http.request.call_args.kwargs["data"] == {
         "Code": "123456",
         "__RequestVerificationToken": "new-csrf",

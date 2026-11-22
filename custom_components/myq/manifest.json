@@ -11,14 +11,16 @@
   "config_flow": true,
   "dependencies": [
     "http",
-    "web_rtc"
+    "web_rtc",
+    "websocket_api"
   ],
   "documentation": "https://github.com/kedube/ha-myq",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/kedube/ha-myq/issues",
   "requirements": [
-    "aiortc==1.16.0"
+    "aiortc==1.16.0",
+    "curl_cffi==0.15.0"
   ],
   "version": "0.03"
 }

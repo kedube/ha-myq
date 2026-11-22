@@ -682,6 +682,7 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         self._stop_camera_refreshes()
         await self.camera_commands.close()
         await super().async_shutdown()
+        await self.client.close()
 
     async def async_acquire_live(self, owner: object) -> None:
         self._live_owners.add(owner)

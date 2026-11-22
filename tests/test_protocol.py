@@ -106,7 +106,7 @@ async def test_exact_door_command_route_and_body(tokens, door, action):
         "Authorization": "Bearer " + tokens.access_token,
         "BrandId": "1",
         "App-Version": "5.324.0.1132442",
-        "User-Agent": "Pixel 9 Pro XL/Android 17",
+        "User-Agent": "sdk_gphone64_arm64/Android 17",
         "Accept-Encoding": "gzip",
         "Connection": "Keep-Alive",
     }

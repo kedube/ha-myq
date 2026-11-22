@@ -19,6 +19,8 @@ from custom_components.myq.const import CONF_ENABLE_CAMERAS, CONF_POLL_INTERVAL,
 
 from .conftest import json_response
 from .test_auth import MFA_PAGE, PASSWORD_PAGE
+from .test_firebase import firebase_token
+from .test_firebase import registration as registration
 
 PROFILE = {"user_id": "verified-user", "email": "test@example.invalid"}
 CREDENTIALS = {"username": "test@example.invalid", "password": "private-password"}
@@ -136,10 +138,14 @@ async def test_sign_in_errors_return_to_credentials_and_create_nothing(hass, err
     assert not hass.config_entries.async_entries(DOMAIN)
 
 
-async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(hass):
+async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(hass, registration):
     states, exchanges = [], []
+    proof = firebase_token(registration)
 
     async def request(_self, method, url, **kwargs):
+        if url.startswith("https://firebaseappcheck.googleapis.com/"):
+            assert kwargs["json"] == {"debugToken": registration.debug_token}
+            return json_response({"token": proof, "ttl": "3600s"})
         if method == "GET":
             states.append(parse_qs(urlsplit(url).query)["state"][0])
             return Response(200, {}, PASSWORD_PAGE)
@@ -152,7 +158,14 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(h
             302, {"Location": f"com.myqops://android?code=one-shot&state={states[-1]}"}, b""
         )
 
-    with patch("custom_components.myq.api.http.Http.request", request):
+    with (
+        patch("custom_components.myq.api.http.Http.request", request),
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch(
+            "custom_components.myq.api.firebase.FirebaseRegistration.read",
+            return_value=registration,
+        ),
+    ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "mfa"
@@ -168,10 +181,103 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(h
         assert result["step_id"] == "mfa"
     assert len(exchanges) == 1
     assert len(states) == 2 and states[0] != states[1]
-    assert "Firebase-AppCheck-Token" not in exchanges[0]["headers"]
+    assert exchanges[0]["headers"]["Firebase-AppCheck-Token"] == proof
     assert not hass.config_entries.async_entries(DOMAIN)
     hass.config_entries.flow.async_abort(result["flow_id"])
     await hass.async_block_till_done()
+
+
+async def test_default_form_gets_firebase_proof_and_persists_only_session(
+    hass, cloud, registration
+):
+    state, calls = "", []
+    proof = firebase_token(registration)
+
+    async def request(_self, method, url, **kwargs):
+        nonlocal state
+        calls.append(urlsplit(url).netloc)
+        if method == "GET":
+            if urlsplit(url).path == "/Consent":
+                return Response(
+                    200,
+                    {},
+                    b'<form method="post" action="/Consent?returnUrl='
+                    b'%2Fconnect%2Fauthorize%2Fcallback">'
+                    b'<input name="csrf" type="hidden" value="consent-csrf">'
+                    b'<button name="button" value="yes">Continue</button></form>',
+                )
+            if urlsplit(url).path == "/connect/authorize/callback":
+                return Response(
+                    302, {"Location": f"com.myqops://android?code=once&state={state}"}, b""
+                )
+            state = parse_qs(urlsplit(url).query)["state"][0]
+            assert "unified_flow:v1" in parse_qs(urlsplit(url).query)["acr_values"][0]
+            return Response(200, {}, PASSWORD_PAGE)
+        if "firebaseappcheck.googleapis.com" in url:
+            assert kwargs["headers"]["X-Android-Package"] == registration.package
+            return json_response({"token": proof, "ttl": "3600s"})
+        if url.endswith("/connect/token"):
+            assert kwargs["headers"]["Firebase-AppCheck-Token"] == proof
+            return json_response(
+                {
+                    "access_token": "session-access",
+                    "refresh_token": "session-refresh",
+                    "expires_in": 3600,
+                }
+            )
+        if urlsplit(url).path == "/Consent":
+            assert kwargs["data"] == {"csrf": "consent-csrf", "button": "yes"}
+            return Response(200, {}, b"<p>Consent completed</p>")
+        if "Password" in kwargs["data"]:
+            return Response(200, {}, MFA_PAGE)
+        return Response(302, {"Location": "/Consent"}, b"")
+
+    with (
+        patch("custom_components.myq.api.http.Http.request", request),
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch(
+            "custom_components.myq.api.firebase.FirebaseRegistration.read",
+            return_value=registration,
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["step_id"] == "mfa"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"response": "123456"}
+        )
+    assert result["type"] == "create_entry"
+    assert set(result["data"]) == {"username", "tokens"}
+    assert result["data"]["tokens"]["access_token"] == "session-access"
+    assert proof not in str(result["data"])
+    assert registration.debug_token not in str(result["data"])
+    assert calls[-2:] == ["firebaseappcheck.googleapis.com", "partner-identity.myq-cloud.com"]
+
+
+async def test_missing_registration_does_not_send_unverified_token_exchange(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    state, requests = "", []
+
+    async def request(_self, method, url, **kwargs):
+        nonlocal state
+        requests.append(url)
+        if method == "GET":
+            state = parse_qs(urlsplit(url).query)["state"][0]
+            return Response(200, {}, PASSWORD_PAGE)
+        if "Password" in kwargs["data"]:
+            return Response(200, {}, MFA_PAGE)
+        return Response(302, {"Location": f"com.myqops://android?code=once&state={state}"}, b"")
+
+    with patch("custom_components.myq.api.android_http.AndroidHttp.request", request):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"response": "123456"}
+        )
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"base": "app_check_unavailable"}
+    assert len(requests) == 3
+    assert all(not url.endswith("/connect/token") for url in requests)
 
 
 async def test_form_authorization_uses_home_assistant_language(hass):
@@ -201,4 +307,11 @@ async def test_options_save_and_bounds(hass, tokens):
         result["flow_id"], {CONF_POLL_INTERVAL: 120, CONF_ENABLE_CAMERAS: False}
     )
     assert result["type"] == "create_entry"
-    assert entry.options == {CONF_POLL_INTERVAL: 120, CONF_ENABLE_CAMERAS: False}
+    assert entry.options == {
+        CONF_POLL_INTERVAL: 120,
+        CONF_ENABLE_CAMERAS: False,
+        "panel_enabled": False,
+        "panel_title": "MyQ",
+        "panel_icon": "mdi:garage-variant",
+        "panel_require_admin": False,
+    }

@@ -40,10 +40,10 @@
       "rate_limited": "MyQ a limité les requêtes. Patientez avant de réessayer.",
       "protocol_error": "MyQ a renvoyé une réponse inattendue. Consultez les notes sur le protocole de l'intégration. Aucun compte n'a été ajouté.",
       "browser_verification": "MyQ exige une vérification dans un navigateur que cette intégration ne peut pas effectuer.",
-      "app_check_unavailable": "Un jeton de vérification de l'application MyQ en cours de validité est requis. Le navigateur ne peut pas le générer.",
-      "app_check_expired": "Le jeton de vérification de l'application a expiré ou il lui reste moins de cinq minutes de validité. Fournissez un nouveau jeton.",
-      "app_check_invalid": "Le jeton de vérification de l'application est mal formé ou n'a pas de date d'expiration exploitable.",
-      "app_check_integrity": "La source native du jeton n'a pas pu obtenir de preuve d'intégrité de l'application."
+      "app_check_unavailable": "La vérification de l’application n’est pas configurée ou n’est pas disponible. Consultez le guide de connexion.",
+      "app_check_expired": "Le fournisseur de vérification a renvoyé un jeton sur le point d’expirer. Réessayez.",
+      "app_check_invalid": "La configuration de vérification ou le jeton reçu est invalide.",
+      "app_check_integrity": "Le fournisseur de vérification a refusé l’enregistrement configuré."
     },
     "abort": {
       "already_configured": "Ce compte MyQ est déjà configuré.",
@@ -58,7 +58,16 @@
         "title": "Options de MyQ",
         "data": {
           "poll_interval": "Intervalle d'interrogation (secondes)",
-          "enable_cameras": "Activer la découverte des caméras et les images"
+          "enable_cameras": "Activer la découverte des caméras et les images",
+          "panel_enabled": "Afficher le panneau du garage dans la barre latérale",
+          "panel_title": "Titre dans la barre latérale",
+          "panel_icon": "Icône dans la barre latérale",
+          "panel_require_admin": "Seuls les administrateurs peuvent ouvrir le panneau"
+        },
+        "data_description": {
+          "panel_enabled": "Les portes de garage et les caméras de ce compte sont ajoutées automatiquement au panneau.",
+          "panel_title": "Avec plusieurs comptes MyQ, le premier compte qui affiche le panneau définit son titre et son icône.",
+          "panel_require_admin": "Seuls les administrateurs peuvent modifier l'apparence des portes."
         }
       }
     }

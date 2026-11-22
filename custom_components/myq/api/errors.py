@@ -87,14 +87,14 @@ class AppCheckInvalid(AppCheckError):
     reason = "invalid"
 
     def __init__(self) -> None:
-        super().__init__("App Check proof is malformed or has no usable expiry")
+        super().__init__("App Check configuration or proof is invalid")
 
 
 class AppCheckIntegrityError(AppCheckError):
     reason = "integrity"
 
     def __init__(self) -> None:
-        super().__init__("The native provider could not obtain application integrity proof")
+        super().__init__("The app verification provider rejected the request")
 
 
 class CommandRejected(MyQError):

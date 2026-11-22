@@ -40,10 +40,10 @@
       "rate_limited": "MyQ 已限制请求。请稍候再试。",
       "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
       "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
-      "app_check_unavailable": "需要当前有效的 MyQ 应用验证令牌。浏览器无法生成该令牌。",
-      "app_check_expired": "应用验证令牌已过期或剩余有效时间不足五分钟。请提供新的令牌。",
-      "app_check_invalid": "应用验证令牌格式错误，或没有可用的过期时间。",
-      "app_check_integrity": "原生令牌来源无法获取应用程序完整性证明。"
+      "app_check_unavailable": "应用验证尚未配置或暂时不可用。请查看登录指南。",
+      "app_check_expired": "应用验证服务返回了即将过期的令牌。请重试。",
+      "app_check_invalid": "应用验证配置或返回的令牌无效。",
+      "app_check_integrity": "应用验证服务拒绝了配置的注册信息。"
     },
     "abort": {
       "already_configured": "此 MyQ 账户已配置。",
@@ -58,7 +58,16 @@
         "title": "MyQ 选项",
         "data": {
           "poll_interval": "轮询间隔（秒）",
-          "enable_cameras": "启用摄像头发现和图像"
+          "enable_cameras": "启用摄像头发现和图像",
+          "panel_enabled": "在侧边栏中显示车库面板",
+          "panel_title": "侧边栏标题",
+          "panel_icon": "侧边栏图标",
+          "panel_require_admin": "仅管理员可以打开面板"
+        },
+        "data_description": {
+          "panel_enabled": "此账户中的车库门和摄像头会自动添加到面板。",
+          "panel_title": "如果有多个 MyQ 账户，由第一个显示面板的账户决定标题和图标。",
+          "panel_require_admin": "只有管理员可以更改车库门的外观。"
         }
       }
     }

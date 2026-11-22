@@ -6,6 +6,7 @@ __pycache__/
 htmlcov/
 .venv/
 .venv-tools/
+node_modules/
 dist/
 build/
 *.egg-info/
@@ -15,4 +16,5 @@ analysis/private/
 *.xapk
 *.har
 *.token.json
+myq_app_check.json
 .DS_Store

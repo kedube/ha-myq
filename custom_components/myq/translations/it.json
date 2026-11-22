@@ -40,10 +40,10 @@
       "rate_limited": "MyQ ha limitato le richieste. Attendi prima di riprovare.",
       "protocol_error": "MyQ ha restituito una risposta imprevista. Consulta le note sul protocollo dell'integrazione. Nessun account è stato aggiunto.",
       "browser_verification": "MyQ richiede una verifica nel browser che questa integrazione non può completare.",
-      "app_check_unavailable": "È necessario un token di verifica dell'app MyQ in corso di validità. Il browser non può generarlo.",
-      "app_check_expired": "Il token di verifica dell'app è scaduto o gli restano meno di cinque minuti di validità. Fornisci un token nuovo.",
-      "app_check_invalid": "Il token di verifica dell'app non è formattato correttamente o non ha una scadenza utilizzabile.",
-      "app_check_integrity": "La fonte nativa del token non è riuscita a ottenere una prova di integrità dell'app."
+      "app_check_unavailable": "La verifica dell'app non è configurata o non è disponibile. Consulta la guida di accesso.",
+      "app_check_expired": "Il servizio di verifica ha restituito un token in scadenza. Riprova.",
+      "app_check_invalid": "La configurazione di verifica o il token ricevuto non è valido.",
+      "app_check_integrity": "Il servizio di verifica ha rifiutato la registrazione configurata."
     },
     "abort": {
       "already_configured": "Questo account MyQ è già configurato.",
@@ -58,7 +58,16 @@
         "title": "Opzioni di MyQ",
         "data": {
           "poll_interval": "Intervallo di polling (secondi)",
-          "enable_cameras": "Abilita il rilevamento delle telecamere e le immagini"
+          "enable_cameras": "Abilita il rilevamento delle telecamere e le immagini",
+          "panel_enabled": "Mostra il pannello garage nella barra laterale",
+          "panel_title": "Titolo nella barra laterale",
+          "panel_icon": "Icona nella barra laterale",
+          "panel_require_admin": "Solo gli amministratori possono aprire il pannello"
+        },
+        "data_description": {
+          "panel_enabled": "Le porte del garage e le telecamere di questo account vengono aggiunte automaticamente al pannello.",
+          "panel_title": "Con più account MyQ, il primo account che mostra il pannello ne stabilisce titolo e icona.",
+          "panel_require_admin": "Solo gli amministratori possono modificare l'aspetto delle porte."
         }
       }
     }
