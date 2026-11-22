@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.08] - 2026-11-22
+
 ### Fixed
 
 - Preserve the device list's top-level `parent_device_id` so Wi-Fi opener/gateway
