@@ -1,6 +1,6 @@
 [project]
 name = "ha-myq"
-version = "0.05"
+version = "0.06"
 description = "Experimental MyQ integration derived from the Android app protocol"
 requires-python = ">=3.13"
 license = "AGPL-3.0-only"

@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.06] - 2026-11-22
+
 ### Fixed
 
 - Check the private App Check registration before sending credentials or asking
