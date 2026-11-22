@@ -65,6 +65,7 @@ class Device:
     specifications: dict[str, Any] = field(default_factory=dict, repr=False)
     device_platform: str = ""
     gateway_id: str | None = field(default=None, repr=False)
+    parent_device_id: str | None = field(default=None, repr=False)
 
     @classmethod
     def parse(cls, account_id: str, data: dict[str, Any]) -> Device:
@@ -103,6 +104,7 @@ class Device:
             if isinstance(gateway := data.get("gateway_id") or state.get("gatewayID"), str)
             and gateway
             else None,
+            parent if isinstance(parent := data.get("parent_device_id"), str) and parent else None,
         )
 
     @property

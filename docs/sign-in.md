@@ -8,6 +8,11 @@ reconnecting an existing account.
 2. Enter your MyQ account email, password, and registered Firebase debug token.
 3. Complete the verification prompt if MyQ asks for a method or code.
 
+The **Debug token** field accepts the token value, a JSON-quoted value, the
+`"debug_token": "..."` line (with or without its trailing comma), or a JSON
+object containing `debug_token`. You can paste the complete registration file;
+the form extracts only its token and uses the integration's bundled app settings.
+
 Setup prefers email when the verification page offers that method. It handles
 the known application-consent step automatically and continues to the token
 exchange; a consent acknowledgement page alone is not a completed sign-in.

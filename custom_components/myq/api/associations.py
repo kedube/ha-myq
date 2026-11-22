@@ -7,7 +7,10 @@ def wifi_gdo_pairs(inventory: dict[str, Device]) -> dict[str, Device]:
     """Match a built-in Wi-Fi gateway to its one explicitly associated opener."""
 
     def parent(device: Device) -> str | None:
-        value = device.gateway_id or device.state.get("parent_serial_number")
+        # The device-list parent_device_id is the parent serial, outside state.
+        value = (
+            device.parent_device_id or device.gateway_id or device.state.get("parent_serial_number")
+        )
         return value if isinstance(value, str) and value else None
 
     pairs: dict[str, Device] = {}
@@ -61,7 +64,7 @@ def associations(device: Device, inventory: dict[str, Device]) -> dict[str, tupl
             else None
         )
 
-    gateway = resolve(device.gateway_id, lambda item: True)
+    gateway = resolve(device.parent_device_id or device.gateway_id, lambda item: True)
     # attached_camera_serial_number links an opener to its built-in camera (u.Q1).
     camera = resolve(
         device.state.get("associated_camera_serial_number"), lambda item: item.is_camera

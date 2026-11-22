@@ -11,7 +11,7 @@
           "debug_token": "Token de depuração"
         },
         "data_description": {
-          "debug_token": "Use seu token de depuração registrado no Firebase. Deixe em branco se myq_app_check.json já estiver instalado. Este não é um código MFA nem um token do App Check de curta duração."
+          "debug_token": "Cole o valor do token de depuração ou sua linha ou objeto JSON. Deixe em branco para usar um arquivo myq_app_check.json já instalado."
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "Token de depuração"
         },
         "data_description": {
-          "debug_token": "Use seu token de depuração registrado no Firebase. Deixe em branco se myq_app_check.json já estiver instalado. Este não é um código MFA nem um token do App Check de curta duração."
+          "debug_token": "Cole o valor do token de depuração ou sua linha ou objeto JSON. Deixe em branco para usar um arquivo myq_app_check.json já instalado."
         }
       },
       "finish": {

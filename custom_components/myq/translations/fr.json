@@ -11,7 +11,7 @@
           "debug_token": "Jeton de débogage"
         },
         "data_description": {
-          "debug_token": "Utilisez votre jeton de débogage enregistré auprès de Firebase. Laissez ce champ vide si myq_app_check.json est déjà installé. Il ne s’agit ni d’un code MFA ni d’un jeton App Check à courte durée de validité."
+          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "Jeton de débogage"
         },
         "data_description": {
-          "debug_token": "Utilisez votre jeton de débogage enregistré auprès de Firebase. Laissez ce champ vide si myq_app_check.json est déjà installé. Il ne s’agit ni d’un code MFA ni d’un jeton App Check à courte durée de validité."
+          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
         }
       },
       "finish": {

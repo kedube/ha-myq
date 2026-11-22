@@ -9,7 +9,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.myq.api.associations import wifi_gdo_pairs
+from custom_components.myq.api.associations import associations, wifi_gdo_pairs
 from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.panel import DATA_PANEL
@@ -48,10 +48,21 @@ def pair():
     return opener, gateway
 
 
-@pytest.mark.parametrize("relationship", ["gateway_id", "gatewayID", "parent", "reverse"])
+@pytest.mark.parametrize(
+    "relationship", ["parent_device_id", "gateway_id", "gatewayID", "parent", "reverse"]
+)
 def test_explicit_wifi_gateway_relationships(relationship):
     opener, gateway = pair()
-    if relationship == "gatewayID":
+    if relationship == "parent_device_id":
+        opener = Device.parse(
+            opener.account_id,
+            {
+                "serial_number": opener.serial,
+                "device_type": opener.device_type,
+                "parent_device_id": gateway.serial,
+            },
+        )
+    elif relationship == "gatewayID":
         opener = Device.parse(
             opener.account_id,
             {
@@ -66,6 +77,78 @@ def test_explicit_wifi_gateway_relationships(relationship):
         opener = replace(opener, gateway_id=None)
         gateway = replace(gateway, state={"associated_gdo_serial_numbers": [opener.serial]})
     assert wifi_gdo_pairs(inventory(opener, gateway)) == {gateway.key: opener}
+
+
+def parent_linked_pair(account="account-one", number=1):
+    """Cloud-shaped records: parent lives outside state, names need not be unique."""
+    opener = Device.parse(
+        account,
+        {
+            "serial_number": f"OPENER-{number}",
+            "parent_device_id": f"GATEWAY-{number}",
+            "device_type": "wifigaragedooropener",
+            "device_family": "garagedoor",
+            "name": "Garage",
+            "state": {
+                "door_state": "closed",
+                "online": True,
+                "attached_camera_serial_number": f"CAMERA-{number}",
+            },
+        },
+    )
+    gateway = Device.parse(
+        account,
+        {
+            "serial_number": f"GATEWAY-{number}",
+            "device_type": "wifigdogateway",
+            "device_family": "gateway",
+            "name": "Garage",
+            "state": {"online": True, "firmware_version": f"GW-FW-{number}"},
+        },
+    )
+    camera = Device.parse(
+        account,
+        {
+            "serial_number": f"CAMERA-{number}",
+            "device_type": "falcon-camera",
+            "device_family": "camera",
+            "name": "Garage",
+            "state": {"online": True},
+        },
+    )
+    return opener, gateway, camera
+
+
+@pytest.mark.parametrize("value", [None, "", 123, [], {}])
+def test_parent_device_id_ignores_absent_or_malformed_values(value):
+    opener = Device.parse(
+        "account-one",
+        {
+            "serial_number": "OPENER",
+            "device_type": "wifigaragedooropener",
+            "parent_device_id": value,
+        },
+    )
+    assert opener.parent_device_id is None
+    assert wifi_gdo_pairs(inventory(opener)) == {}
+
+
+def test_parent_device_id_is_private_and_does_not_change_command_gateway():
+    opener, gateway, _ = parent_linked_pair()
+    opener = replace(opener, gateway_id="COMMAND-GATEWAY")
+    assert opener.parent_device_id == gateway.serial
+    assert opener.gateway_id == "COMMAND-GATEWAY"
+    assert gateway.serial not in repr(opener)
+    assert wifi_gdo_pairs(inventory(opener, gateway)) == {gateway.key: opener}
+    assert associations(opener, inventory(opener, gateway))["gateway"] == (gateway,)
+
+
+def test_parent_device_id_matches_within_account_even_when_names_and_serials_repeat():
+    opener_a, gateway_a, camera_a = parent_linked_pair("account-a")
+    opener_b, gateway_b, camera_b = parent_linked_pair("account-b")
+    devices = inventory(opener_a, gateway_a, camera_a, opener_b, gateway_b, camera_b)
+    assert wifi_gdo_pairs(devices) == {gateway_a.key: opener_a, gateway_b.key: opener_b}
+    assert wifi_gdo_pairs(inventory(opener_a, gateway_b)) == {}
 
 
 @pytest.mark.parametrize(
@@ -124,6 +207,76 @@ async def load(hass, tokens, devices):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     return entry
+
+
+@pytest.mark.parametrize("upgrade", [False, True])
+async def test_top_level_parent_pairs_merge_duplicate_names_and_keep_cameras_separate(
+    hass, tokens, upgrade
+):
+    pairs = [parent_linked_pair(number=number) for number in (1, 2)]
+    # Interleave/reverse cloud records so neither order nor names can select a parent.
+    devices = inventory(*(device for group in reversed(pairs) for device in reversed(group)))
+    assert wifi_gdo_pairs(devices) == {gateway.key: opener for opener, gateway, _ in pairs}
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="owner", data={"tokens": tokens.as_dict()})
+    entry.add_to_hass(hass)
+    registry, entities = dr.async_get(hass), er.async_get(hass)
+    old_devices, old_entities = {}, {}
+    if upgrade:
+        for opener, gateway, camera in pairs:
+            for device, domain, suffix in (
+                (opener, "cover", "door"),
+                (gateway, "binary_sensor", "online"),
+                (camera, "camera", "recent_image"),
+            ):
+                row = registry.async_get_or_create(
+                    config_entry_id=entry.entry_id,
+                    identifiers={(DOMAIN, device.key)},
+                    name=device.name,
+                )
+                old_devices[device.key] = row.id
+                entity = entities.async_get_or_create(
+                    domain,
+                    DOMAIN,
+                    f"{device.key}:{suffix}",
+                    config_entry=entry,
+                    device_id=row.id,
+                    suggested_object_id="saved_" + device.serial.lower().replace("-", "_"),
+                )
+                old_entities[device.key] = entities.async_update_entity(
+                    entity.entity_id, name="Saved custom name", icon="mdi:star"
+                )
+        assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 6
+
+    with (
+        patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value=devices)),
+        patch("custom_components.myq.api.video.Video.details", AsyncMock(return_value={})),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+
+    assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 4
+    assert len(hass.states.async_all("cover")) == 2
+    assert set(entry.runtime_data.data.devices) == set(devices)
+    for opener, gateway, camera in pairs:
+        row = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+        assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == row.id
+        assert row.sw_version == gateway.state["firmware_version"]
+        camera_row = registry.async_get_device(identifiers={(DOMAIN, camera.key)})
+        assert camera_row.id != row.id and camera_row.via_device_id == row.id
+        if upgrade:
+            assert row.id == old_devices[opener.key]
+            assert registry.async_get(old_devices[gateway.key]) is None
+            assert camera_row.id == old_devices[camera.key]
+            for device in (opener, gateway, camera):
+                original = old_entities[device.key]
+                current = entities.async_get(original.entity_id)
+                assert current is not None
+                assert current.unique_id == original.unique_id
+                assert current.name == original.name and current.icon == original.icon
+                assert current.device_id == (camera_row.id if device is camera else row.id)
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.parametrize("gateway_first", [False, True])

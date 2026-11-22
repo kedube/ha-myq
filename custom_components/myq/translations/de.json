@@ -11,7 +11,7 @@
           "debug_token": "Debug-Token"
         },
         "data_description": {
-          "debug_token": "Verwende dein registriertes Firebase-Debug-Token. Leer lassen, wenn myq_app_check.json bereits installiert ist. Dies ist kein MFA-Code und kein kurzlebiges App-Check-Token."
+          "debug_token": "Fügen Sie den Debug-Token-Wert oder seine JSON-Zeile bzw. sein JSON-Objekt ein. Lassen Sie das Feld leer, um eine vorhandene myq_app_check.json zu verwenden."
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "Debug-Token"
         },
         "data_description": {
-          "debug_token": "Verwende dein registriertes Firebase-Debug-Token. Leer lassen, wenn myq_app_check.json bereits installiert ist. Dies ist kein MFA-Code und kein kurzlebiges App-Check-Token."
+          "debug_token": "Fügen Sie den Debug-Token-Wert oder seine JSON-Zeile bzw. sein JSON-Objekt ein. Lassen Sie das Feld leer, um eine vorhandene myq_app_check.json zu verwenden."
         }
       },
       "finish": {

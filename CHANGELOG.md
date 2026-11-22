@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Preserve the device list's top-level `parent_device_id` so Wi-Fi opener/gateway
+  pairs merge when MyQ supplies that parent relationship instead of `gateway_id`.
+  Diagnostics now distinguish unmatched pairs from blocked registry merges without
+  exposing device identifiers.
+- Accept JSON-quoted debug tokens, copied `debug_token` lines, and registration
+  JSON objects in the sign-in form. Only the extracted credential is sent to
+  Firebase; malformed pasted JSON is rejected before sign-in.
+
 ## [0.07] - 2026-11-22
 
 ### Changed

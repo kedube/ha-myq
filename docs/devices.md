@@ -73,6 +73,11 @@ them within the same account. The device uses the opener's name and model and
 includes diagnostics from both records. Standalone hubs and gateways associated
 with multiple doors remain separate.
 
+The match recognizes MyQ's top-level `parent_device_id` as well as older gateway
+references. Downloaded diagnostics show which parent fields were returned and
+whether a gateway was merged, had no unique match, or was blocked by registry
+ownership. They do not include serial numbers or names.
+
 Existing opener/gateway devices are combined automatically when the integration
 loads or discovers the relationship. The opener's device ID, all entity IDs, and
 entity customizations are preserved. Automations targeting the former gateway's

@@ -18,7 +18,7 @@ from custom_components.myq.api.errors import (
     BrowserVerificationRequired,
     CannotConnect,
 )
-from custom_components.myq.api.firebase import FirebaseRegistration
+from custom_components.myq.api.firebase import MAX_REGISTRATION_BYTES, FirebaseRegistration
 from custom_components.myq.api.http import Response
 from custom_components.myq.const import CONF_ENABLE_CAMERAS, CONF_POLL_INTERVAL, DOMAIN
 
@@ -195,14 +195,24 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(h
     await hass.async_block_till_done()
 
 
-@pytest.mark.parametrize("registration_source", ["file", "form"])
+@pytest.mark.parametrize(
+    "registration_source", ["file", "form", "json_string", "json_line", "json_object", "full_json"]
+)
 async def test_default_form_gets_firebase_proof_and_persists_only_session(
     hass, cloud, registration, app_check_registration_file, registration_source, caplog
 ):
     credentials = dict(CREDENTIALS)
-    if registration_source == "form":
+    if registration_source != "file":
         app_check_registration_file.unlink()
-        credentials["debug_token"] = "  private-entered-debug  "
+        credentials["debug_token"] = {
+            "form": "  private-entered-debug  ",
+            "json_string": '"private-entered-debug",',
+            "json_line": '"debug_token": "private-entered-debug",',
+            "json_object": '{"debug_token":"private-entered-debug"}',
+            "full_json": json.dumps(
+                {**asdict(registration), "debug_token": "private-entered-debug"}, indent=2
+            ),
+        }[registration_source]
         registration = FirebaseRegistration.from_debug_token("private-entered-debug")
     state, calls = "", []
     proof = firebase_token(registration)
@@ -257,7 +267,7 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
             "custom_components.myq.api.firebase.FirebaseRegistration.read",
             side_effect=(
                 AssertionError("Form token must not depend on a registration file")
-                if registration_source == "form"
+                if registration_source != "file"
                 else lambda _path: registration
             ),
         ) as read,
@@ -274,7 +284,7 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
     assert proof not in str(result["data"])
     assert registration.debug_token not in str(result) + caplog.text
     assert "debug_token" not in result["result"].options
-    if registration_source == "form":
+    if registration_source != "file":
         read.assert_not_called()
         assert not app_check_registration_file.exists()
     assert calls[-2:] == ["firebaseappcheck.googleapis.com", "partner-identity.myq-cloud.com"]
@@ -408,7 +418,27 @@ async def test_empty_debug_token_without_file_stops_before_password_or_mfa(
 
 
 @pytest.mark.parametrize(
-    "submitted", ["private invalid", "private\ninvalid", "x" * 1025, "非ASCII"]
+    "submitted",
+    [
+        "private invalid",
+        "private\ninvalid",
+        pytest.param("x" * 1025, id="overlong-token"),
+        "非ASCII",
+        pytest.param('"private-unclosed', id="unclosed-string"),
+        pytest.param('{"debug_token":"private-debug"', id="unclosed-object"),
+        pytest.param('{"debug_token":""}', id="empty-json-token"),
+        pytest.param('{"debug_token":null}', id="null-json-token"),
+        pytest.param('{"debug_token":123}', id="numeric-json-token"),
+        pytest.param('{"wrong_key":"private-debug"}', id="missing-json-token"),
+        pytest.param(
+            json.dumps({"debug_token": "private-debug", "padding": "x" * MAX_REGISTRATION_BYTES}),
+            id="oversized-object",
+        ),
+        pytest.param(
+            '{"debug_token":' + "[" * 2000 + '"private-debug"' + "]" * 2000 + "}",
+            id="deeply-nested-object",
+        ),
+    ],
 )
 async def test_invalid_debug_token_is_not_sent_saved_or_echoed(hass, submitted, caplog):
     with (

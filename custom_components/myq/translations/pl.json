@@ -11,7 +11,7 @@
           "debug_token": "Token debugowania"
         },
         "data_description": {
-          "debug_token": "Użyj tokenu debugowania zarejestrowanego w Firebase. Pozostaw puste, jeśli plik myq_app_check.json jest już zainstalowany. To nie jest kod MFA ani krótkotrwały token App Check."
+          "debug_token": "Wklej wartość tokenu debugowania albo zawierający ją wiersz lub obiekt JSON. Pozostaw puste, aby użyć zainstalowanego pliku myq_app_check.json."
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "Token debugowania"
         },
         "data_description": {
-          "debug_token": "Użyj tokenu debugowania zarejestrowanego w Firebase. Pozostaw puste, jeśli plik myq_app_check.json jest już zainstalowany. To nie jest kod MFA ani krótkotrwały token App Check."
+          "debug_token": "Wklej wartość tokenu debugowania albo zawierający ją wiersz lub obiekt JSON. Pozostaw puste, aby użyć zainstalowanego pliku myq_app_check.json."
         }
       },
       "finish": {

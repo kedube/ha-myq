@@ -11,7 +11,7 @@
           "debug_token": "デバッグトークン"
         },
         "data_description": {
-          "debug_token": "Firebase に登録済みのデバッグトークンを入力してください。myq_app_check.json がインストール済みの場合は空欄にできます。MFA コードや有効期間の短い App Check トークンとは異なります。"
+          "debug_token": "デバッグトークンの値、またはその JSON 行やオブジェクトを貼り付けてください。インストール済みの myq_app_check.json を使用する場合は空欄にしてください。"
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "デバッグトークン"
         },
         "data_description": {
-          "debug_token": "Firebase に登録済みのデバッグトークンを入力してください。myq_app_check.json がインストール済みの場合は空欄にできます。MFA コードや有効期間の短い App Check トークンとは異なります。"
+          "debug_token": "デバッグトークンの値、またはその JSON 行やオブジェクトを貼り付けてください。インストール済みの myq_app_check.json を使用する場合は空欄にしてください。"
         }
       },
       "finish": {

@@ -79,10 +79,28 @@ class FirebaseRegistration:
 
     @classmethod
     def from_debug_token(cls, debug_token: str) -> FirebaseRegistration:
-        """Combine a sign-in credential with the bundled public app configuration."""
-        if not isinstance(debug_token, str):
+        """Accept a raw credential or its JSON representation copied from a file."""
+        if not isinstance(debug_token, str) or len(debug_token) > MAX_REGISTRATION_BYTES:
             raise AppCheckInvalid()
-        return cls(**_MYQ_APP, debug_token=debug_token.strip())
+        value = debug_token.strip()
+        if value.startswith(('"', "{", "[", "'")):
+            try:
+                # A copied property or quoted value can include its trailing comma.
+                encoded = value.removesuffix(",").rstrip()
+                try:
+                    decoded = json.loads(encoded)
+                except ValueError:
+                    # A single property needs its containing object's braces.
+                    if not encoded.startswith('"debug_token"'):
+                        raise
+                    decoded = json.loads("{" + encoded + "}")
+                token = decoded.get("debug_token") if isinstance(decoded, dict) else decoded
+                if not isinstance(token, str):
+                    raise ValueError
+                value = token.strip()
+            except (ValueError, RecursionError):
+                raise AppCheckInvalid() from None
+        return cls(**_MYQ_APP, debug_token=value)
 
     @classmethod
     def read(cls, path: Path) -> FirebaseRegistration:

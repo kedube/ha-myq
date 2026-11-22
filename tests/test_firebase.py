@@ -22,6 +22,7 @@ from custom_components.myq.api.errors import (
     AppCheckUnavailable,
 )
 from custom_components.myq.api.firebase import (
+    MAX_REGISTRATION_BYTES,
     FirebaseDebugAppCheckProvider,
     FirebaseRegistration,
 )
@@ -51,7 +52,65 @@ def test_form_registration_uses_public_metadata_and_keeps_token_out_of_repr():
 
 
 @pytest.mark.parametrize(
-    "token", [None, 123, "", "  ", "private invalid", "private\ninvalid", "x" * 1025]
+    "text",
+    [
+        pytest.param("private-entered-debug", id="raw"),
+        pytest.param('"private-entered-debug"', id="json-string"),
+        pytest.param('  "private-entered-debug",\n', id="json-string-with-comma"),
+        pytest.param('"debug_token": "private-entered-debug"', id="json-member"),
+        pytest.param('"debug_token": "private-entered-debug",', id="json-member-with-comma"),
+        pytest.param('{"debug_token":"private-entered-debug"}', id="compact-object"),
+        pytest.param(
+            json.dumps(
+                {
+                    "debug_token": "private-entered-debug",
+                    "project": "unrelated-project",
+                    "application": "1:999:android:abcdef",
+                    "api_key": "unrelated-key",
+                    "package": "unrelated.package",
+                    "certificate": "ff" * 20,
+                },
+                indent=2,
+            ),
+            id="full-registration-object",
+        ),
+    ],
+)
+def test_pasted_json_extracts_only_the_credential_and_preserves_bundled_app(text):
+    profile = FirebaseRegistration.from_debug_token(text)
+    expected = FirebaseRegistration.from_debug_token("private-entered-debug")
+    assert asdict(profile) == asdict(expected)
+    assert "private-entered-debug" not in repr(profile)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        None,
+        123,
+        "",
+        "  ",
+        "private invalid",
+        "private\ninvalid",
+        pytest.param("x" * 1025, id="overlong-token"),
+        pytest.param('"private-unclosed', id="unclosed-json-string"),
+        pytest.param('{"debug_token":"private-unclosed"', id="unclosed-json-object"),
+        pytest.param('{"debug_token": ""}', id="empty-json-token"),
+        pytest.param('{"debug_token": null}', id="null-json-token"),
+        pytest.param('{"debug_token": 123}', id="numeric-json-token"),
+        pytest.param('{"debug_token": {"secret": "private-debug"}}', id="object-json-token"),
+        pytest.param('{"wrong_key": "private-debug"}', id="missing-json-token"),
+        pytest.param('["private-debug"]', id="json-array"),
+        pytest.param('"debug_token": "private-debug", broken', id="malformed-member"),
+        pytest.param(
+            json.dumps({"debug_token": "private-debug", "padding": "x" * MAX_REGISTRATION_BYTES}),
+            id="oversized-json-object",
+        ),
+        pytest.param(
+            '{"debug_token":' + "[" * 2000 + '"private-debug"' + "]" * 2000 + "}",
+            id="deeply-nested-json",
+        ),
+    ],
 )
 def test_form_registration_rejects_invalid_tokens_without_disclosing_them(token):
     with pytest.raises(AppCheckInvalid) as error:

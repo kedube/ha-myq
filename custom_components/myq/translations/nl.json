@@ -11,7 +11,7 @@
           "debug_token": "Debugtoken"
         },
         "data_description": {
-          "debug_token": "Gebruik je geregistreerde Firebase-debugtoken. Laat dit leeg als myq_app_check.json al is geïnstalleerd. Dit is geen MFA-code of kort geldig App Check-token."
+          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken."
         }
       },
       "mfa": {
@@ -30,7 +30,7 @@
           "debug_token": "Debugtoken"
         },
         "data_description": {
-          "debug_token": "Gebruik je geregistreerde Firebase-debugtoken. Laat dit leeg als myq_app_check.json al is geïnstalleerd. Dit is geen MFA-code of kort geldig App Check-token."
+          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken."
         }
       },
       "finish": {

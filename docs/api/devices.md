@@ -40,6 +40,14 @@ device factory define the principal data groups:
 | `device_platform` | Affects dispatch, notably the `seam` partner-lock path |
 | `gateway_id` | Top-level gateway association; native getter falls back to `state.gatewayID` |
 
+The account device list also reports a top-level `parent_device_id`, meaning the
+parent's serial number (documented by [pymyq](https://github.com/arraylabs/pymyq#device-properties)
+and included in the [MyQ device interface](https://github.com/hjdhjd/myq/blob/main/src/myq-types.ts)).
+The integration preserves this separately from `gateway_id` and uses it to match
+a Wi-Fi opener to its built-in gateway in the same account. It does not change
+the serials used for cloud commands. Matching falls back to `gateway_id` and
+`state.parent_serial_number` when `parent_device_id` is absent.
+
 The integration keys a device by **account ID + serial**, allowing identical
 serial strings in different account contexts to remain distinct. It normalizes
 type/family/platform names, validates the shapes it consumes, and treats absent
