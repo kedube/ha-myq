@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.07] - 2026-11-22
+
 ### Changed
 
 - Combine an explicitly linked Wi-Fi garage opener and its built-in Wi-Fi gateway
