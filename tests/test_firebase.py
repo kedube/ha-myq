@@ -35,11 +35,28 @@ def firebase_token(registration, **claims):
     payload = {
         "exp": time.time() + 3600,
         "sub": registration.application,
-        "aud": ["projects/123456"],
+        "aud": [f"projects/{registration.application.split(':')[1]}"],
         **claims,
     }
     part = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=").decode()
     return f"e30.{part}.fake-signature"
+
+
+def test_form_registration_uses_public_metadata_and_keeps_token_out_of_repr():
+    profile = FirebaseRegistration.from_debug_token("  private-entered-debug\n")
+    assert profile.debug_token == "private-entered-debug"
+    assert profile.package == ANDROID_PACKAGE
+    assert profile.resource.endswith(":exchangeDebugToken")
+    assert "private-entered-debug" not in repr(profile)
+
+
+@pytest.mark.parametrize(
+    "token", [None, 123, "", "  ", "private invalid", "private\ninvalid", "x" * 1025]
+)
+def test_form_registration_rejects_invalid_tokens_without_disclosing_them(token):
+    with pytest.raises(AppCheckInvalid) as error:
+        FirebaseRegistration.from_debug_token(token)
+    assert "private" not in str(error.value)
 
 
 async def test_registered_exchange_cache_and_oauth_header_scope(http, registration):

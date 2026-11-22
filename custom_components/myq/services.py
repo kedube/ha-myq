@@ -171,7 +171,7 @@ def _loaded_entry(hass: HomeAssistant, entry_id: str):
 
 def _device_target(hass: HomeAssistant, device_id: str):
     registered = dr.async_get(hass).async_get(device_id)
-    candidates = []
+    candidates = {}
     if registered is not None:
         for entry_id in registered.config_entries:
             entry = hass.config_entries.async_get_entry(entry_id)
@@ -186,10 +186,14 @@ def _device_target(hass: HomeAssistant, device_id: str):
                     domain == DOMAIN
                     and (device := entry.runtime_data.data.devices.get(key)) is not None
                 ):
-                    candidates.append((entry.runtime_data, device))
+                    coordinator = entry.runtime_data
+                    key = coordinator.gateway_openers.get(device.key, device.key)
+                    target = coordinator.data.devices.get(key)
+                    if target is not None:
+                        candidates[(entry_id, key)] = (coordinator, target)
     if len(candidates) != 1:
         raise translated("device_not_found")
-    return candidates[0]
+    return next(iter(candidates.values()))
 
 
 @callback

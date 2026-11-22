@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "MyQ verbinden",
-        "description": "Gib die Zugangsdaten deines MyQ-Kontos ein. Wenn MyQ eine unterstützte Verifizierungsabfrage stellt, wirst du als Nächstes dazu aufgefordert. Dein Passwort wird nur für diese Anmeldung verwendet und nicht gespeichert.",
+        "description": "Gib deine MyQ-E-Mail-Adresse, dein Passwort und dein Debug-Token ein. Falls MyQ einen Bestätigungscode anfordert, wirst du im nächsten Schritt danach gefragt. Passwort und Debug-Token werden nicht gespeichert.",
         "data": {
           "username": "E-Mail",
-          "password": "Passwort"
+          "password": "Passwort",
+          "debug_token": "Debug-Token"
+        },
+        "data_description": {
+          "debug_token": "Verwende dein registriertes Firebase-Debug-Token. Leer lassen, wenn myq_app_check.json bereits installiert ist. Dies ist kein MFA-Code und kein kurzlebiges App-Check-Token."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "MyQ erneut verbinden",
-        "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an.",
+        "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an. Passwort und Debug-Token werden nicht gespeichert.",
         "data": {
           "username": "E-Mail",
-          "password": "Passwort"
+          "password": "Passwort",
+          "debug_token": "Debug-Token"
+        },
+        "data_description": {
+          "debug_token": "Verwende dein registriertes Firebase-Debug-Token. Leer lassen, wenn myq_app_check.json bereits installiert ist. Dies ist kein MFA-Code und kein kurzlebiges App-Check-Token."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ verlangt eine Browser-Verifizierung, die diese Integration nicht abschließen kann.",
       "app_check_unavailable": "Die App-Verifizierung konnte nicht von Firebase abgerufen werden. Prüfen Sie die Verbindung und Registrierung und versuchen Sie es erneut.",
       "app_check_expired": "Der Anbieter der App-Verifizierung hat ein bald ablaufendes Token zurückgegeben. Versuche es erneut.",
-      "app_check_invalid": "Die Konfiguration der App-Verifizierung oder das zurückgegebene Token ist ungültig.",
-      "app_check_integrity": "Der Anbieter der App-Verifizierung hat die konfigurierte Registrierung abgelehnt.",
-      "app_check_not_configured": "Legen Sie myq_app_check.json neben configuration.yaml im Konfigurationsverzeichnis von Home Assistant ab und versuchen Sie es erneut.",
+      "app_check_invalid": "Das Debug-Token, die Konfiguration der App-Verifizierung oder das zurückgegebene Token ist ungültig.",
+      "app_check_integrity": "Firebase hat das Debug-Token oder die App-Registrierung abgelehnt.",
+      "app_check_not_configured": "Gib ein Debug-Token ein oder installiere myq_app_check.json im Konfigurationsverzeichnis von Home Assistant.",
       "app_check_config_unreadable": "Home Assistant kann myq_app_check.json nicht lesen. Prüfen Sie die Dateiberechtigungen im Konfigurationsverzeichnis.",
       "app_check_config_invalid": "myq_app_check.json ist ungültig. Prüfen Sie die Registrierungskonfiguration in der Anmeldeanleitung."
     },

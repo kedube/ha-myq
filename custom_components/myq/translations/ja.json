@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "MyQ に接続",
-        "description": "MyQ アカウントの認証情報を入力してください。MyQ が対応している検証チャレンジを提示した場合は、次の画面で入力を求められます。パスワードはこのサインインにのみ使用され、保存されません。",
+        "description": "MyQ のメールアドレス、パスワード、デバッグトークンを入力してください。MyQ が確認コードを要求した場合は、次の画面で入力します。パスワードとデバッグトークンは保存されません。",
         "data": {
           "username": "メールアドレス",
-          "password": "パスワード"
+          "password": "パスワード",
+          "debug_token": "デバッグトークン"
+        },
+        "data_description": {
+          "debug_token": "Firebase に登録済みのデバッグトークンを入力してください。myq_app_check.json がインストール済みの場合は空欄にできます。MFA コードや有効期間の短い App Check トークンとは異なります。"
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "MyQ に再接続",
-        "description": "MyQ セッションを更新できませんでした。同じアカウントに再度サインインしてください。",
+        "description": "MyQ セッションを更新できませんでした。同じアカウントに再度サインインしてください。パスワードとデバッグトークンは保存されません。",
         "data": {
           "username": "メールアドレス",
-          "password": "パスワード"
+          "password": "パスワード",
+          "debug_token": "デバッグトークン"
+        },
+        "data_description": {
+          "debug_token": "Firebase に登録済みのデバッグトークンを入力してください。myq_app_check.json がインストール済みの場合は空欄にできます。MFA コードや有効期間の短い App Check トークンとは異なります。"
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ は、このインテグレーションでは完了できないブラウザー認証を要求しています。",
       "app_check_unavailable": "Firebase からアプリの検証を取得できませんでした。接続と登録設定を確認して、もう一度お試しください。",
       "app_check_expired": "アプリ検証サービスが有効期限の短いトークンを返しました。もう一度お試しください。",
-      "app_check_invalid": "アプリ検証の設定または受信したトークンが無効です。",
-      "app_check_integrity": "アプリ検証サービスが設定された登録情報を拒否しました。",
-      "app_check_not_configured": "myq_app_check.json を Home Assistant の設定ディレクトリの configuration.yaml と同じ場所に配置して、もう一度お試しください。",
+      "app_check_invalid": "デバッグトークン、アプリ検証の設定、または返されたトークンが無効です。",
+      "app_check_integrity": "Firebase がデバッグトークンまたはアプリ登録を拒否しました。",
+      "app_check_not_configured": "デバッグトークンを入力するか、Home Assistant の設定ディレクトリに myq_app_check.json を配置してください。",
       "app_check_config_unreadable": "Home Assistant が myq_app_check.json を読み取れません。設定ディレクトリにあるファイルのアクセス権限を確認してください。",
       "app_check_config_invalid": "myq_app_check.json が無効です。サインインガイドで登録設定を確認してください。"
     },

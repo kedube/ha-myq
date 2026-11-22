@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "Conectar o MyQ",
-        "description": "Informe as credenciais da sua conta MyQ. Se o MyQ apresentar um desafio de verificação compatível, você será solicitado a respondê-lo em seguida. Sua senha é usada somente para este login e não é salva.",
+        "description": "Informe seu e-mail do MyQ, senha e token de depuração. Se o MyQ solicitar um código de verificação, você poderá informá-lo na próxima etapa. Sua senha e seu token de depuração não são salvos.",
         "data": {
           "username": "E-mail",
-          "password": "Senha"
+          "password": "Senha",
+          "debug_token": "Token de depuração"
+        },
+        "data_description": {
+          "debug_token": "Use seu token de depuração registrado no Firebase. Deixe em branco se myq_app_check.json já estiver instalado. Este não é um código MFA nem um token do App Check de curta duração."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "Reconectar o MyQ",
-        "description": "Não foi possível renovar sua sessão do MyQ. Faça login novamente na mesma conta.",
+        "description": "Não foi possível renovar sua sessão do MyQ. Entre novamente na mesma conta. Sua senha e seu token de depuração não são salvos.",
         "data": {
           "username": "E-mail",
-          "password": "Senha"
+          "password": "Senha",
+          "debug_token": "Token de depuração"
+        },
+        "data_description": {
+          "debug_token": "Use seu token de depuração registrado no Firebase. Deixe em branco se myq_app_check.json já estiver instalado. Este não é um código MFA nem um token do App Check de curta duração."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "O MyQ exige uma verificação no navegador que esta integração não consegue concluir.",
       "app_check_unavailable": "Não foi possível obter a verificação do aplicativo do Firebase. Verifique a conexão e o registro e tente novamente.",
       "app_check_expired": "O serviço de verificação retornou um token próximo do vencimento. Tente novamente.",
-      "app_check_invalid": "A configuração de verificação ou o token recebido é inválido.",
-      "app_check_integrity": "O serviço de verificação rejeitou o registro configurado.",
-      "app_check_not_configured": "Coloque myq_app_check.json no diretório de configuração do Home Assistant, ao lado de configuration.yaml, e tente novamente.",
+      "app_check_invalid": "O token de depuração, a configuração de verificação do aplicativo ou o token recebido é inválido.",
+      "app_check_integrity": "O Firebase rejeitou o token de depuração ou o registro do aplicativo.",
+      "app_check_not_configured": "Informe um token de depuração ou instale myq_app_check.json no diretório de configuração do Home Assistant.",
       "app_check_config_unreadable": "O Home Assistant não consegue ler myq_app_check.json. Verifique as permissões do arquivo no diretório de configuração.",
       "app_check_config_invalid": "myq_app_check.json é inválido. Verifique a configuração do registro no guia de login."
     },

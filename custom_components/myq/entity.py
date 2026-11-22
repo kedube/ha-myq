@@ -6,6 +6,7 @@ from functools import partial
 from typing import Any
 
 from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -20,15 +21,36 @@ def _text(value: Any) -> str | None:
 
 
 def device_info(coordinator: MyQCoordinator, device: Device) -> DeviceInfo:
+    groups = getattr(coordinator, "gateway_openers", {})
+    if device.key in groups:
+        device = coordinator.data.devices[groups[device.key]]
+    elif device.device_type == "wifigdogateway":
+        registered = dr.async_get(coordinator.hass).async_get_device(
+            identifiers={(DOMAIN, device.key)}
+        )
+        if registered is not None and any(
+            domain == DOMAIN and key != device.key for domain, key in registered.identifiers
+        ):
+            # A previously merged opener may be absent from a partial inventory.
+            # Retain its name/model rather than overwriting them with the gateway.
+            return DeviceInfo(identifiers={(DOMAIN, device.key)})
     details = getattr(coordinator.data, "cameras", {}).get(device.key, {})
+    firmware = device.state.get("firmware_version") or next(
+        (
+            coordinator.data.devices[key].state.get("firmware_version")
+            for key, opener in groups.items()
+            if opener == device.key
+        ),
+        None,
+    )
     info = DeviceInfo(
-        identifiers={(DOMAIN, device.key)},
+        identifiers={(DOMAIN, device.key)}
+        | {(DOMAIN, key) for key, opener in groups.items() if opener == device.key},
         name=device.name,
         manufacturer=device.state.get("brand_name") or "Chamberlain Group",
         model=device.model or _text(device.state.get("lock_model")) or device.device_type,
         # The camera settings "F/W" row reads the Tend hardware version.
-        sw_version=_text(nested(details, "hw", "firmwareVer"))
-        or device.state.get("firmware_version"),
+        sw_version=_text(nested(details, "hw", "firmwareVer")) or firmware,
     )
     mac = _text(nested(details, "net", "eth", "mac"))
     if mac is not None and re.fullmatch(r"(?:[0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}", mac):

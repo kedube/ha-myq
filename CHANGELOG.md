@@ -5,8 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Changed
+
+- Combine an explicitly linked Wi-Fi garage opener and its built-in Wi-Fi gateway
+  into one Home Assistant device. Existing entities and their IDs are preserved;
+  gateway diagnostics move under the opener. Shared or unrelated hubs stay separate.
+  Device-target actions and sidebar status use the opener within the combined device.
+
 ### Added
 
+- A masked **Debug token** field follows email and password in setup and
+  reauthentication. Entering a registered token uses bundled public Firebase app
+  metadata without a separate JSON installation. The token is not saved;
+  existing registration files remain available when the field is blank.
 - A private install ZIP can include both the integration and an existing App Check
   registration, installing them together into Home Assistant's configuration
   directory. Public release archives continue to exclude registration credentials.

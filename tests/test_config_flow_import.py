@@ -36,7 +36,7 @@ async def check():
     result = await flow.async_step_user()
     assert result["type"] == "form"
     assert result["step_id"] == "user"
-    assert set(result["data_schema"].schema) == {"username", "password"}
+    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
     for profile in ("chrome_android", "chrome"):
         async with CurlHttp(profile):
             pass

@@ -17,6 +17,7 @@ from .api.client import Client
 from .api.errors import (
     AccessDenied,
     AppCheckError,
+    AppCheckNotConfigured,
     ApplicationVerificationError,
     AuthenticationError,
     BrowserVerificationRequired,
@@ -120,6 +121,15 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         self._client = Client(self._session)
         return self._client
 
+    async def _registration(self, debug_token: str) -> FirebaseRegistration | Path:
+        """Use the submitted credential, falling back to an existing private file."""
+        if debug_token:
+            return FirebaseRegistration.from_debug_token(debug_token)
+        path = Path(self.hass.config.path(REGISTRATION_FILE))
+        # Validate before sign-in, but let the provider reload file-based credentials.
+        await self.hass.async_add_executor_job(FirebaseRegistration.read, path)
+        return path
+
     def _finish_form(self, errors=None):
         return self.async_show_form(
             step_id="finish", data_schema=vol.Schema({}), errors=errors or {}
@@ -145,19 +155,24 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "rate_limited"
         elif user_input is not None:
             self._email = user_input["username"].strip()
-            client = await self._new_client()
+            self._close()
+            debug_token = user_input.get("debug_token", "").strip()
             try:
-                registration_path = Path(self.hass.config.path(REGISTRATION_FILE))
-                # Check local setup before sending credentials or asking for MFA.
-                # Keep the provider's Path so it reloads the file for fresh proofs.
-                await self.hass.async_add_executor_job(FirebaseRegistration.read, registration_path)
+                registration = await self._registration(debug_token)
+            except MyQError as err:
+                field = (
+                    "debug_token"
+                    if debug_token or isinstance(err, AppCheckNotConfigured)
+                    else "base"
+                )
+                return self._credentials_form({field: self._error(err)})
+            try:
+                client = await self._new_client()
                 # Firebase never shares the hosted login's cookies or headers.
                 self._proof_session = async_create_clientsession(
                     self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
                 )
-                provider = FirebaseDebugAppCheckProvider(
-                    Http(self._proof_session), registration_path
-                )
+                provider = FirebaseDebugAppCheckProvider(Http(self._proof_session), registration)
                 self._login = Login(
                     client.http, client.auth, locale=self._locale, app_check_provider=provider
                 )
@@ -179,6 +194,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("username", default=self._email): str,
                     vol.Required("password"): SECRET,
+                    vol.Optional("debug_token"): SECRET,
                 }
             ),
             errors=errors or {},

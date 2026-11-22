@@ -121,12 +121,14 @@ class MyQDeviceType(MyQEntity, SensorEntity):
         access = self.coordinator.data.account_access.get(self.device.account_id)
         attributes = {"account_role": access.role if access is not None else "unknown"}
         registry = dr.async_get(self.hass)
+        own_entry = registry.async_get_device(identifiers={(DOMAIN, self.device.key)})
         for kind, devices in associations(self.device, self.coordinator.data.devices).items():
             attributes[kind] = [
                 entry.id
                 for device in devices
                 if (entry := registry.async_get_device(identifiers={(DOMAIN, device.key)}))
                 is not None
+                and (own_entry is None or entry.id != own_entry.id)
             ]
         return attributes
 

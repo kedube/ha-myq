@@ -49,7 +49,7 @@ UI, reused with her permission.
 | Device health | Connectivity, battery, charging, Wi-Fi strength, fault codes, door cycles, last state change, backup battery and firmware updates, when MyQ reports them. |
 | Activity and alerts | Optional **Activity** event entities per device, switches for each notification rule, and actions to read history and snooze alerts. |
 | Account management | Administrator actions for accessories, lock PINs, guest access, camera schedules and device names. |
-| Other devices | Gateways, hubs and unrecognised devices appear with their type and diagnostics, without controls. |
+| Other devices | Built-in Wi-Fi gateways share their opener's device and contribute diagnostics. Standalone gateways, hubs and unrecognised devices appear with their type and diagnostics, without controls. |
 
 Details: [devices and entities](docs/devices.md), [cameras](docs/cameras.md),
 [actions](docs/integration-actions.md).
@@ -64,8 +64,9 @@ only.
 
 - Home Assistant 2026.2 or later. Tested with 2026.2.3 and Python 3.13.
 - Your MyQ account email and password, plus access to its verification codes.
-  Sign-in still depends on MyQ accepting the application's verification; see
-  [Set up](#set-up).
+- A registered Firebase debug token for app verification, entered during setup
+  or supplied by an existing registration file. Sign-in still depends on MyQ
+  accepting the application's verification; see [Set up](#set-up).
 - For live video: outbound access to MyQ's video service (Tend, port 5104) and
   to AWS WebRTC servers. The `aiortc` dependency is installed automatically.
 
@@ -118,15 +119,18 @@ extract a release's `myq.zip` into `config/custom_components/myq/`.
 ## Set up
 
 Go to **Settings → Devices & services → Add integration → MyQ**. **Connect MyQ**
-opens directly to email and password. Enter your credentials, then complete
-MyQ's verification prompt if one appears. Your password is not saved.
+opens directly to email, password, and a masked **Debug token** field. Enter your
+credentials and registered debug token, then complete MyQ's verification prompt
+if one appears. Your password and debug token are not saved.
 
 Email/password is the only setup and reconnect method. End-to-end sign-in is
 still unverified. App Check acquisition is implemented and verified with a
-registered debug credential. Install the private `myq_app_check.json` file in
-the Home Assistant configuration directory before signing in; it is not part
-of the release ZIP. The [sign-in guide](docs/sign-in.md) explains this prerequisite,
-reauthentication and the remaining validation.
+registered debug credential. The public release includes the public app
+configuration; entering the debug token needs no separate JSON file. If you
+already installed `myq_app_check.json` in Home Assistant's configuration directory,
+you can leave the token field blank to use it. The
+[sign-in guide](docs/sign-in.md) explains token entry, reauthentication, and the
+remaining validation.
 
 **Options:** the poll interval (60–900 seconds, default 60), whether cameras
 are discovered (on by default), and the sidebar panel's visibility, title, icon

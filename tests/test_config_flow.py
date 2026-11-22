@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from homeassistant.data_entry_flow import InvalidData
+from homeassistant.helpers.selector import TextSelector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.const import IDENTITY
@@ -17,6 +18,7 @@ from custom_components.myq.api.errors import (
     BrowserVerificationRequired,
     CannotConnect,
 )
+from custom_components.myq.api.firebase import FirebaseRegistration
 from custom_components.myq.api.http import Response
 from custom_components.myq.const import CONF_ENABLE_CAMERAS, CONF_POLL_INTERVAL, DOMAIN
 
@@ -48,12 +50,16 @@ def cloud():
         yield discover
 
 
-async def test_connect_opens_only_email_and_password_without_network(hass):
+async def test_connect_opens_email_password_and_masked_debug_token_without_network(hass):
     with patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as http:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] == "form" and result["step_id"] == "user"
     assert "menu_options" not in result
-    assert set(result["data_schema"].schema) == {"username", "password"}
+    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
+    selector = result["data_schema"].schema["debug_token"]
+    assert isinstance(selector, TextSelector)
+    assert selector.config["type"] == "password"
+    assert "debug_token" not in result["data_schema"](CREDENTIALS)
     http.assert_not_awaited()
 
 
@@ -65,7 +71,7 @@ async def test_reauth_opens_credentials_and_prefills_the_existing_email(hass):
     result = await entry.start_reauth_flow(hass)
     assert result["type"] == "form" and result["step_id"] == "reauth_confirm"
     assert "menu_options" not in result
-    assert set(result["data_schema"].schema) == {"username", "password"}
+    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
     assert result["data_schema"]({"password": "private"})["username"] == "saved@example.invalid"
 
 
@@ -135,7 +141,7 @@ async def test_sign_in_errors_return_to_credentials_and_create_nothing(hass, err
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
     assert result["step_id"] == "user"
     assert result["errors"] == {"base": key}
-    assert set(result["data_schema"].schema) == {"username", "password"}
+    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
     assert "private-password" not in str(result)
     assert not hass.config_entries.async_entries(DOMAIN)
 
@@ -189,15 +195,23 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(h
     await hass.async_block_till_done()
 
 
+@pytest.mark.parametrize("registration_source", ["file", "form"])
 async def test_default_form_gets_firebase_proof_and_persists_only_session(
-    hass, cloud, registration
+    hass, cloud, registration, app_check_registration_file, registration_source, caplog
 ):
+    credentials = dict(CREDENTIALS)
+    if registration_source == "form":
+        app_check_registration_file.unlink()
+        credentials["debug_token"] = "  private-entered-debug  "
+        registration = FirebaseRegistration.from_debug_token("private-entered-debug")
     state, calls = "", []
     proof = firebase_token(registration)
 
     async def request(_self, method, url, **kwargs):
         nonlocal state
         calls.append(urlsplit(url).netloc)
+        if "firebaseappcheck.googleapis.com" not in url:
+            assert registration.debug_token not in str(kwargs) + url
         if method == "GET":
             if urlsplit(url).path == "/Consent":
                 return Response(
@@ -216,6 +230,8 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
             assert "unified_flow:v1" in parse_qs(urlsplit(url).query)["acr_values"][0]
             return Response(200, {}, PASSWORD_PAGE)
         if "firebaseappcheck.googleapis.com" in url:
+            assert kwargs["json"] == {"debugToken": registration.debug_token}
+            assert registration.resource in url
             assert kwargs["headers"]["X-Android-Package"] == registration.package
             return json_response({"token": proof, "ttl": "3600s"})
         if url.endswith("/connect/token"):
@@ -239,11 +255,15 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
         patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
         patch(
             "custom_components.myq.api.firebase.FirebaseRegistration.read",
-            return_value=registration,
-        ),
+            side_effect=(
+                AssertionError("Form token must not depend on a registration file")
+                if registration_source == "form"
+                else lambda _path: registration
+            ),
+        ) as read,
     ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], credentials)
         assert result["step_id"] == "mfa"
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"response": "123456"}
@@ -252,7 +272,11 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
     assert set(result["data"]) == {"username", "tokens"}
     assert result["data"]["tokens"]["access_token"] == "session-access"
     assert proof not in str(result["data"])
-    assert registration.debug_token not in str(result["data"])
+    assert registration.debug_token not in str(result) + caplog.text
+    assert "debug_token" not in result["result"].options
+    if registration_source == "form":
+        read.assert_not_called()
+        assert not app_check_registration_file.exists()
     assert calls[-2:] == ["firebaseappcheck.googleapis.com", "partner-identity.myq-cloud.com"]
 
 
@@ -289,7 +313,8 @@ async def test_registration_preflight_stops_before_sign_in(
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
     assert result["step_id"] == "user"
-    assert result["errors"] == {"base": error_key}
+    field = "debug_token" if failure == "missing" else "base"
+    assert result["errors"] == {field: error_key}
     assert "private-" not in str(result)
     start.assert_not_awaited()
     firebase.assert_not_awaited()
@@ -306,7 +331,7 @@ async def test_registration_can_be_installed_then_same_flow_retried(
     with patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
-        assert result["errors"] == {"base": "app_check_not_configured"}
+        assert result["errors"] == {"debug_token": "app_check_not_configured"}
         start.assert_not_awaited()
     app_check_registration_file.write_text(json.dumps(asdict(registration)))
     requests = []
@@ -326,6 +351,124 @@ async def test_registration_can_be_installed_then_same_flow_retried(
     firebase.assert_not_awaited()
     hass.config_entries.flow.async_abort(retry["flow_id"])
     await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize("stored_file", ["valid", "malformed", "unreadable"])
+async def test_submitted_debug_token_takes_priority_over_registration_file(
+    hass, cloud, tokens, app_check_registration_file, stored_file
+):
+    submitted = "private-entered-debug"
+    entered = FirebaseRegistration.from_debug_token(submitted)
+    if stored_file == "malformed":
+        app_check_registration_file.write_text("malformed registration")
+    original_contents = app_check_registration_file.read_bytes()
+
+    async def start(login, _username, _password):
+        await login.app_check_provider.acquire()
+        login.token_manager.tokens = tokens
+        return tokens
+
+    with (
+        patch(
+            "custom_components.myq.api.firebase.FirebaseRegistration.read",
+            side_effect=PermissionError("private-path") if stored_file == "unreadable" else None,
+        ) as read,
+        patch("custom_components.myq.api.auth.Login.start", start),
+        patch(
+            "custom_components.myq.api.http.Http.request",
+            AsyncMock(
+                return_value=json_response({"token": firebase_token(entered), "ttl": "3600s"})
+            ),
+        ) as firebase,
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
+        )
+    assert result["type"] == "create_entry"
+    read.assert_not_called()
+    assert firebase.call_args.kwargs["json"] == {"debugToken": submitted}
+    assert app_check_registration_file.read_bytes() == original_contents
+    assert submitted not in str(result)
+
+
+@pytest.mark.parametrize("submitted", ["", " \t\n "])
+async def test_empty_debug_token_without_file_stops_before_password_or_mfa(
+    hass, app_check_registration_file, submitted
+):
+    app_check_registration_file.unlink()
+    with patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
+        )
+    assert result["errors"] == {"debug_token": "app_check_not_configured"}
+    start.assert_not_awaited()
+    assert not app_check_registration_file.exists()
+
+
+@pytest.mark.parametrize(
+    "submitted", ["private invalid", "private\ninvalid", "x" * 1025, "非ASCII"]
+)
+async def test_invalid_debug_token_is_not_sent_saved_or_echoed(hass, submitted, caplog):
+    with (
+        patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start,
+        patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as firebase,
+        patch("custom_components.myq.api.firebase.FirebaseRegistration.read") as read,
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
+        )
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"debug_token": "app_check_invalid"}
+    assert "debug_token" not in result["data_schema"](CREDENTIALS)
+    assert submitted not in str(result) + caplog.text
+    start.assert_not_awaited()
+    firebase.assert_not_awaited()
+    read.assert_not_called()
+    assert not hass.config_entries.async_entries(DOMAIN)
+
+
+async def test_reauth_accepts_debug_token_without_file_and_does_not_persist_it(
+    hass, cloud, tokens, app_check_registration_file, caplog
+):
+    app_check_registration_file.unlink()
+    submitted = "private-entered-debug"
+    entered = FirebaseRegistration.from_debug_token(submitted)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=PROFILE["user_id"],
+        data={"username": PROFILE["email"], "tokens": {"access_token": "old-session"}},
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+
+    async def start(login, username, password):
+        assert (username, password) == (CREDENTIALS["username"], CREDENTIALS["password"])
+        await login.app_check_provider.acquire()
+        login.token_manager.tokens = tokens
+        return tokens
+
+    with (
+        patch("custom_components.myq.api.auth.Login.start", start),
+        patch(
+            "custom_components.myq.api.http.Http.request",
+            AsyncMock(
+                return_value=json_response({"token": firebase_token(entered), "ttl": "3600s"})
+            ),
+        ) as firebase,
+        patch.object(hass.config_entries, "async_reload", AsyncMock(return_value=True)),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
+        )
+    assert result["type"] == "abort" and result["reason"] == "reauth_successful"
+    assert entry.data == {"username": PROFILE["email"], "tokens": tokens.as_dict()}
+    assert entry.options == {}
+    assert firebase.call_args.kwargs["json"] == {"debugToken": submitted}
+    assert submitted not in str(entry.data) + str(result) + caplog.text
+    assert not app_check_registration_file.exists()
 
 
 async def test_form_authorization_uses_home_assistant_language(hass):

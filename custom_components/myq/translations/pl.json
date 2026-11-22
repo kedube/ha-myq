@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "Połącz z MyQ",
-        "description": "Wprowadź dane logowania do konta MyQ. Jeśli usługa MyQ zażąda obsługiwanej formy weryfikacji, pojawi się ona w następnym kroku. Twoje hasło jest używane tylko do tego logowania i nie jest zapisywane.",
+        "description": "Wpisz adres e-mail konta MyQ, hasło i token debugowania. Jeśli MyQ poprosi o kod weryfikacyjny, wpiszesz go w następnym kroku. Hasło i token debugowania nie są zapisywane.",
         "data": {
           "username": "Adres e-mail",
-          "password": "Hasło"
+          "password": "Hasło",
+          "debug_token": "Token debugowania"
+        },
+        "data_description": {
+          "debug_token": "Użyj tokenu debugowania zarejestrowanego w Firebase. Pozostaw puste, jeśli plik myq_app_check.json jest już zainstalowany. To nie jest kod MFA ani krótkotrwały token App Check."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "Połącz ponownie z MyQ",
-        "description": "Nie udało się odnowić Twojej sesji MyQ. Zaloguj się ponownie do tego samego konta.",
+        "description": "Nie udało się odnowić sesji MyQ. Zaloguj się ponownie na to samo konto. Hasło i token debugowania nie są zapisywane.",
         "data": {
           "username": "Adres e-mail",
-          "password": "Hasło"
+          "password": "Hasło",
+          "debug_token": "Token debugowania"
+        },
+        "data_description": {
+          "debug_token": "Użyj tokenu debugowania zarejestrowanego w Firebase. Pozostaw puste, jeśli plik myq_app_check.json jest już zainstalowany. To nie jest kod MFA ani krótkotrwały token App Check."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ wymaga weryfikacji w przeglądarce, której ta integracja nie może ukończyć.",
       "app_check_unavailable": "Nie udało się uzyskać weryfikacji aplikacji z Firebase. Sprawdź połączenie i rejestrację, a następnie spróbuj ponownie.",
       "app_check_expired": "Usługa weryfikacji zwróciła token, który wkrótce wygaśnie. Spróbuj ponownie.",
-      "app_check_invalid": "Konfiguracja weryfikacji lub otrzymany token jest nieprawidłowy.",
-      "app_check_integrity": "Usługa weryfikacji odrzuciła skonfigurowaną rejestrację.",
-      "app_check_not_configured": "Umieść myq_app_check.json w katalogu konfiguracji Home Assistant, obok configuration.yaml, i spróbuj ponownie.",
+      "app_check_invalid": "Token debugowania, konfiguracja weryfikacji aplikacji lub otrzymany token jest nieprawidłowy.",
+      "app_check_integrity": "Firebase odrzuciło token debugowania lub rejestrację aplikacji.",
+      "app_check_not_configured": "Wpisz token debugowania lub umieść plik myq_app_check.json w katalogu konfiguracji Home Assistant.",
       "app_check_config_unreadable": "Home Assistant nie może odczytać myq_app_check.json. Sprawdź uprawnienia pliku w katalogu konfiguracji.",
       "app_check_config_invalid": "Plik myq_app_check.json jest nieprawidłowy. Sprawdź konfigurację rejestracji w instrukcji logowania."
     },

@@ -140,9 +140,13 @@ becomes the release notes. The workflow pushes to `main` with the built-in
 
 `api/app_check.py` defines where sign-in gets its App Check token:
 
-- `FirebaseDebugAppCheckProvider` (`api/firebase.py`): HA's default. Reads private
-  registered credentials from `myq_app_check.json` and exchanges them with
-  Firebase, checking app/audience and TTL before caching the proof.
+- `FirebaseDebugAppCheckProvider` (`api/firebase.py`): HA's default. Combines the
+  debug token entered in the sign-in form with bundled public Firebase app
+  metadata, or reads `myq_app_check.json` when the field is blank. It exchanges
+  the registered credential with Firebase, checking app/audience and TTL before
+  caching the proof. A supplied token takes precedence over the file and is
+  kept only in memory for that sign-in; it is not saved in the HA entry or
+  written to a registration file.
 - `SuppliedAppCheckProvider`: a token supplied for one sign-in.
 - `FileAppCheckProvider`: a JSON or raw token file kept current by an external
   source. It reloads the file when the cached token gets stale or is rejected;

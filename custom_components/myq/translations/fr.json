@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "Connecter MyQ",
-        "description": "Saisissez les identifiants de votre compte MyQ. Si MyQ présente une vérification prise en charge, vous serez invité à y répondre à l'étape suivante. Votre mot de passe sert uniquement à cette connexion et n'est pas enregistré.",
+        "description": "Saisissez votre adresse courriel MyQ, votre mot de passe et votre jeton de débogage. Si MyQ demande un code de vérification, vous serez invité à le saisir à l’étape suivante. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
         "data": {
           "username": "Adresse courriel",
-          "password": "Mot de passe"
+          "password": "Mot de passe",
+          "debug_token": "Jeton de débogage"
+        },
+        "data_description": {
+          "debug_token": "Utilisez votre jeton de débogage enregistré auprès de Firebase. Laissez ce champ vide si myq_app_check.json est déjà installé. Il ne s’agit ni d’un code MFA ni d’un jeton App Check à courte durée de validité."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "Reconnecter MyQ",
-        "description": "Votre session MyQ n'a pas pu être renouvelée. Reconnectez-vous au même compte.",
+        "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
         "data": {
           "username": "Adresse courriel",
-          "password": "Mot de passe"
+          "password": "Mot de passe",
+          "debug_token": "Jeton de débogage"
+        },
+        "data_description": {
+          "debug_token": "Utilisez votre jeton de débogage enregistré auprès de Firebase. Laissez ce champ vide si myq_app_check.json est déjà installé. Il ne s’agit ni d’un code MFA ni d’un jeton App Check à courte durée de validité."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ exige une vérification dans un navigateur que cette intégration ne peut pas effectuer.",
       "app_check_unavailable": "Impossible d’obtenir la vérification de l’application auprès de Firebase. Vérifiez la connexion et l’enregistrement, puis réessayez.",
       "app_check_expired": "Le fournisseur de vérification a renvoyé un jeton sur le point d’expirer. Réessayez.",
-      "app_check_invalid": "La configuration de vérification ou le jeton reçu est invalide.",
-      "app_check_integrity": "Le fournisseur de vérification a refusé l’enregistrement configuré.",
-      "app_check_not_configured": "Placez myq_app_check.json dans le répertoire de configuration de Home Assistant, à côté de configuration.yaml, puis réessayez.",
+      "app_check_invalid": "Le jeton de débogage, la configuration de vérification de l’application ou le jeton reçu est invalide.",
+      "app_check_integrity": "Firebase a refusé le jeton de débogage ou l’enregistrement de l’application.",
+      "app_check_not_configured": "Saisissez un jeton de débogage ou installez myq_app_check.json dans le répertoire de configuration de Home Assistant.",
       "app_check_config_unreadable": "Home Assistant ne peut pas lire myq_app_check.json. Vérifiez les permissions du fichier dans le répertoire de configuration.",
       "app_check_config_invalid": "myq_app_check.json est invalide. Vérifiez la configuration de l’enregistrement dans le guide de connexion."
     },

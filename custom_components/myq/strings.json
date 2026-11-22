@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "Connect MyQ",
-        "description": "Enter your MyQ account credentials. If MyQ presents a supported verification challenge, you will be prompted next. Your password is used for this sign-in only and is not saved.",
+        "description": "Enter your MyQ email, password, and debug token. If MyQ asks for a verification code, you will be prompted next. Your password and debug token are not saved.",
         "data": {
           "username": "Email",
-          "password": "Password"
+          "password": "Password",
+          "debug_token": "Debug token"
+        },
+        "data_description": {
+          "debug_token": "Use your registered Firebase debug token. Leave blank if myq_app_check.json is already installed. This is not an MFA code or a short-lived App Check token."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "Reconnect MyQ",
-        "description": "Your MyQ session could not be renewed. Sign in to the same account again.",
+        "description": "Your MyQ session could not be renewed. Sign in to the same account again. Your password and debug token are not saved.",
         "data": {
           "username": "Email",
-          "password": "Password"
+          "password": "Password",
+          "debug_token": "Debug token"
+        },
+        "data_description": {
+          "debug_token": "Use your registered Firebase debug token. Leave blank if myq_app_check.json is already installed. This is not an MFA code or a short-lived App Check token."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
       "app_check_unavailable": "Could not obtain app verification from Firebase. Check the connection and registration, then try again.",
       "app_check_expired": "The app verification provider returned an expiring token. Try again.",
-      "app_check_invalid": "The app verification configuration or returned token is invalid.",
-      "app_check_integrity": "The app verification provider rejected the configured registration.",
-      "app_check_not_configured": "Place myq_app_check.json in your Home Assistant configuration directory, next to configuration.yaml, then try again.",
+      "app_check_invalid": "The debug token, app verification configuration, or returned token is invalid.",
+      "app_check_integrity": "Firebase rejected the debug token or app registration.",
+      "app_check_not_configured": "Enter a debug token, or install myq_app_check.json in your Home Assistant configuration directory.",
       "app_check_config_unreadable": "Home Assistant cannot read myq_app_check.json. Check its file permissions in the configuration directory.",
       "app_check_config_invalid": "myq_app_check.json is invalid. Check the registration configuration in the sign-in guide."
     },

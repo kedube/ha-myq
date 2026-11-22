@@ -3,6 +3,49 @@
 from .models import Device
 
 
+def wifi_gdo_pairs(inventory: dict[str, Device]) -> dict[str, Device]:
+    """Match a built-in Wi-Fi gateway to its one explicitly associated opener."""
+
+    def parent(device: Device) -> str | None:
+        value = device.gateway_id or device.state.get("parent_serial_number")
+        return value if isinstance(value, str) and value else None
+
+    pairs: dict[str, Device] = {}
+    for gateway in inventory.values():
+        if gateway.device_type != "wifigdogateway":
+            continue
+        serials = {
+            device.serial
+            for device in inventory.values()
+            if device.is_door
+            and device.account_id == gateway.account_id
+            and parent(device) == gateway.serial
+        }
+        reported = gateway.state.get("associated_gdo_serial_numbers")
+        if reported is not None:
+            if not isinstance(reported, list) or any(
+                not isinstance(serial, str) or not serial for serial in reported
+            ):
+                continue
+            serials.update(reported)
+        if len(serials) != 1:
+            continue
+        opener = inventory.get(f"{gateway.account_id}:{next(iter(serials))}")
+        if (
+            opener is not None
+            and opener.account_id == gateway.account_id
+            and opener.device_type == "wifigaragedooropener"
+            and parent(opener) in {None, gateway.serial}
+        ):
+            pairs[gateway.key] = opener
+    # Conflicting reverse links must not combine two gateways with one opener.
+    return {
+        key: opener
+        for key, opener in pairs.items()
+        if sum(other.key == opener.key for other in pairs.values()) == 1
+    }
+
+
 def associations(device: Device, inventory: dict[str, Device]) -> dict[str, tuple[Device, ...]]:
     """Unknown, cross-account and self references never create synthetic devices."""
 

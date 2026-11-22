@@ -24,7 +24,7 @@ from homeassistant.util import dt as dt_util
 
 from .api.account_access import AccountAccess
 from .api.alerts import AlertRule, Alerts
-from .api.associations import camera_opener, linked_camera
+from .api.associations import camera_opener, linked_camera, wifi_gdo_pairs
 from .api.camera_commands import CameraCommands
 from .api.camera_settings import CameraSettings
 from .api.client import Client
@@ -54,6 +54,7 @@ from .const import (
     DOMAIN,
     MIN_POLL_INTERVAL,
 )
+from .device_registry import async_merge_opener_gateway
 from .exceptions import myq_error, translation
 
 _LOGGER = logging.getLogger(__name__)
@@ -191,6 +192,7 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         self._last_full = -math.inf
         self._transitions: set[tuple[str, str]] = set()
         self._missing: dict[str, int] = {}
+        self.gateway_openers: dict[str, str] = {}
         self.loaded_options = dict(entry.options)
 
     @property
@@ -483,6 +485,18 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
                 found = tuple(rule for rule in rules if rule.serial == device.serial)
                 if found:
                     snapshot.alerts[device.key] = found
+
+    @callback
+    def merge_gateway_devices(self) -> None:
+        """Group built-in gateways before discovery listeners add their entities."""
+        self.gateway_openers = {}
+        if self.data is None:
+            return
+        for key, opener in wifi_gdo_pairs(self.data.devices).items():
+            if async_merge_opener_gateway(
+                self.hass, self.config_entry, opener, self.data.devices[key]
+            ):
+                self.gateway_openers[key] = opener.key
 
     @callback
     def link_camera_devices(self) -> None:

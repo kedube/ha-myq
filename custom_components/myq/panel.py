@@ -431,13 +431,25 @@ def _add_device(
     if not device_keys or device.disabled_by is not None:
         return
     entities: dict[str, str] = {}
-    for entity in er.async_entries_for_device(
-        entity_registry, device.id, include_disabled_entities=False
+    registered = [
+        entity
+        for entity in er.async_entries_for_device(
+            entity_registry, device.id, include_disabled_entities=False
+        )
+        if entity.platform == DOMAIN
+        and entity.config_entry_id == entry.entry_id
+        and (can_read is None or can_read(entity.entity_id))
+    ]
+    opener_keys = {
+        entity.unique_id.rpartition(":")[0]
+        for entity in registered
+        if entity.domain == "cover" and entity.unique_id.endswith(":door")
+    }
+    # A merged gateway can also report online/device_type. Prefer the opener's
+    # state for shared roles, while retaining diagnostics unique to the gateway.
+    for entity in sorted(
+        registered, key=lambda item: item.unique_id.rpartition(":")[0] not in opener_keys
     ):
-        if entity.platform != DOMAIN or entity.config_entry_id != entry.entry_id:
-            continue
-        if can_read is not None and not can_read(entity.entity_id):
-            continue
         key, _, suffix = entity.unique_id.rpartition(":")
         if key not in device_keys:
             continue
@@ -448,7 +460,7 @@ def _add_device(
             ("camera", "recent_image"): "camera",
             ("binary_sensor", "faults"): "active_fault",
         }.get((entity.domain, suffix), suffix)
-        entities[role] = entity.entity_id
+        entities.setdefault(role, entity.entity_id)
     name = device.name_by_user or device.name or ""
     if "cover" in entities:
         doors.append(

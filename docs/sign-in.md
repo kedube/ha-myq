@@ -1,35 +1,35 @@
 # Sign-in
 
-**Connect MyQ** opens directly to email and password. This is the only sign-in
-method in Home Assistant, including when reconnecting an existing account.
+**Connect MyQ** opens directly to email, password, and a masked **Debug token**
+field. This is the only sign-in method in Home Assistant, including when
+reconnecting an existing account.
 
 1. Open **Settings → Devices & services → Add integration → MyQ**.
-2. Enter your MyQ account email and password.
+2. Enter your MyQ account email, password, and registered Firebase debug token.
 3. Complete the verification prompt if MyQ asks for a method or code.
 
 Setup prefers email when the verification page offers that method. It handles
 the known application-consent step automatically and continues to the token
 exchange; a consent acknowledgement page alone is not a completed sign-in.
 
-Your password and verification code are used for this sign-in only and are not
-saved. There is no sign-in menu, browser-helper handoff, refresh-token import,
-or manual app-verification token field.
+Your password, debug token, and verification code are used for this sign-in only
+and are not saved. Enter the debug token again if you need to reconnect. It is
+the reusable registered credential, not an MFA code or a short-lived App Check
+token. The integration obtains the App Check token automatically from Firebase.
 
-The private install ZIP includes the registration needed for automatic app
-verification. Extract `myq-install-private.zip` into Home Assistant's configuration
-directory (usually `/config/`), preserving the folders in the archive, and restart
-Home Assistant. It installs both `custom_components/myq/` and
-`myq_app_check.json`; there is no separate JSON-file installation step. Keep this
-ZIP private because it contains the reusable registration credential.
+Public release ZIPs include the public Firebase app configuration needed to use
+the **Debug token** field. You do not need to install a JSON file for this route.
+The debug credential itself is not included in the public release.
 
-Public release ZIPs contain the integration code only. If installing one of those,
-provide `myq_app_check.json` beside `configuration.yaml` separately. The integration
-exchanges that registered credential with Firebase automatically; there is no
-token-paste step. See [registration configuration](#registration-configuration).
+If `myq_app_check.json` is already installed beside `configuration.yaml`, you can
+leave **Debug token** blank to keep using it. Entering a token takes precedence
+over the file and uses the bundled public app configuration. See
+[registration configuration](#registration-configuration).
 
-The registration remains outside the component folder so integration updates
-preserve it. It is read on each sign-in attempt, before credentials are sent;
-updating just that file does not require a restart.
+The optional private install ZIP (`myq-install-private.zip`) includes both
+`custom_components/myq/` and `myq_app_check.json`. Extract it into Home Assistant's
+configuration directory (usually `/config/`), preserving the archive's folders,
+and restart. Keep this ZIP private because it contains the reusable credential.
 
 Firebase proof acquisition has been verified with the supplied registration.
 End-to-end MyQ sign-in remains unverified; a hosted browser challenge or MyQ's
@@ -69,10 +69,12 @@ own session; the phone app and other sign-ins stay signed in.
 
 | Message | Meaning |
 | --- | --- |
-| Place myq_app_check.json in your Home Assistant configuration directory | The private registration file is missing. Copy it beside `configuration.yaml` and try again; it is excluded from the release ZIP |
+| Enter a debug token | Enter the registered credential in the third sign-in field. Alternatively, install `myq_app_check.json` beside `configuration.yaml` |
 | Home Assistant cannot read myq_app_check.json | Check the file's permissions and that the Home Assistant process can read it |
 | myq_app_check.json is invalid | Restore the complete private registration JSON with all required fields; do not substitute a short-lived App Check token |
-| Could not obtain app verification from Firebase | The registration file was read, but proof acquisition failed. Check Home Assistant's connection to `firebaseappcheck.googleapis.com` and try again |
+| The debug token, app verification configuration, or returned token is invalid | Check the entered debug token or the optional registration file. The Firebase response may also be invalid |
+| Firebase rejected the debug token or app registration | The credential must be registered for the app configuration being used |
+| Could not obtain app verification from Firebase | Proof acquisition failed. Check Home Assistant's connection to `firebaseappcheck.googleapis.com` and try again |
 | MyQ rejected the credentials or session | Wrong password or code, an expired sign-in request, or a refresh token MyQ no longer accepts |
 | Verification was not completed | The verification code was not accepted; enter it again |
 | MyQ rejected verification of the application (401.122) | MyQ did not accept the app verification for this sign-in. See [what is known](#what-is-known) |
@@ -108,7 +110,12 @@ alone is not established as a login blocker.
 
 ## Registration configuration
 
-The private JSON file contains `project`, `application` (Firebase Android app ID),
+The form combines the entered debug token with the bundled public Firebase
+project, app ID, API key, Android package, and signing certificate. Only the
+resulting OAuth session is stored in the Home Assistant entry. The debug token
+stays in memory for the current sign-in and is not written to a JSON file.
+
+The optional private JSON file contains `project`, `application` (Firebase Android app ID),
 `api_key`, `debug_token`, `package`, and `certificate` (40 hexadecimal SHA1
 characters). These must describe a registered debug provider, not an arbitrary
 UUID or the public APK configuration alone. The package is
@@ -116,11 +123,12 @@ UUID or the public APK configuration alone. The package is
 call in the integration.
 
 A registered debug token is a credential; it is not embedded or XOR-obfuscated
-in source. Keep the file out of public repositories and shared release bundles.
-The integration reloads it when acquiring a fresh proof, and stores only the
-resulting OAuth session in the Home Assistant entry. A missing, unreadable or
-invalid registration is reported before credentials are sent. Firebase rejection
-and MyQ rejection are reported separately.
+in source. Keep any registration file out of public repositories and shared
+release bundles. The file remains outside the component folder so integration
+updates preserve it. When the field is blank, the integration checks the file
+before sending account credentials and reloads it when acquiring a fresh proof;
+updating the file does not require a restart. Firebase rejection and MyQ
+rejection are reported separately.
 
 The [authentication reference](api/authentication.md) describes the protocol,
 and the [research notes](research/sign-in-investigation.md) record what has been

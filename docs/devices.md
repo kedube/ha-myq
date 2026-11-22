@@ -67,6 +67,17 @@ Door cycles and battery levels keep long-term statistics.
 
 ## How the device list is organised
 
-Each MyQ device becomes a Home Assistant device. A camera built into a garage
-door opener is listed under that opener. A device can only be deleted from Home
+A Wi-Fi opener (`wifigaragedooropener`) and its built-in gateway
+(`wifigdogateway`) share one Home Assistant device when MyQ explicitly links
+them within the same account. The device uses the opener's name and model and
+includes diagnostics from both records. Standalone hubs and gateways associated
+with multiple doors remain separate.
+
+Existing opener/gateway devices are combined automatically when the integration
+loads or discovers the relationship. The opener's device ID, all entity IDs, and
+entity customizations are preserved. Automations targeting the former gateway's
+device ID need to target the combined device; entity-based targets keep working.
+
+Other MyQ records remain separate devices. A camera built into a garage door
+opener is listed under that opener. A device can only be deleted from Home
 Assistant after MyQ no longer returns it.

@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "连接 MyQ",
-        "description": "请输入您的 MyQ 账户凭据。如果 MyQ 提出受支持的验证质询，接下来会提示您完成。您的密码仅用于本次登录，不会被保存。",
+        "description": "请输入 MyQ 邮箱、密码和调试令牌。如果 MyQ 要求验证码，下一步将提示您输入。密码和调试令牌不会被保存。",
         "data": {
           "username": "电子邮箱",
-          "password": "密码"
+          "password": "密码",
+          "debug_token": "调试令牌"
+        },
+        "data_description": {
+          "debug_token": "请使用已在 Firebase 注册的调试令牌。如果已安装 myq_app_check.json，可留空。这不是 MFA 验证码，也不是短期 App Check 令牌。"
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "重新连接 MyQ",
-        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。",
+        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。密码和调试令牌不会被保存。",
         "data": {
           "username": "电子邮箱",
-          "password": "密码"
+          "password": "密码",
+          "debug_token": "调试令牌"
+        },
+        "data_description": {
+          "debug_token": "请使用已在 Firebase 注册的调试令牌。如果已安装 myq_app_check.json，可留空。这不是 MFA 验证码，也不是短期 App Check 令牌。"
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
       "app_check_unavailable": "无法从 Firebase 获取应用验证。请检查连接和注册配置，然后重试。",
       "app_check_expired": "应用验证服务返回了即将过期的令牌。请重试。",
-      "app_check_invalid": "应用验证配置或返回的令牌无效。",
-      "app_check_integrity": "应用验证服务拒绝了配置的注册信息。",
-      "app_check_not_configured": "请将 myq_app_check.json 放在 Home Assistant 配置目录中，与 configuration.yaml 位于同一目录，然后重试。",
+      "app_check_invalid": "调试令牌、应用验证配置或返回的令牌无效。",
+      "app_check_integrity": "Firebase 拒绝了调试令牌或应用注册。",
+      "app_check_not_configured": "请输入调试令牌，或将 myq_app_check.json 安装到 Home Assistant 配置目录中。",
       "app_check_config_unreadable": "Home Assistant 无法读取 myq_app_check.json。请检查配置目录中该文件的读取权限。",
       "app_check_config_invalid": "myq_app_check.json 无效。请参阅登录指南，检查注册配置。"
     },

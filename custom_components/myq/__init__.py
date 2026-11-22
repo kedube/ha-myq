@@ -81,6 +81,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyQConfigEntry) -> bool:
     coordinator.track_registered_accessories()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    coordinator.merge_gateway_devices()
+    # Register first so newly discovered entities use the merged device immediately.
+    entry.async_on_unload(coordinator.async_add_listener(coordinator.merge_gateway_devices))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Registry links need both devices registered, so they follow entity setup.
     coordinator.link_camera_devices()

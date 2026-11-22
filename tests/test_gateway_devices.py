@@ -1,0 +1,313 @@
+"""Group only an explicitly linked Wi-Fi opener and its built-in gateway."""
+
+from dataclasses import replace
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from homeassistant.core import Context
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.myq.api.associations import wifi_gdo_pairs
+from custom_components.myq.api.models import Device
+from custom_components.myq.const import DOMAIN
+from custom_components.myq.panel import DATA_PANEL
+
+pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
+
+
+def inventory(*devices):
+    return {device.key: device for device in devices}
+
+
+def pair():
+    opener = Device.parse(
+        "account-one",
+        {
+            "serial_number": "OPENER-1",
+            "name": "Garage door",
+            "device_type": "wifigaragedooropener",
+            "device_family": "garagedoor",
+            "device_model": "Synthetic opener model",
+            "gateway_id": "GATEWAY-1",
+            "state": {"online": True, "door_state": "closed", "firmware_version": "OPENER-FW"},
+        },
+    )
+    gateway = Device.parse(
+        "account-one",
+        {
+            "serial_number": "GATEWAY-1",
+            "name": "Garage gateway",
+            "device_type": "wifigdogateway",
+            "device_family": "gateway",
+            "device_model": "Synthetic gateway model",
+            "state": {"online": False, "wifi_signal_strength": 66, "firmware_version": "GW-FW"},
+        },
+    )
+    return opener, gateway
+
+
+@pytest.mark.parametrize("relationship", ["gateway_id", "gatewayID", "parent", "reverse"])
+def test_explicit_wifi_gateway_relationships(relationship):
+    opener, gateway = pair()
+    if relationship == "gatewayID":
+        opener = Device.parse(
+            opener.account_id,
+            {
+                "serial_number": opener.serial,
+                "device_type": opener.device_type,
+                "state": {"gatewayID": gateway.serial},
+            },
+        )
+    elif relationship == "parent":
+        opener = replace(opener, gateway_id=None, state={"parent_serial_number": gateway.serial})
+    elif relationship == "reverse":
+        opener = replace(opener, gateway_id=None)
+        gateway = replace(gateway, state={"associated_gdo_serial_numbers": [opener.serial]})
+    assert wifi_gdo_pairs(inventory(opener, gateway)) == {gateway.key: opener}
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_gateway",
+        "same_name_only",
+        "another_account",
+        "standalone_hub",
+        "non_wifi_opener",
+        "two_children",
+        "missing_reported_child",
+        "conflicting_parent",
+        "conflicting_reverse",
+        "two_reverse_gateways",
+    ],
+)
+def test_unrelated_or_ambiguous_devices_remain_separate(case):
+    opener, gateway = pair()
+    extra = []
+    if case == "missing_gateway":
+        assert wifi_gdo_pairs(inventory(opener)) == {}
+        return
+    if case == "same_name_only":
+        opener = replace(opener, gateway_id=None, name=gateway.name)
+    elif case == "another_account":
+        gateway = replace(gateway, account_id="other-account")
+    elif case == "standalone_hub":
+        gateway = replace(gateway, device_type="hub")
+    elif case == "non_wifi_opener":
+        opener = replace(opener, device_type="garagedooropener")
+    elif case == "two_children":
+        extra = [replace(opener, serial="OTHER-DOOR", device_type="virtualgaragedooropener")]
+    elif case == "missing_reported_child":
+        gateway = replace(
+            gateway, state={"associated_gdo_serial_numbers": [opener.serial, "MISSING-DOOR"]}
+        )
+    elif case == "conflicting_parent":
+        opener = replace(
+            opener, gateway_id="ANOTHER-GATEWAY", state={"parent_serial_number": gateway.serial}
+        )
+    elif case == "conflicting_reverse":
+        opener = replace(opener, gateway_id="ANOTHER-GATEWAY")
+        gateway = replace(gateway, state={"associated_gdo_serial_numbers": [opener.serial]})
+    elif case == "two_reverse_gateways":
+        opener = replace(opener, gateway_id=None)
+        gateway = replace(gateway, state={"associated_gdo_serial_numbers": [opener.serial]})
+        extra = [replace(gateway, serial="OTHER-GATEWAY")]
+    assert wifi_gdo_pairs(inventory(opener, gateway, *extra)) == {}
+
+
+async def load(hass, tokens, devices):
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="owner", data={"tokens": tokens.as_dict()})
+    entry.add_to_hass(hass)
+    with patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value=devices)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    return entry
+
+
+@pytest.mark.parametrize("gateway_first", [False, True])
+async def test_linked_pair_is_one_device_with_both_records_and_stable_entity_ids(
+    hass, tokens, gateway_first, hass_admin_user
+):
+    opener, gateway = pair()
+    devices = inventory(gateway, opener) if gateway_first else inventory(opener, gateway)
+    entry = await load(hass, tokens, devices)
+    registry, entities = dr.async_get(hass), er.async_get(hass)
+    canonical = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    assert canonical is not None
+    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == canonical.id
+    assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
+    assert canonical.name == opener.name
+    assert canonical.model == opener.model
+    assert canonical.sw_version == "OPENER-FW"
+    assert set(entry.runtime_data.data.devices) == set(devices)
+
+    unique_ids = (
+        ("cover", f"{opener.key}:door"),
+        ("binary_sensor", f"{opener.key}:online"),
+        ("sensor", f"{opener.key}:device_type"),
+        ("binary_sensor", f"{gateway.key}:online"),
+        ("sensor", f"{gateway.key}:device_type"),
+        ("sensor", f"{gateway.key}:wifi_signal_strength"),
+    )
+    before = {key: entities.async_get_entity_id(domain, DOMAIN, key) for domain, key in unique_ids}
+    assert all(before.values())
+    assert all(
+        entities.async_get(entity_id).device_id == canonical.id for entity_id in before.values()
+    )
+    assert hass.states.get(before[f"{opener.key}:online"]).state == "on"
+    assert hass.states.get(before[f"{gateway.key}:online"]).state == "off"
+
+    # The panel's duplicate role names must resolve to the opener, regardless of ordering.
+    panel = hass.data[DATA_PANEL].async_payload(is_admin=True, every_account=True)
+    assert len(panel["doors"]) == 1
+    roles = panel["doors"][0]["entities"]
+    assert roles["online"] == before[f"{opener.key}:online"]
+    assert roles["device_type"] == before[f"{opener.key}:device_type"]
+    assert roles["wifi_signal_strength"] == before[f"{gateway.key}:wifi_signal_strength"]
+
+    # Device-target services must resolve aliases to one controllable opener.
+    with patch.object(entry.runtime_data.management, "rename_accessory", AsyncMock()) as rename:
+        await hass.services.async_call(
+            DOMAIN,
+            "rename_accessory",
+            {"device_id": canonical.id, "accessory_serial": "remote", "name": "Wall remote"},
+            blocking=True,
+            context=Context(user_id=hass_admin_user.id),
+        )
+    rename.assert_awaited_once_with(opener, accessory_serial="remote", name="Wall remote")
+
+    with patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value=devices)):
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == canonical.id
+    assert {
+        key: entities.async_get_entity_id(domain, DOMAIN, key) for domain, key in unique_ids
+    } == before
+    assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_gateway_discovered_later_joins_existing_opener(hass, tokens):
+    opener, gateway = pair()
+    entry = await load(hass, tokens, inventory(opener))
+    registry, entities = dr.async_get(hass), er.async_get(hass)
+    original = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    cover_id = entities.async_get_entity_id("cover", DOMAIN, f"{opener.key}:door")
+    with patch.object(
+        entry.runtime_data.client, "discover", AsyncMock(return_value=inventory(opener, gateway))
+    ):
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == original.id
+    assert registry.async_get(original.id).name == opener.name
+    assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
+    assert entities.async_get_entity_id("cover", DOMAIN, f"{opener.key}:door") == cover_id
+    diagnostic_id = entities.async_get_entity_id("sensor", DOMAIN, f"{gateway.key}:device_type")
+    assert entities.async_get(diagnostic_id).device_id == original.id
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_upgrade_moves_existing_gateway_entities_without_recreating_them(hass, tokens):
+    opener, gateway = pair()
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="owner", data={"tokens": tokens.as_dict()})
+    entry.add_to_hass(hass)
+    registry, entities = dr.async_get(hass), er.async_get(hass)
+    opener_row = registry.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={(DOMAIN, opener.key)}, name=opener.name
+    )
+    gateway_row = registry.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={(DOMAIN, gateway.key)}, name=gateway.name
+    )
+    originals = []
+    for domain, key, suffix, object_id, disabled in (
+        ("cover", opener.key, "door", "my_saved_garage", None),
+        ("binary_sensor", gateway.key, "online", "my_saved_gateway_online", None),
+        (
+            "sensor",
+            gateway.key,
+            "device_type",
+            "my_saved_gateway_type",
+            er.RegistryEntryDisabler.USER,
+        ),
+    ):
+        entity = entities.async_get_or_create(
+            domain,
+            DOMAIN,
+            f"{key}:{suffix}",
+            config_entry=entry,
+            device_id=opener_row.id if key == opener.key else gateway_row.id,
+            suggested_object_id=object_id,
+            disabled_by=disabled,
+        )
+        originals.append(
+            entities.async_update_entity(entity.entity_id, name="Custom " + suffix, icon="mdi:star")
+        )
+    with patch(
+        "custom_components.myq.api.client.Client.discover",
+        AsyncMock(return_value=inventory(opener, gateway)),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        # Device removal events must not remove the migrated entities after setup.
+        await hass.async_block_till_done()
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+
+    assert registry.async_get(gateway_row.id) is None
+    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == opener_row.id
+    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == opener_row.id
+    for original in originals:
+        migrated = entities.async_get(original.entity_id)
+        assert migrated is not None
+        assert migrated.device_id == opener_row.id
+        assert migrated.unique_id == original.unique_id
+        assert migrated.name == original.name
+        assert migrated.icon == original.icon
+        assert migrated.disabled_by == original.disabled_by
+    assert hass.states.get("cover.my_saved_garage").state == "closed"
+    assert hass.states.get("binary_sensor.my_saved_gateway_online").state == "off"
+    assert hass.states.get("sensor.my_saved_gateway_type") is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_partial_inventory_does_not_replace_opener_metadata_on_reload(hass, tokens):
+    opener, gateway = pair()
+    entry = await load(hass, tokens, inventory(opener, gateway))
+    registry = dr.async_get(hass)
+    original = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    with patch(
+        "custom_components.myq.api.client.Client.discover",
+        AsyncMock(return_value=inventory(gateway)),
+    ):
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+    current = registry.async_get_device(identifiers={(DOMAIN, gateway.key)})
+    assert current.id == original.id
+    assert current.name == opener.name
+    assert current.model == opener.model
+    assert current.sw_version == "OPENER-FW"
+    assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
+
+    with patch.object(
+        entry.runtime_data.client, "discover", AsyncMock(return_value=inventory(opener, gateway))
+    ):
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == original.id
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_merged_device_uses_gateway_firmware_when_opener_has_none(hass, tokens):
+    opener, gateway = pair()
+    opener = replace(
+        opener,
+        state={key: value for key, value in opener.state.items() if key != "firmware_version"},
+    )
+    entry = await load(hass, tokens, inventory(opener, gateway))
+    registered = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, opener.key)})
+    assert registered.name == opener.name
+    assert registered.sw_version == "GW-FW"
+    assert await hass.config_entries.async_unload(entry.entry_id)

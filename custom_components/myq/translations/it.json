@@ -4,10 +4,14 @@
     "step": {
       "user": {
         "title": "Connetti MyQ",
-        "description": "Inserisci le credenziali del tuo account MyQ. Se MyQ presenta una richiesta di verifica supportata, ti verrà chiesto di completarla nel passaggio successivo. La password viene usata solo per questo accesso e non viene salvata.",
+        "description": "Inserisci l’indirizzo email MyQ, la password e il token di debug. Se MyQ richiede un codice di verifica, ti verrà chiesto nel passaggio successivo. La password e il token di debug non vengono salvati.",
         "data": {
           "username": "E-mail",
-          "password": "Password"
+          "password": "Password",
+          "debug_token": "Token di debug"
+        },
+        "data_description": {
+          "debug_token": "Usa il token di debug registrato su Firebase. Lascia vuoto se myq_app_check.json è già installato. Non è un codice MFA né un token App Check di breve durata."
         }
       },
       "mfa": {
@@ -19,10 +23,14 @@
       },
       "reauth_confirm": {
         "title": "Riconnetti MyQ",
-        "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi di nuovo allo stesso account.",
+        "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi nuovamente allo stesso account. La password e il token di debug non vengono salvati.",
         "data": {
           "username": "E-mail",
-          "password": "Password"
+          "password": "Password",
+          "debug_token": "Token di debug"
+        },
+        "data_description": {
+          "debug_token": "Usa il token di debug registrato su Firebase. Lascia vuoto se myq_app_check.json è già installato. Non è un codice MFA né un token App Check di breve durata."
         }
       },
       "finish": {
@@ -42,9 +50,9 @@
       "browser_verification": "MyQ richiede una verifica nel browser che questa integrazione non può completare.",
       "app_check_unavailable": "Impossibile ottenere la verifica dell’app da Firebase. Controlla la connessione e la registrazione, quindi riprova.",
       "app_check_expired": "Il servizio di verifica ha restituito un token in scadenza. Riprova.",
-      "app_check_invalid": "La configurazione di verifica o il token ricevuto non è valido.",
-      "app_check_integrity": "Il servizio di verifica ha rifiutato la registrazione configurata.",
-      "app_check_not_configured": "Inserisci myq_app_check.json nella directory di configurazione di Home Assistant, accanto a configuration.yaml, quindi riprova.",
+      "app_check_invalid": "Il token di debug, la configurazione di verifica dell’app o il token ricevuto non è valido.",
+      "app_check_integrity": "Firebase ha rifiutato il token di debug o la registrazione dell’app.",
+      "app_check_not_configured": "Inserisci un token di debug oppure installa myq_app_check.json nella directory di configurazione di Home Assistant.",
       "app_check_config_unreadable": "Home Assistant non può leggere myq_app_check.json. Controlla i permessi del file nella directory di configurazione.",
       "app_check_config_invalid": "myq_app_check.json non è valido. Controlla la configurazione della registrazione nella guida di accesso."
     },

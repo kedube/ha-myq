@@ -117,6 +117,11 @@ validity falls below five minutes. It validates the response's app/audience and
 bounds expiry by both JWT `exp` and Firebase `ttl`. Local claim checks do not
 verify a signature. Google's HTTPS response supplies the token.
 
+As of November 22, 2026, the sign-in form also accepts a debug token directly,
+using bundled public Firebase app metadata. This path needs no registration
+file and keeps the submitted credential in memory for that sign-in. Leaving
+the field blank retains the file-based configuration described above.
+
 The runtime's `http.agent` property supplies the Firebase request UA:
 
 ```text
@@ -127,7 +132,7 @@ The supplied registered debug credential was accepted by Firebase on November
 21, 2026, returning a fresh proof for its expected app and project. That
 registration targets a different project from the APK's production resources.
 Neither credential nor proof is recorded in source, diagnostics, HA entries or
-release archives. This is a debug-provider exchange; it does not reproduce the
+public release archives. This is a debug-provider exchange; it does not reproduce the
 production app's Play Integrity attestation. Firebase documents both the
 [registered-debug exchange](https://firebase.google.com/docs/reference/appcheck/rest/v1/projects.apps/exchangeDebugToken)
 and [its registration requirements](https://firebase.google.com/docs/app-check/android/debug-provider).

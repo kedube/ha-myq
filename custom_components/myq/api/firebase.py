@@ -1,4 +1,4 @@
-"""Exchange a privately configured, registered Firebase debug token for App Check.
+"""Exchange a registered Firebase debug token for App Check.
 
 Registration with the Firebase project is a prerequisite. This implements the
 debug-provider REST exchange, not Google Play Integrity or token registration.
@@ -33,10 +33,21 @@ REGISTRATION_FILE = "myq_app_check.json"
 FIREBASE_BASE = "https://firebaseappcheck.googleapis.com/v1"
 MAX_REGISTRATION_BYTES = 16384
 
+# Public app identifiers for the registered debug provider used by this integration.
+# This is distinct from the production APK's Play Integrity registration.
+# The reusable debug credential is supplied at sign-in and is never bundled here.
+_MYQ_APP = {
+    "project": "myq-transition-test",
+    "application": "1:169499880894:android:120796f2b5e44ca7",
+    "api_key": "AIzaSyDYwdJBRp6H3UhrCp5LGY8XTPJG7hTeCgw",
+    "certificate": "DA2BDA70EE8A9062D076BABE65924CAF9A8B98E9",
+    "package": "com.chamberlain.android.liftmaster.myq",
+}
+
 
 @dataclass(frozen=True, slots=True, repr=False)
 class FirebaseRegistration:
-    """Private provider configuration; never included in repr or HA entry data."""
+    """Provider configuration with a private token; never included in repr or HA data."""
 
     project: str
     application: str
@@ -65,6 +76,13 @@ class FirebaseRegistration:
     @property
     def resource(self) -> str:
         return f"projects/{self.project}/apps/{self.application}:exchangeDebugToken"
+
+    @classmethod
+    def from_debug_token(cls, debug_token: str) -> FirebaseRegistration:
+        """Combine a sign-in credential with the bundled public app configuration."""
+        if not isinstance(debug_token, str):
+            raise AppCheckInvalid()
+        return cls(**_MYQ_APP, debug_token=debug_token.strip())
 
     @classmethod
     def read(cls, path: Path) -> FirebaseRegistration:
