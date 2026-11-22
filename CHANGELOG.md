@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.04] - 2026-11-22
+
 ### Added
 
 - Katherine Dubé's sidebar panel, dashboard door card and customizable animated
