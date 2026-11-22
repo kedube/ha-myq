@@ -13,7 +13,6 @@ from curl_cffi import CurlECode, CurlHttpVersion, CurlOpt
 from curl_cffi.curl import CURL_WRITEFUNC_ERROR
 from curl_cffi.requests import AsyncSession
 from curl_cffi.requests.exceptions import RequestException
-from curl_cffi.requests.impersonate import normalize_browser_type
 
 from .android_tls import ANDROID_EXTRA_FP, ANDROID_HTTP2, ANDROID_JA3
 from .backoff import ServiceBackoff
@@ -29,7 +28,10 @@ class CurlHttp:
     def __init__(self, profile: str = "chrome_android") -> None:
         if profile not in {"chrome_android", "chrome"}:
             raise ValueError("Choose chrome_android or chrome")
-        self.profile = normalize_browser_type(profile)
+        # AsyncSession accepts these aliases and resolves them itself. Its
+        # internal resolver was renamed in curl_cffi 0.17; importing it would
+        # prevent HA from loading the config flow when that version is present.
+        self.profile = profile
         self.session = AsyncSession(
             verify=certifi.where(),
             trust_env=False,

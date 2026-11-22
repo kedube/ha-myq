@@ -25,7 +25,10 @@ from custom_components.myq.api.errors import (  # noqa: E402
 )
 
 
-async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, socket_enabled):
+@pytest.mark.parametrize("profile", ["chrome_android", "chrome"])
+async def test_real_curl_cookies_password_mfa_exchange_and_refresh(
+    monkeypatch, socket_enabled, profile
+):
     """All traffic stays on loopback; exercise actual libcurl cookie/form I/O."""
     received = []
     state = ""
@@ -115,7 +118,7 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(monkeypatch, 
     await server.start()
     base = f"http://127.0.0.1:{runner.addresses[0][1]}"
     try:
-        async with CurlHttp() as http:
+        async with CurlHttp(profile) as http:
             for session in (http.session, http.native_session):
                 original_request = session.request
 

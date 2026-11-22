@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Fix "Invalid handler specified" when opening MyQ setup with curl_cffi 0.17
+  already installed. Pass browser aliases to its public session API instead of
+  importing the internal `normalize_browser_type` helper removed in that version.
+
 ## [0.04] - 2026-11-22
 
 ### Added
