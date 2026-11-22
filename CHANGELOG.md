@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.05] - 2026-11-22
+
 ### Fixed
 
 - Fix "Invalid handler specified" when opening MyQ setup with curl_cffi 0.17

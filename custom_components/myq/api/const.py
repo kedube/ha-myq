@@ -15,7 +15,7 @@ CLIENT_ID = "ANDROID_CGI_MYQ"
 SCOPE = "MyQ_Residential offline_access"
 REDIRECT_URI = "com.myqops://android"
 # Keep equal to manifest.json and pyproject.toml; tests/test_metadata.py enforces it.
-VERSION = "0.04"
+VERSION = "0.05"
 USER_AGENT = f"ha-myq/{VERSION}"
 ANDROID_PACKAGE = "com.chamberlain.android.liftmaster.myq"
 APP_VERSION = "5.324.0.1132442"
