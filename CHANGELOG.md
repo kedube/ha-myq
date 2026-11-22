@@ -10,6 +10,11 @@ All notable changes to this project are documented here. The format follows
 - Fix "Invalid handler specified" when opening MyQ setup with curl_cffi 0.17
   already installed. Pass browser aliases to its public session API instead of
   importing the internal `normalize_browser_type` helper removed in that version.
+- Fix the rate-limit cooldown escalating too fast and not clearing. A single 429
+  without a `Retry-After` header was counted twice (once by the transport, once
+  by the client), doubling the back-off step per response, and a native MyQ host's
+  streak never reset after a later success, so the cooldown stayed elevated. Each
+  429 now advances the streak once, and any non-429 response clears it.
 
 ## [0.04] - 2026-11-22
 

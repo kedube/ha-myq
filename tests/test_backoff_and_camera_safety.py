@@ -82,6 +82,63 @@ async def test_client_preserves_quota_with_an_injected_transport(tokens):
     assert transport.request.await_count == 2
 
 
+def test_record_counts_a_single_429_once_across_layers(monkeypatch):
+    """The same 429 flows through the transport and Client._send; it counts once."""
+    clock = 0.0
+    monkeypatch.setattr("custom_components.myq.api.backoff.time.monotonic", lambda: clock)
+    backoff = ServiceBackoff()
+    error = RateLimited(5)  # No server Retry-After, so the streak sets the delay.
+    backoff.record(DEVICES, error)
+    backoff.record(DEVICES, error)  # Second layer seeing the same error is a no-op.
+    with pytest.raises(RateLimited) as first:
+        backoff.check(DEVICES)
+    assert first.value.retry_after == 60  # One streak step (BASE_DELAY), not two.
+    clock = 100.0
+    again = RateLimited(5)
+    backoff.record(DEVICES, again)
+    backoff.record(DEVICES, again)
+    with pytest.raises(RateLimited) as second:
+        backoff.check(DEVICES)
+    assert second.value.retry_after == 120  # Second distinct 429 doubles once, to 120.
+
+
+async def test_raising_transport_streak_doubles_once_and_resets_on_success(tokens, monkeypatch):
+    """A raising transport (like Http/CurlHttp) must not double-count or stick."""
+    clock = 0.0
+    monkeypatch.setattr("custom_components.myq.api.backoff.time.monotonic", lambda: clock)
+    transport = AsyncMock()
+
+    def answer(method, url, **kwargs):
+        if transport.request.await_count <= 1 or transport.request.await_count == 3:
+            # Transport records the 429 and raises, as the built-in transports do;
+            # a 1-second server value leaves the streak to govern the real delay.
+            error = RateLimited(1)
+            client.backoff.record(url, error)
+            raise error
+        return Response(204, {}, b"")
+
+    transport.request.side_effect = answer
+    client = Client(transport=transport, tokens=tokens)
+    client.backoff = ServiceBackoff()
+
+    # The 429 is recorded by the transport and again by Client._send: one streak step.
+    with pytest.raises(RateLimited):
+        await client.request("GET", DEVICES, "/devices")
+    with pytest.raises(RateLimited) as first:
+        client.backoff.check(DEVICES)
+    assert first.value.retry_after == 60  # BASE_DELAY once, not 120 from a double count.
+
+    clock = 100.0  # Cooldown elapsed; a success must now clear the streak.
+    assert (await client.request("GET", DEVICES, "/devices")).status == 204
+
+    clock = 200.0
+    with pytest.raises(RateLimited):
+        await client.request("GET", DEVICES, "/devices")
+    with pytest.raises(RateLimited) as reset:
+        client.backoff.check(DEVICES)
+    assert reset.value.retry_after == 60  # Streak reset by the success, so 60 again.
+
+
 @pytest.mark.parametrize("status", [None, {}, {"online": False}, {"online": "true"}])
 async def test_old_camera_setter_rejects_unknown_or_offline_tend_status(
     tokens, camera_device, camera_details, status

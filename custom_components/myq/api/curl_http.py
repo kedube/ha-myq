@@ -155,4 +155,7 @@ class CurlHttp:
             limited = RateLimited(delay, server_retry_after=retry_after is not None)
             self.backoff.record(url, limited)
             raise limited
+        # A non-429 response ends this native origin's streak, as Http.request does;
+        # otherwise a native host's escalating cooldown never resets after a success.
+        self.backoff.succeeded(url)
         return result

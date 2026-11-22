@@ -112,3 +112,6 @@ class RateLimited(MyQError):
         super().__init__("MyQ returned HTTP 429; no automatic retry was sent")
         self.retry_after = retry_after
         self.server_retry_after = server_retry_after
+        # Set once a ServiceBackoff has recorded this 429, so the layers that both
+        # see it (transport, then Client._send) do not count the same 429 twice.
+        self.recorded = False

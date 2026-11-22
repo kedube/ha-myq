@@ -26,6 +26,11 @@ class ServiceBackoff:
         )
 
     def record(self, url: str, error: RateLimited) -> None:
+        # One 429 passes through both the transport and Client._send; count it once,
+        # so the streak doubles the wait per 429, not per layer that sees it.
+        if error.recorded:
+            return
+        error.recorded = True
         delay = error.retry_after
         if type(delay) not in (float, int) or not math.isfinite(delay) or delay <= 0:
             delay = BASE_DELAY

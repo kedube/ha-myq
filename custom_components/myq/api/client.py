@@ -85,10 +85,14 @@ class Client:
             response = await self.http.request(method, base + path, **kwargs)
             if response.status == 429:
                 check_status(response)
+            # A non-429 ends this origin's streak whatever the transport does, so
+            # an injected transport that never resets does not leave it escalated.
+            self.backoff.succeeded(base)
             return response
         except RateLimited as err:
             # Auth refresh has its own identity origin and is deliberately outside
-            # this boundary. Never attribute its quota to a device service.
+            # this boundary. Never attribute its quota to a device service. record is
+            # idempotent per 429, so a transport that already recorded is not counted twice.
             self.backoff.record(base, err)
             raise
 
