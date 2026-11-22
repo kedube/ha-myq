@@ -40,10 +40,13 @@
       "rate_limited": "MyQ heeft het aantal verzoeken beperkt. Wacht voordat je het opnieuw probeert.",
       "protocol_error": "MyQ gaf een onverwacht antwoord. Raadpleeg de protocolnotities van de integratie. Er is geen account toegevoegd.",
       "browser_verification": "MyQ vereist een browserverificatie die deze integratie niet kan voltooien.",
-      "app_check_unavailable": "App-verificatie is niet ingesteld of niet beschikbaar. Raadpleeg de aanmeldgids.",
+      "app_check_unavailable": "De appverificatie kon niet worden opgehaald bij Firebase. Controleer de verbinding en registratie en probeer het opnieuw.",
       "app_check_expired": "De verificatiedienst heeft een bijna verlopen token teruggestuurd. Probeer het opnieuw.",
       "app_check_invalid": "De verificatieconfiguratie of het ontvangen token is ongeldig.",
-      "app_check_integrity": "De verificatiedienst heeft de ingestelde registratie geweigerd."
+      "app_check_integrity": "De verificatiedienst heeft de ingestelde registratie geweigerd.",
+      "app_check_not_configured": "Plaats myq_app_check.json in de configuratiemap van Home Assistant, naast configuration.yaml, en probeer het opnieuw.",
+      "app_check_config_unreadable": "Home Assistant kan myq_app_check.json niet lezen. Controleer de bestandsrechten in de configuratiemap.",
+      "app_check_config_invalid": "myq_app_check.json is ongeldig. Controleer de registratieconfiguratie in de aanmeldhandleiding."
     },
     "abort": {
       "already_configured": "Dit MyQ-account is al geconfigureerd.",

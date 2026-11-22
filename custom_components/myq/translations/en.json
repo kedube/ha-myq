@@ -40,10 +40,13 @@
       "rate_limited": "MyQ has limited requests. Wait before trying again.",
       "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
       "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
-      "app_check_unavailable": "App verification is not configured or is unavailable. Check the sign-in guide.",
+      "app_check_unavailable": "Could not obtain app verification from Firebase. Check the connection and registration, then try again.",
       "app_check_expired": "The app verification provider returned an expiring token. Try again.",
       "app_check_invalid": "The app verification configuration or returned token is invalid.",
-      "app_check_integrity": "The app verification provider rejected the configured registration."
+      "app_check_integrity": "The app verification provider rejected the configured registration.",
+      "app_check_not_configured": "Place myq_app_check.json in your Home Assistant configuration directory, next to configuration.yaml, then try again.",
+      "app_check_config_unreadable": "Home Assistant cannot read myq_app_check.json. Check its file permissions in the configuration directory.",
+      "app_check_config_invalid": "myq_app_check.json is invalid. Check the registration configuration in the sign-in guide."
     },
     "abort": {
       "already_configured": "This MyQ account is already configured.",

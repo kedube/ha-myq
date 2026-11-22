@@ -76,6 +76,18 @@ class AppCheckUnavailable(AppCheckError):
         super().__init__("A current MyQ App Check token source is unavailable")
 
 
+class AppCheckNotConfigured(AppCheckUnavailable):
+    """The private Firebase registration file has not been installed."""
+
+    reason = "not_configured"
+
+
+class AppCheckConfigUnreadable(AppCheckUnavailable):
+    """Home Assistant cannot read the private Firebase registration file."""
+
+    reason = "config_unreadable"
+
+
 class AppCheckExpired(AppCheckError):
     reason = "expired"
 
@@ -88,6 +100,12 @@ class AppCheckInvalid(AppCheckError):
 
     def __init__(self) -> None:
         super().__init__("App Check configuration or proof is invalid")
+
+
+class AppCheckConfigInvalid(AppCheckInvalid):
+    """The private registration file has invalid content or is not a regular file."""
+
+    reason = "config_invalid"
 
 
 class AppCheckIntegrityError(AppCheckError):

@@ -366,7 +366,9 @@ async def test_auth_failure_starts_reauth(hass, entry):
     )
 
 
-async def test_config_flow_saves_only_tokens_and_verified_identity(hass, tokens):
+async def test_config_flow_saves_only_tokens_and_verified_identity(
+    hass, tokens, app_check_registration_file
+):
     with (
         patch("custom_components.myq.api.auth.Login.start", AsyncMock(return_value=tokens)),
         patch(
@@ -407,7 +409,9 @@ async def test_config_flow_saves_only_tokens_and_verified_identity(hass, tokens)
     assert result["data"]["tokens"] == tokens.as_dict()
 
 
-async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
+async def test_config_flow_requires_mfa_before_creating_entry(
+    hass, tokens, app_check_registration_file
+):
     from urllib.parse import parse_qs, urlsplit
 
     from custom_components.myq.api.app_check import AppCheckProof
@@ -482,7 +486,9 @@ async def test_config_flow_requires_mfa_before_creating_entry(hass, tokens):
         ("different-user", "unique_id_mismatch"),
     ],
 )
-async def test_reauth_preserves_account_identity(hass, entry, tokens, user_id, reason):
+async def test_reauth_preserves_account_identity(
+    hass, entry, tokens, user_id, reason, app_check_registration_file
+):
     async def start(login, username, password):
         login.token_manager.tokens = tokens
         return tokens
@@ -533,7 +539,7 @@ async def test_refresh_rotation_persists_without_reloading_but_options_reload(ha
     await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_flow_rate_limit_survives_another_login_attempt(hass):
+async def test_flow_rate_limit_survives_another_login_attempt(hass, app_check_registration_file):
     from custom_components.myq.api.errors import RateLimited
 
     with patch(

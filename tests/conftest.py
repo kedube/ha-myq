@@ -4,15 +4,33 @@ import base64
 import copy
 import json
 import time
+from dataclasses import asdict
 from unittest.mock import AsyncMock
 
 import pytest
 
 from custom_components.myq.api.errors import CannotConnect
+from custom_components.myq.api.firebase import REGISTRATION_FILE, FirebaseRegistration
 from custom_components.myq.api.history import HistoryPage
 from custom_components.myq.api.http import Response
 from custom_components.myq.api.models import Device
 from custom_components.myq.api.tokens import Tokens
+
+
+@pytest.fixture
+def registration():
+    return FirebaseRegistration(
+        "test-project", "1:123456:android:abcdef", "private-key", "private-debug", "ab" * 20
+    )
+
+
+@pytest.fixture
+def app_check_registration_file(hass, tmp_path, registration):
+    """Give sign-in tests a synthetic configuration file, never the local credential."""
+    hass.config.config_dir = str(tmp_path)
+    path = tmp_path / REGISTRATION_FILE
+    path.write_text(json.dumps(asdict(registration)))
+    return path
 
 
 @pytest.fixture(autouse=True)

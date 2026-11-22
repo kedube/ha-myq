@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Check the private App Check registration before sending credentials or asking
+  for MFA. Missing, unreadable and invalid registration files now have distinct
+  messages with installation guidance, separate from Firebase service failures.
+
 ## [0.05] - 2026-11-22
 
 ### Fixed

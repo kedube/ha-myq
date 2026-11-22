@@ -26,7 +26,7 @@ from .api.errors import (
     SessionRenewalFailed,
     UnsupportedAuthStep,
 )
-from .api.firebase import REGISTRATION_FILE, FirebaseDebugAppCheckProvider
+from .api.firebase import REGISTRATION_FILE, FirebaseDebugAppCheckProvider, FirebaseRegistration
 from .api.http import Http
 from .api.oauth import ui_locale
 from .api.tokens import Tokens
@@ -147,12 +147,16 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             self._email = user_input["username"].strip()
             client = await self._new_client()
             try:
+                registration_path = Path(self.hass.config.path(REGISTRATION_FILE))
+                # Check local setup before sending credentials or asking for MFA.
+                # Keep the provider's Path so it reloads the file for fresh proofs.
+                await self.hass.async_add_executor_job(FirebaseRegistration.read, registration_path)
                 # Firebase never shares the hosted login's cookies or headers.
                 self._proof_session = async_create_clientsession(
                     self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
                 )
                 provider = FirebaseDebugAppCheckProvider(
-                    Http(self._proof_session), Path(self.hass.config.path(REGISTRATION_FILE))
+                    Http(self._proof_session), registration_path
                 )
                 self._login = Login(
                     client.http, client.auth, locale=self._locale, app_check_provider=provider

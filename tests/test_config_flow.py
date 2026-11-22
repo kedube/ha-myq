@@ -1,5 +1,8 @@
 """Direct credential setup, reauthentication, discovery retries and polling options."""
 
+import json
+import os
+from dataclasses import asdict
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
 
@@ -20,14 +23,13 @@ from custom_components.myq.const import CONF_ENABLE_CAMERAS, CONF_POLL_INTERVAL,
 from .conftest import json_response
 from .test_auth import MFA_PAGE, PASSWORD_PAGE
 from .test_firebase import firebase_token
-from .test_firebase import registration as registration
 
 PROFILE = {"user_id": "verified-user", "email": "test@example.invalid"}
 CREDENTIALS = {"username": "test@example.invalid", "password": "private-password"}
 
 
 @pytest.fixture(autouse=True)
-def allow_custom(enable_custom_integrations):
+def allow_custom(enable_custom_integrations, app_check_registration_file):
     yield
 
 
@@ -254,30 +256,76 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
     assert calls[-2:] == ["firebaseappcheck.googleapis.com", "partner-identity.myq-cloud.com"]
 
 
-async def test_missing_registration_does_not_send_unverified_token_exchange(hass, tmp_path):
-    hass.config.config_dir = str(tmp_path)
-    state, requests = "", []
+@pytest.mark.parametrize(
+    "failure,error_key",
+    [
+        ("missing", "app_check_not_configured"),
+        ("unreadable", "app_check_config_unreadable"),
+        ("malformed", "app_check_config_invalid"),
+    ],
+)
+async def test_registration_preflight_stops_before_sign_in(
+    hass, app_check_registration_file, failure, error_key
+):
+    if failure == "missing":
+        app_check_registration_file.unlink()
+    elif failure == "malformed":
+        app_check_registration_file.write_text('{"debug_token":"private-debug"}')
+    real_open = os.open
 
-    async def request(_self, method, url, **kwargs):
-        nonlocal state
-        requests.append(url)
-        if method == "GET":
-            state = parse_qs(urlsplit(url).query)["state"][0]
-            return Response(200, {}, PASSWORD_PAGE)
-        if "Password" in kwargs["data"]:
-            return Response(200, {}, MFA_PAGE)
-        return Response(302, {"Location": f"com.myqops://android?code=once&state={state}"}, b"")
+    def open_file(path, *args, **kwargs):
+        if failure == "unreadable" and path == app_check_registration_file:
+            raise PermissionError("private-path")
+        return real_open(path, *args, **kwargs)
 
-    with patch("custom_components.myq.api.android_http.AndroidHttp.request", request):
+    with (
+        patch("custom_components.myq.api.firebase.os.open", side_effect=open_file),
+        patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start,
+        patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as firebase,
+        patch(
+            "custom_components.myq.api.android_http.AndroidHttp.request", new_callable=AsyncMock
+        ) as myq,
+    ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"response": "123456"}
-        )
     assert result["step_id"] == "user"
-    assert result["errors"] == {"base": "app_check_unavailable"}
-    assert len(requests) == 3
-    assert all(not url.endswith("/connect/token") for url in requests)
+    assert result["errors"] == {"base": error_key}
+    assert "private-" not in str(result)
+    start.assert_not_awaited()
+    firebase.assert_not_awaited()
+    myq.assert_not_awaited()
+    assert not hass.config_entries.async_entries(DOMAIN)
+    flow = hass.config_entries.flow._progress[result["flow_id"]]
+    assert flow._login is None and flow._session is None and flow._client is None
+
+
+async def test_registration_can_be_installed_then_same_flow_retried(
+    hass, app_check_registration_file, registration
+):
+    app_check_registration_file.unlink()
+    with patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["errors"] == {"base": "app_check_not_configured"}
+        start.assert_not_awaited()
+    app_check_registration_file.write_text(json.dumps(asdict(registration)))
+    requests = []
+
+    async def request(_self, method, url, **kwargs):
+        requests.append((method, url))
+        return Response(200, {}, PASSWORD_PAGE if method == "GET" else MFA_PAGE)
+
+    with (
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as firebase,
+    ):
+        retry = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+    assert retry["flow_id"] == result["flow_id"]
+    assert retry["step_id"] == "mfa"
+    assert [method for method, _ in requests] == ["GET", "POST"]
+    firebase.assert_not_awaited()
+    hass.config_entries.flow.async_abort(retry["flow_id"])
+    await hass.async_block_till_done()
 
 
 async def test_form_authorization_uses_home_assistant_language(hass):

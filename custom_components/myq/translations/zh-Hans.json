@@ -40,10 +40,13 @@
       "rate_limited": "MyQ 已限制请求。请稍候再试。",
       "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
       "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
-      "app_check_unavailable": "应用验证尚未配置或暂时不可用。请查看登录指南。",
+      "app_check_unavailable": "无法从 Firebase 获取应用验证。请检查连接和注册配置，然后重试。",
       "app_check_expired": "应用验证服务返回了即将过期的令牌。请重试。",
       "app_check_invalid": "应用验证配置或返回的令牌无效。",
-      "app_check_integrity": "应用验证服务拒绝了配置的注册信息。"
+      "app_check_integrity": "应用验证服务拒绝了配置的注册信息。",
+      "app_check_not_configured": "请将 myq_app_check.json 放在 Home Assistant 配置目录中，与 configuration.yaml 位于同一目录，然后重试。",
+      "app_check_config_unreadable": "Home Assistant 无法读取 myq_app_check.json。请检查配置目录中该文件的读取权限。",
+      "app_check_config_invalid": "myq_app_check.json 无效。请参阅登录指南，检查注册配置。"
     },
     "abort": {
       "already_configured": "此 MyQ 账户已配置。",

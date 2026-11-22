@@ -19,7 +19,14 @@ from urllib.parse import quote
 
 from .app_check import AppCheckProof, CachedAppCheckProvider
 from .const import ANDROID_PACKAGE, FIREBASE_USER_AGENT
-from .errors import AppCheckIntegrityError, AppCheckInvalid, AppCheckUnavailable
+from .errors import (
+    AppCheckConfigInvalid,
+    AppCheckConfigUnreadable,
+    AppCheckIntegrityError,
+    AppCheckInvalid,
+    AppCheckNotConfigured,
+    AppCheckUnavailable,
+)
 from .http import HttpTransport
 
 REGISTRATION_FILE = "myq_app_check.json"
@@ -74,10 +81,12 @@ class FirebaseRegistration:
             if not isinstance(fields, dict):
                 raise AppCheckInvalid()
             return cls(**fields)
+        except FileNotFoundError:
+            raise AppCheckNotConfigured() from None
         except OSError:
-            raise AppCheckUnavailable() from None
-        except (ValueError, TypeError, UnicodeError, RecursionError):
-            raise AppCheckInvalid() from None
+            raise AppCheckConfigUnreadable() from None
+        except (AppCheckInvalid, ValueError, TypeError, UnicodeError, RecursionError):
+            raise AppCheckConfigInvalid() from None
 
 
 class FirebaseDebugAppCheckProvider(CachedAppCheckProvider):

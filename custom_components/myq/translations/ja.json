@@ -40,10 +40,13 @@
       "rate_limited": "MyQ によりリクエストが制限されています。しばらく待ってから再試行してください。",
       "protocol_error": "MyQ から予期しない応答が返されました。統合のプロトコルノートを確認してください。アカウントは追加されていません。",
       "browser_verification": "MyQ は、このインテグレーションでは完了できないブラウザー認証を要求しています。",
-      "app_check_unavailable": "アプリ検証が設定されていないか、利用できません。サインインガイドを確認してください。",
+      "app_check_unavailable": "Firebase からアプリの検証を取得できませんでした。接続と登録設定を確認して、もう一度お試しください。",
       "app_check_expired": "アプリ検証サービスが有効期限の短いトークンを返しました。もう一度お試しください。",
       "app_check_invalid": "アプリ検証の設定または受信したトークンが無効です。",
-      "app_check_integrity": "アプリ検証サービスが設定された登録情報を拒否しました。"
+      "app_check_integrity": "アプリ検証サービスが設定された登録情報を拒否しました。",
+      "app_check_not_configured": "myq_app_check.json を Home Assistant の設定ディレクトリの configuration.yaml と同じ場所に配置して、もう一度お試しください。",
+      "app_check_config_unreadable": "Home Assistant が myq_app_check.json を読み取れません。設定ディレクトリにあるファイルのアクセス権限を確認してください。",
+      "app_check_config_invalid": "myq_app_check.json が無効です。サインインガイドで登録設定を確認してください。"
     },
     "abort": {
       "already_configured": "この MyQ アカウントはすでに設定されています。",

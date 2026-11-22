@@ -13,9 +13,12 @@ import pytest
 from custom_components.myq.api.app_check import AppCheckProof
 from custom_components.myq.api.const import ANDROID_PACKAGE, FIREBASE_USER_AGENT
 from custom_components.myq.api.errors import (
+    AppCheckConfigInvalid,
+    AppCheckConfigUnreadable,
     AppCheckExpired,
     AppCheckIntegrityError,
     AppCheckInvalid,
+    AppCheckNotConfigured,
     AppCheckUnavailable,
 )
 from custom_components.myq.api.firebase import (
@@ -26,13 +29,6 @@ from custom_components.myq.api.oauth import OAuthSession
 from custom_components.myq.api.tokens import TokenManager
 
 from .conftest import json_response
-
-
-@pytest.fixture
-def registration():
-    return FirebaseRegistration(
-        "test-project", "1:123456:android:abcdef", "private-key", "private-debug", "ab" * 20
-    )
 
 
 def firebase_token(registration, **claims):
@@ -129,20 +125,46 @@ async def test_file_is_private_input_reloaded_after_invalidation(http, registrat
         reader.assert_called_once_with(path)
         path.unlink()
         provider.invalidate()
-        with pytest.raises(AppCheckUnavailable):
+        with pytest.raises(AppCheckNotConfigured):
             await provider.acquire()
     http.request.assert_awaited_once()
 
 
-def test_malformed_or_nonregular_registration_redacts_values(tmp_path):
+def test_missing_registration_is_distinct_from_provider_unavailability(tmp_path):
+    with pytest.raises(AppCheckNotConfigured) as error:
+        FirebaseRegistration.read(tmp_path / "missing.json")
+    assert error.value.reason == "not_configured"
+
+
+def test_unreadable_registration_redacts_os_error(tmp_path):
+    with (
+        patch(
+            "custom_components.myq.api.firebase.os.open",
+            side_effect=PermissionError("private-path"),
+        ),
+        pytest.raises(AppCheckConfigUnreadable) as error,
+    ):
+        FirebaseRegistration.read(tmp_path / "registration.json")
+    assert error.value.reason == "config_unreadable"
+    assert "private-" not in str(error.value)
+    assert error.value.__suppress_context__
+
+
+def test_malformed_or_nonregular_registration_redacts_values(tmp_path, registration):
     path = tmp_path / "registration.json"
-    for body in ('{"debug_token":"private-debug"}', '["private-debug"]', "x" * 16385):
+    for body in (
+        '{"debug_token":"private-debug"}',
+        '["private-debug"]',
+        "x" * 16385,
+        json.dumps({**asdict(registration), "certificate": "private-bad-certificate"}),
+    ):
         path.write_text(body)
-        with pytest.raises(AppCheckInvalid) as error:
+        with pytest.raises(AppCheckConfigInvalid) as error:
             FirebaseRegistration.read(path)
+        assert error.value.reason == "config_invalid"
         assert "private-" not in str(error.value)
     if hasattr(os, "mkfifo"):
         fifo = tmp_path / "fifo"
         os.mkfifo(fifo)
-        with pytest.raises(AppCheckInvalid):
+        with pytest.raises(AppCheckConfigInvalid):
             FirebaseRegistration.read(fifo)
