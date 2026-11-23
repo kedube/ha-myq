@@ -55,7 +55,8 @@ These appear when MyQ reports the value:
   owners and co-owners while a lockout is active.
 - **Firmware:** an update entity for locks, openers and cameras that report
   firmware versions. It shows that an update exists; installing is done in the
-  app.
+  app. A camera's firmware entity uses Home Assistant's update icon rather than
+  the MyQ logo.
 - **Every device:** a **Device type** sensor, which also shows your account role
   and the device's linked camera, opener or gateway.
 
@@ -77,10 +78,18 @@ Door cycles and battery levels keep long-term statistics.
 ### How devices are grouped
 
 A Wi-Fi garage door opener and its built-in gateway share one Home Assistant
-device, named after the opener, with the diagnostics of both. Openers that were
-added before this was supported are combined automatically; entity IDs and
-customizations are kept. Automations that targeted the gateway's device need to
-target the combined device; entity targets keep working.
+device, named after the opener, with the diagnostics of both. The device has
+one **Connectivity**, **Device type** and **Last state change** entity, from
+the opener. Connectivity is on only while both the opener and its gateway are
+online; its `opener_online` and `gateway_online` attributes show which one is
+offline. The gateway adds its Wi-Fi signal and any other diagnostics the
+opener does not report.
+
+Openers that were added before this was supported are combined automatically;
+entity IDs and customizations are kept. The gateway's own Connectivity, Device
+type and Last state change entities are removed, so automations that used them
+need to use the opener's. Automations that targeted the gateway's device need
+to target the combined device.
 
 A camera built into an opener is listed under that opener. Standalone hubs and
 gateways stay separate devices. A device can be deleted from Home Assistant only

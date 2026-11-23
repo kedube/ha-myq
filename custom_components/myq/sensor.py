@@ -11,7 +11,7 @@ from .api.associations import associations
 from .api.locks import is_lock
 from .camera_entities import camera_entities
 from .device_registry import find_device
-from .entity import MyQEntity, discover_entities
+from .entity import MyQEntity, discover_entities, shared_with_opener
 from .management_entities import management_sensor_entities, shown_by_control
 
 PARALLEL_UPDATES = 0
@@ -85,11 +85,14 @@ def parse_timestamp(value) -> datetime | None:
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     def factory(device):
         coordinator = entry.runtime_data
-        yield MyQDeviceType(coordinator, device)
+        if not shared_with_opener(coordinator, device, ("sensor", "device_type")):
+            yield MyQDeviceType(coordinator, device)
         for key in FIELDS:
             if key in device.state:
                 yield MyQSensor(coordinator, device, key)
-        if "last_update" in device.state or "last_status" in device.state:
+        if (
+            "last_update" in device.state or "last_status" in device.state
+        ) and not shared_with_opener(coordinator, device, ("sensor", "last_update")):
             yield MyQLastChange(coordinator, device)
         yield from camera_entities(coordinator, device, "sensor")
         yield from management_sensor_entities(coordinator, device)

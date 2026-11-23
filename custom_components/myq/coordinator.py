@@ -54,7 +54,11 @@ from .const import (
     DOMAIN,
     MIN_POLL_INTERVAL,
 )
-from .device_registry import async_merge_opener_gateway, find_device
+from .device_registry import (
+    async_merge_opener_gateway,
+    async_remove_shared_gateway_entities,
+    find_device,
+)
 from .exceptions import myq_error, translation
 
 _LOGGER = logging.getLogger(__name__)
@@ -561,10 +565,10 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         if self.data is None:
             return
         for key, opener in wifi_gdo_pairs(self.data.devices).items():
-            if async_merge_opener_gateway(
-                self.hass, self.config_entry, opener, self.data.devices[key]
-            ):
+            gateway = self.data.devices[key]
+            if async_merge_opener_gateway(self.hass, self.config_entry, opener, gateway):
                 self.gateway_openers[key] = opener.key
+                async_remove_shared_gateway_entities(self.hass, self.config_entry, gateway)
 
     @callback
     def link_camera_devices(self) -> None:

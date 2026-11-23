@@ -103,7 +103,11 @@ def parent_linked_pair(account="account-one", number=1):
             "device_type": "wifigdogateway",
             "device_family": "gateway",
             "name": "Garage",
-            "state": {"online": True, "firmware_version": f"GW-FW-{number}"},
+            "state": {
+                "online": True,
+                "firmware_version": f"GW-FW-{number}",
+                "wifi_signal_strength": 3,
+            },
         },
     )
     camera = Device.parse(
@@ -225,7 +229,7 @@ async def test_top_level_parent_pairs_merge_duplicate_names_and_keep_cameras_sep
         for opener, gateway, camera in pairs:
             for device, domain, suffix in (
                 (opener, "cover", "door"),
-                (gateway, "binary_sensor", "online"),
+                (gateway, "sensor", "wifi_signal_strength"),
                 (camera, "camera", "recent_image"),
             ):
                 row = registry.async_get_or_create(
@@ -300,8 +304,6 @@ async def test_linked_pair_is_one_device_with_both_records_and_stable_entity_ids
         ("cover", f"{opener.key}:door"),
         ("binary_sensor", f"{opener.key}:online"),
         ("sensor", f"{opener.key}:device_type"),
-        ("binary_sensor", f"{gateway.key}:online"),
-        ("sensor", f"{gateway.key}:device_type"),
         ("sensor", f"{gateway.key}:wifi_signal_strength"),
     )
     before = {key: entities.async_get_entity_id(domain, DOMAIN, key) for domain, key in unique_ids}
@@ -309,10 +311,19 @@ async def test_linked_pair_is_one_device_with_both_records_and_stable_entity_ids
     assert all(
         entities.async_get(entity_id).device_id == canonical.id for entity_id in before.values()
     )
-    assert hass.states.get(before[f"{opener.key}:online"]).state == "on"
-    assert hass.states.get(before[f"{gateway.key}:online"]).state == "off"
+    # The opener's entities stand for the gateway's duplicate roles.
+    for domain, suffix in (
+        ("binary_sensor", "online"),
+        ("sensor", "device_type"),
+        ("sensor", "last_update"),
+    ):
+        assert entities.async_get_entity_id(domain, DOMAIN, f"{gateway.key}:{suffix}") is None
+    # One Connectivity entity: connected only while both records are online.
+    connectivity = hass.states.get(before[f"{opener.key}:online"])
+    assert connectivity.state == "off"
+    assert connectivity.attributes["opener_online"] is True
+    assert connectivity.attributes["gateway_online"] is False
 
-    # The panel's duplicate role names must resolve to the opener, regardless of ordering.
     panel = hass.data[DATA_PANEL].async_payload(is_admin=True, every_account=True)
     assert len(panel["doors"]) == 1
     roles = panel["doors"][0]["entities"]
@@ -357,8 +368,54 @@ async def test_gateway_discovered_later_joins_existing_opener(hass, tokens):
     assert registry.async_get(original.id).name == opener.name
     assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
     assert entities.async_get_entity_id("cover", DOMAIN, f"{opener.key}:door") == cover_id
-    diagnostic_id = entities.async_get_entity_id("sensor", DOMAIN, f"{gateway.key}:device_type")
+    diagnostic_id = entities.async_get_entity_id(
+        "sensor", DOMAIN, f"{gateway.key}:wifi_signal_strength"
+    )
     assert entities.async_get(diagnostic_id).device_id == original.id
+    assert entities.async_get_entity_id("sensor", DOMAIN, f"{gateway.key}:device_type") is None
+    # The opener's existing Connectivity entity now follows the gateway too.
+    connectivity = entities.async_get_entity_id("binary_sensor", DOMAIN, f"{opener.key}:online")
+    assert hass.states.get(connectivity).state == "off"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_gateway_seen_alone_loses_duplicates_when_its_opener_joins(hass, tokens):
+    opener, gateway = pair()
+    entry = await load(hass, tokens, inventory(gateway))
+    entities = er.async_get(hass)
+    alone = {
+        suffix: entities.async_get_entity_id(domain, DOMAIN, f"{gateway.key}:{suffix}")
+        for domain, suffix in (("binary_sensor", "online"), ("sensor", "device_type"))
+    }
+    assert all(alone.values())
+    with patch.object(
+        entry.runtime_data.client, "discover", AsyncMock(return_value=inventory(opener, gateway))
+    ):
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+    for entity_id in alone.values():
+        assert entities.async_get(entity_id) is None
+        assert hass.states.get(entity_id) is None
+    online = entities.async_get_entity_id("binary_sensor", DOMAIN, f"{opener.key}:online")
+    assert hass.states.get(online).attributes["gateway_online"] is False
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_merged_connectivity_exists_when_only_the_gateway_reports_online(hass, tokens):
+    opener, gateway = pair()
+    # Device.p1 reads an absent opener "online" as online.
+    opener = replace(opener, state={"door_state": "closed"})
+    entry = await load(hass, tokens, inventory(opener, gateway))
+    entities = er.async_get(hass)
+    online = entities.async_get_entity_id("binary_sensor", DOMAIN, f"{opener.key}:online")
+    state = hass.states.get(online)
+    assert state.state == "off"
+    assert state.attributes == {
+        **state.attributes,
+        "opener_online": True,
+        "gateway_online": False,
+    }
+    assert entities.async_get_entity_id("binary_sensor", DOMAIN, f"{gateway.key}:online") is None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -374,16 +431,18 @@ async def test_upgrade_moves_existing_gateway_entities_without_recreating_them(h
         config_entry_id=entry.entry_id, identifiers={(DOMAIN, gateway.key)}, name=gateway.name
     )
     originals = []
+    duplicates = []
     for domain, key, suffix, object_id, disabled in (
         ("cover", opener.key, "door", "my_saved_garage", None),
-        ("binary_sensor", gateway.key, "online", "my_saved_gateway_online", None),
         (
             "sensor",
             gateway.key,
-            "device_type",
-            "my_saved_gateway_type",
+            "wifi_signal_strength",
+            "my_saved_gateway_signal",
             er.RegistryEntryDisabler.USER,
         ),
+        ("binary_sensor", gateway.key, "online", "my_saved_gateway_online", None),
+        ("sensor", gateway.key, "device_type", "my_saved_gateway_type", None),
     ):
         entity = entities.async_get_or_create(
             domain,
@@ -394,9 +453,10 @@ async def test_upgrade_moves_existing_gateway_entities_without_recreating_them(h
             suggested_object_id=object_id,
             disabled_by=disabled,
         )
-        originals.append(
-            entities.async_update_entity(entity.entity_id, name="Custom " + suffix, icon="mdi:star")
+        updated = entities.async_update_entity(
+            entity.entity_id, name="Custom " + suffix, icon="mdi:star"
         )
+        (duplicates if suffix in {"online", "device_type"} else originals).append(updated)
     with patch(
         "custom_components.myq.api.client.Client.discover",
         AsyncMock(return_value=inventory(opener, gateway)),
@@ -418,9 +478,14 @@ async def test_upgrade_moves_existing_gateway_entities_without_recreating_them(h
         assert migrated.name == original.name
         assert migrated.icon == original.icon
         assert migrated.disabled_by == original.disabled_by
+    # The gateway's copies of opener roles are dropped; the opener's entities remain.
+    for duplicate in duplicates:
+        assert entities.async_get(duplicate.entity_id) is None
+        assert hass.states.get(duplicate.entity_id) is None
     assert hass.states.get("cover.my_saved_garage").state == "closed"
-    assert hass.states.get("binary_sensor.my_saved_gateway_online").state == "off"
-    assert hass.states.get("sensor.my_saved_gateway_type") is None
+    assert hass.states.get("sensor.my_saved_gateway_signal") is None
+    online = entities.async_get_entity_id("binary_sensor", DOMAIN, f"{opener.key}:online")
+    assert hass.states.get(online).state == "off"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

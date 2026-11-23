@@ -5,7 +5,38 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Changed
+
+- A Wi-Fi garage door opener and its built-in gateway have one
+  **Connectivity**, **Device type** and **Last state change** entity instead of
+  two of each. Connectivity is on only while both are online, and its
+  `opener_online` and `gateway_online` attributes show which one is offline.
+  The gateway's copies are removed, so automations that used them need to use
+  the opener's.
+- A camera's **Firmware** entity shows Home Assistant's update icon instead of
+  the MyQ logo.
+
+### Fixed
+
+- Cameras built into openers report their power state as a short code (`FP`
+  for full power). It was read as unknown, so every live view sent a needless
+  wake-up request first, and 0.10 waited for a full-power state that never
+  came. The short codes now read as the full names.
+- TC cameras that advertise talkback but list no codecs in their details (as
+  cameras built into openers do) now get a **Speaker**. It talks in the codec
+  the camera's Tend login row lists.
+
+### Added
+
+- Diagnostics show the talkback codecs a TC camera's Tend login row lists.
+
 ## [0.12] - 2026-11-23
+
+### Added
+
+- Diagnostics show a sleep mode the integration does not recognise as the
+  camera sent it, each camera's speaker capabilities, and whether it has a
+  Speaker.
 
 ## [0.11] - 2026-11-23
 
@@ -18,10 +49,6 @@ All notable changes to this project are documented here. The format follows
   (`wakeup=1|` on the video request) when MyQ enables `enable_vmw_wakeup`,
   otherwise with the wake-up request, and gives the camera 30 seconds to
   answer. This applies to TC cameras and to WebRTC cameras.
-- Cameras built into openers report their power state as a short code (`FP`
-  for full power). It was read as unknown, so every live view sent a needless
-  wake-up request first, and 0.10 waited for a full-power state that never
-  came. The short codes now read as the full names.
 - A camera Tend could not wake now says why ("did not wake up in time", "cannot
   be woken right now", "already being woken") instead of a generic refusal.
 
@@ -35,17 +62,14 @@ All notable changes to this project are documented here. The format follows
 - A **Speaker** media player for TC cameras that advertise talkback. Text to
   speech, media files and audio addresses play through the camera's speaker,
   encoded as Opus or G.711 as the camera allows, over the live view's session
-  or a session of its own. A camera that lists no codecs in its details (as
-  cameras built into openers do) talks in the codec its Tend login row lists.
-  On cameras that list stored sounds, the speaker also plays those.
+  or a session of its own. On cameras that list stored sounds, the speaker
+  also plays those.
 - The integration reads the account's MyQ feature flags (`my/features`) to
   decide how live video wakes cameras and which modes to skip.
 - Diagnostics show each camera's power state (online, sleep mode and interval,
-  battery, hardware model, and a sleep mode the integration does not recognise
-  as the camera sent it), its speaker capabilities, the talkback codecs its
-  login row lists, and whether it has a Speaker, what the last live-video wake-up did, the account's live-video
-  feature flags, and the video modes a TC camera tried and used, so a camera
-  that does not stream can be diagnosed.
+  battery, hardware model), what the last live-video wake-up did, the account's
+  live-video feature flags, and the video modes a TC camera tried and used, so
+  a camera that does not stream can be diagnosed.
 
 ## [0.10] - 2026-11-23
 

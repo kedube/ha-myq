@@ -10,7 +10,7 @@ from homeassistant.const import EntityCategory
 from .api.locks import is_lock
 from .api.models import Device
 from .camera_entities import camera_entities
-from .entity import MyQEntity, discover_entities
+from .entity import MyQEntity, built_in_gateways, discover_entities, shared_with_opener
 from .management_entities import shown_by_control
 
 PARALLEL_UPDATES = 0
@@ -149,7 +149,14 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     def factory(device):
         coordinator = entry.runtime_data
         for key, flag in FIELDS.items():
-            if key in device.state and flag.applies(device):
+            if key == "online":
+                # One Connectivity entity for an opener and its built-in gateway.
+                parts = [device, *built_in_gateways(coordinator, device)]
+                if any(key in part.state for part in parts) and not shared_with_opener(
+                    coordinator, device, ("binary_sensor", key)
+                ):
+                    yield MyQConnectivity(coordinator, device)
+            elif key in device.state and flag.applies(device):
                 yield MyQBinarySensor(coordinator, device, key, key, flag)
         for suffix, (key, flag) in DERIVED.items():
             if key in device.state and flag.applies(device):
@@ -185,3 +192,31 @@ class MyQBinarySensor(MyQEntity, BinarySensorEntity):
         if self.key == "active_fault_codes" and self.device is not None:
             return {"faults": faults(self.device) or []}
         return None
+
+
+class MyQConnectivity(MyQBinarySensor):
+    """Connected only while the device and any Wi-Fi gateway built into it are online."""
+
+    def __init__(self, coordinator, device) -> None:
+        super().__init__(coordinator, device, "online", "online", FIELDS["online"])
+
+    @property
+    def is_on(self) -> bool | None:
+        device = self.device
+        if device is None:
+            return None
+        return device.online and all(
+            gateway.online for gateway in built_in_gateways(self.coordinator, device)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        device = self.device
+        gateways = built_in_gateways(self.coordinator, device) if device is not None else []
+        if device is None or not gateways:
+            return None
+        # Which half of a merged opener is offline.
+        return {
+            "opener_online": device.online,
+            "gateway_online": all(gateway.online for gateway in gateways),
+        }

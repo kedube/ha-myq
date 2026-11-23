@@ -11,6 +11,12 @@ from homeassistant.helpers import entity_registry as er
 from .api.models import Device
 from .const import DOMAIN
 
+# Roles a built-in Wi-Fi gateway repeats from its opener. On the merged device the
+# opener's entity covers both records, so the gateway's copy is neither offered nor kept.
+GATEWAY_SHARED = frozenset(
+    {("binary_sensor", "online"), ("sensor", "device_type"), ("sensor", "last_update")}
+)
+
 
 def find_device(registry: dr.DeviceRegistry, entry_id: str, key: str) -> dr.DeviceEntry | None:
     """The registry device of one MyQ device, as registered by one config entry."""
@@ -147,3 +153,16 @@ def async_merge_opener_gateway(
         via_device_id=None if via_device_id == canonical.id else via_device_id,
     )
     return True
+
+
+@callback
+def async_remove_shared_gateway_entities(
+    hass: HomeAssistant, entry: ConfigEntry, gateway: Device
+) -> None:
+    """Drop a merged gateway's entities that duplicate its opener's (GATEWAY_SHARED)."""
+    entities = er.async_get(hass)
+    for domain, suffix in sorted(GATEWAY_SHARED):
+        entity_id = entities.async_get_entity_id(domain, DOMAIN, f"{gateway.key}:{suffix}")
+        registered = entities.async_get(entity_id) if entity_id is not None else None
+        if registered is not None and registered.config_entry_id == entry.entry_id:
+            entities.async_remove(registered.entity_id)

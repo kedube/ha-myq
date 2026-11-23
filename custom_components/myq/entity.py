@@ -14,11 +14,26 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .api.models import Device, nested
 from .const import DOMAIN
 from .coordinator import MyQCoordinator
-from .device_registry import find_device
+from .device_registry import GATEWAY_SHARED, find_device
 
 
 def _text(value: Any) -> str | None:
     return value if isinstance(value, str) and value.strip() and len(value) <= 128 else None
+
+
+def shared_with_opener(coordinator: MyQCoordinator, device: Device, role: tuple[str, str]) -> bool:
+    """A merged Wi-Fi gateway's (platform, suffix) role that its opener's entity covers."""
+    return role in GATEWAY_SHARED and device.key in getattr(coordinator, "gateway_openers", {})
+
+
+def built_in_gateways(coordinator: MyQCoordinator, device: Device) -> list[Device]:
+    """The Wi-Fi gateways merged into this opener's device."""
+    devices = coordinator.data.devices
+    return [
+        devices[key]
+        for key, opener in getattr(coordinator, "gateway_openers", {}).items()
+        if opener == device.key and key in devices
+    ]
 
 
 def device_info(coordinator: MyQCoordinator, device: Device) -> DeviceInfo:

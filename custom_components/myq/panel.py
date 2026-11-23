@@ -445,8 +445,8 @@ def _add_device(
         for entity in registered
         if entity.domain == "cover" and entity.unique_id.endswith(":door")
     }
-    # A merged gateway can also report online/device_type. Prefer the opener's
-    # state for shared roles, while retaining diagnostics unique to the gateway.
+    # Prefer the opener's entity for any role a merged gateway also provides, while
+    # retaining diagnostics unique to the gateway.
     for entity in sorted(
         registered, key=lambda item: item.unique_id.rpartition(":")[0] not in opener_keys
     ):

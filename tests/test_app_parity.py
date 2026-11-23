@@ -235,6 +235,7 @@ async def test_lock_sensors_from_polled_fields(hass, entry):
     assert firmware.state == "on"
     assert firmware.attributes["installed_version"] == "1.2.0"
     assert firmware.attributes["latest_version"] == "1.3.0"
+    assert firmware.attributes["entity_picture"].endswith("/myq/icon.png")
     registry = er.async_get(hass)
     disabled = registry.async_get("sensor.front_pin_lockout_attempts")
     assert disabled is not None and disabled.disabled_by is not None
@@ -257,6 +258,8 @@ async def test_camera_status_sensors_firmware_and_mac(hass, entry, camera_device
     firmware = hass.states.get("update.test_camera_firmware")
     assert firmware.attributes["installed_version"] == "2.0.1"
     assert firmware.attributes["latest_version"] == "2.1.0"
+    # Cameras use the update domain's MDI icon rather than the brand image.
+    assert "entity_picture" not in firmware.attributes
     device = next(iter(hass.data["device_registry"].devices.values()))
     assert device.sw_version == "2.0.1"
     assert ("mac", "aa:bb:cc:00:11:22") in device.connections

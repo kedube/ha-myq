@@ -66,6 +66,14 @@ class MyQFirmware(MyQEntity, UpdateEntity):
         return (*reported, None) if reported is not None else (None, None, None)
 
     @property
+    def entity_picture(self) -> str | None:
+        # Cameras show the update icons (mdi:package, mdi:package-up) instead of the brand.
+        device = self.device
+        if device is not None and device.is_camera:
+            return None
+        return super().entity_picture
+
+    @property
     def available(self) -> bool:
         return super().available and self._read()[0] is not None
 
