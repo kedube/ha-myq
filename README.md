@@ -30,7 +30,7 @@ app code. The sidebar panel, dashboard door card and door artwork are my own UI 
 | Lamps | A `light` entity with on/off. |
 | Locks | A `lock` entity for Wi-Fi, partner and gateway-connected locks, with PIN lockout, door contact, auto-lock settings and firmware. |
 | Thermostats | A `climate` entity with the thermostat's modes, fan modes and setpoint limits. |
-| Cameras | Snapshots and live video. TC cameras (such as those built into openers) play through Home Assistant's own WebRTC or HLS without re-encoding. Cameras with MyQ's WebRTC capability are relayed to the browser, with two-way audio. Pan/tilt/zoom, siren, saved positions and camera settings where the camera supports them. |
+| Cameras | Snapshots and live video. TC cameras (such as those built into openers) play through Home Assistant's own WebRTC or HLS without re-encoding. Cameras with MyQ's WebRTC capability are relayed to the browser, with two-way audio. A speaker media player sends text to speech and audio files to TC cameras with talkback. Pan/tilt/zoom, siren, saved positions and camera settings where the camera supports them. |
 | Recordings | Recorded clips in **Media → MyQ recordings**, with thumbnails, detection labels and a **Door events** folder. |
 | Device health | Connectivity, battery, Wi-Fi strength, fault codes, door cycles, backup battery and firmware updates, when MyQ reports them. |
 | Activity and alerts | Optional **Activity** event entities, a switch for each notification rule, and actions to read history and snooze alerts. |
@@ -47,9 +47,10 @@ for doors and locks (their state is polled).
 - A registered Firebase App Check debug token for this integration's app
   registration. See [the debug token](docs/sign-in.md#before-you-start-the-debug-token)
   before you start.
-- For live video: outbound TCP port 5104 to MyQ's video service. TC cameras also
-  need UDP to MyQ's video relay and the camera. Cameras on MyQ's WebRTC route
-  need a WebRTC-capable browser.
+- For live video: outbound TCP port 5104 to MyQ's video service. TC cameras
+  also use UDP to MyQ's video relay and the camera; where UDP is blocked they
+  fall back to MyQ's TLS video channel. Cameras on MyQ's WebRTC route need a
+  WebRTC-capable browser.
 
 ## Install
 

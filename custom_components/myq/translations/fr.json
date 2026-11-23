@@ -249,6 +249,11 @@
         "name": "Éclairage de la caméra {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Haut-parleur"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Volume du haut-parleur"

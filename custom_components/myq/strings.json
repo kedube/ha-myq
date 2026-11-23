@@ -249,6 +249,11 @@
         "name": "Camera light {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Speaker"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Speaker volume"

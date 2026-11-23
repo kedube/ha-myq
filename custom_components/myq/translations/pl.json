@@ -249,6 +249,11 @@
         "name": "Światło kamery {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Głośnik"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Głośność głośnika"

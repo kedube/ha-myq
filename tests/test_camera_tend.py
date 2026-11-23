@@ -38,6 +38,7 @@ class FakeTendSession:
         self.openers = set(openers)
         self.on_video = self.on_status = None
         self.media = None
+        self.transport = {"video_mode": None, "modes_tried": []}
         self.ended = asyncio.get_running_loop().create_future()
         self.closed = False
         self.start = AsyncMock(side_effect=self._start)
@@ -250,6 +251,33 @@ async def test_failed_start_answers_the_player_and_releases_everything(
     assert data["devices"][0]["live_video_source"]["last_error"]
 
 
+@pytest.mark.parametrize(
+    "power,platform,expected",
+    [
+        (None, None, False),  # Powered and reporting available: the request is unchanged.
+        ({"sleepInterval": 30, "sleepMode": "LOW_POWER_DEEP_SLEEP"}, None, True),
+        ({"sleepMode": "FULL_POWER"}, "MyQ:PMX-SAV524MT7686-STM-II", True),  # Battery model.
+        ({"sleepMode": "FULL_POWER_BOOT"}, None, True),  # Still waking.
+    ],
+)
+async def test_video_request_asks_tend_to_wake_a_camera_that_may_sleep(
+    hass, tend_camera, power, platform, expected
+):
+    camera = tend_camera.camera
+    details = {**tend_camera.details, "status": {"online": True}}
+    if power is not None:
+        details["status"]["pwr"] = power
+    if platform is not None:
+        details["hw"] = {"platform": platform}
+    with patch.object(camera.coordinator.video, "wake_best_effort", return_value=details):
+        session = await camera._open_video(lambda record: None)
+    try:
+        assert (session.wakeup, session.camera_asleep) == ((1 if expected else None), expected)
+        session.start.assert_awaited_once_with("owner:camera", "test-access")
+    finally:
+        await camera._abandon(session)
+
+
 async def test_start_cancelled_twice_still_releases_the_status_feed(hass, tend_camera):
     """The reader leaves, then video is stopped, while the session is still closing."""
     camera = tend_camera.camera
@@ -377,6 +405,16 @@ async def test_diagnostics_name_the_route_without_identifiers(hass, tend_camera)
     row = data["devices"][0]
     assert row["live_video_route"] == "legacy" and row["live_view_open"] is False
     assert row["live_video_source"]["sessions_started"] == 0
+    assert row["camera_power"]["online"] is True and row["last_wake"] is None
+    assert set(row["camera_power"]) == {
+        "online",
+        "sleep_mode",
+        "sleep_interval",
+        "battery_reported",
+        "hardware_model",
+        "wakeable",
+        "may_be_asleep",
+    }
     assert "camera_status_connected" in data and "camera_status_error" in data
     for private in ("TC-TEST-CAMERA", "owner:camera", "OPENER-1", "test-account"):
         assert private not in str(data)
@@ -455,3 +493,31 @@ async def test_stopping_home_assistant_ends_the_camera_session(hass, tend_camera
                 async with asyncio.timeout(2):
                     await response.content.read()
     assert tend_camera.sessions[0].closed and not camera.coordinator._live_owners
+
+
+async def test_account_flags_hand_waking_and_failing_modes_to_tend(hass, tend_camera):
+    camera = tend_camera.camera
+    details = {
+        **tend_camera.details,
+        "status": {"online": True, "pwr": {"sleepInterval": 30, "sleepMode": "LOW_POWER"}},
+        "override_modes": [9],
+    }
+    flags = frozenset({"enable_vmw_wakeup", "enable_connection_mode_override"})
+    wake = AsyncMock(return_value=details)
+    with (
+        patch.object(camera.coordinator.video, "account_features", AsyncMock(return_value=flags)),
+        patch.object(camera.coordinator.video, "wake_best_effort", wake),
+    ):
+        camera.coordinator.data.cameras[camera.device_key] = details
+        session = await camera._open_video(lambda record: None)
+    try:
+        # enable_vmw_wakeup: no HTTP wake-up; the video request asks Tend to wake it.
+        assert wake.await_args.kwargs == {"post": False}
+        assert (session.wakeup, session.camera_asleep) == (1, True)
+        assert session.skip_modes == {9}
+        data = await async_get_config_entry_diagnostics(hass, tend_camera.entry)
+        row = data["devices"][0]
+        assert row["override_modes_path"] == "override_modes"
+        assert row["live_video_source"]["transport"] == session.transport
+    finally:
+        await camera._abandon(session)

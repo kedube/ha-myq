@@ -1,10 +1,14 @@
-"""Receive the mode-9 Tend camera stream over UDP.
+"""Tend camera media over UDP: receive the mode-9 video stream, send talkback.
 
 The broker supplies the media identity, a relay and an optional encryption key; none
 of those values are logged. What this receiver accepts follows clients known to work
 with TC cameras, which are lenient: any setup or media datagram from the relay or from
 a camera address the relay announced counts, and a media record is passed on as the
 camera sent it. Records are the camera's encoded H.264; nothing is decoded here.
+
+The same rendezvous carries the app's talkback connection, with kind "A" in place of
+"V" (seedonk_p2psession_start). Sent RTP packets are split into datagrams of at most
+540 bytes, each led by a little-endian message id, fragment count and fragment index.
 """
 
 from __future__ import annotations
@@ -26,6 +30,8 @@ CONNECT_TIMEOUT = 8.0
 FRAME_TIMEOUT = 30.0
 MAX_PACKET = 2 * 1024 * 1024
 MAX_FRAGMENTS = 4096
+SEND_CHUNK = 540  # seedonk_p2psession's default MTU for each sent datagram.
+AUDIO_CLOCK = 8000  # The RTP clock of payload type 8, which the app's audio uses.
 _MAGIC = b"SDNK"
 _PEER = tuple[str, int]
 
@@ -112,9 +118,17 @@ class TendRtp:
         self,
         on_record: Callable[[bytes], None],
         on_end: Callable[[CannotConnect], None] | None = None,
+        *,
+        kind: bytes = b"V",
+        watch_silence: bool = True,
     ) -> None:
+        if kind not in (b"V", b"A"):
+            raise ProtocolError("Invalid Tend media kind")
         self._on_record = on_record
         self._on_end = on_end
+        # "V" for video; "A" for the talkback connection, which receives no video.
+        self._kind = kind
+        self._watch_silence = watch_silence
         self._ports: list[_Port] = []
         self._relay: _PEER = ("", 0)
         self._camera_ip = ""
@@ -146,6 +160,10 @@ class TendRtp:
         # Counters for diagnostics: camera packets assembled, and those without video.
         self.packets = 0
         self.unreadable = 0
+        # Sending (talkback): RTP sequence, the first send's time, the datagram message id.
+        self._send_sequence = secrets.randbits(16)
+        self._send_started: float | None = None
+        self._message_id = 0
 
     @property
     def path(self) -> str | None:
@@ -166,7 +184,7 @@ class TendRtp:
             raise ProtocolError("A Tend media receiver cannot be reused")
         self._started = True
         try:
-            identity = ("V_" + account_alias).encode("ascii")
+            identity = (self._kind.decode("ascii") + "_" + account_alias).encode("ascii")
         except (UnicodeError, TypeError):
             raise ProtocolError("Invalid Tend media identity") from None
         if not account_alias or b"\0" in identity:
@@ -247,7 +265,7 @@ class TendRtp:
                             0,
                             0,
                             port.index,
-                            b"V",
+                            self._kind,
                             socket.inet_aton(self._source_ip),
                             bytes(16),
                             port.number,
@@ -304,7 +322,7 @@ class TendRtp:
             )
             if port.peer is not None:
                 port.send(
-                    _setup_packet(100, bytes([1, port.index]) + b"V" + self._identity * 2),
+                    _setup_packet(100, bytes([1, port.index]) + self._kind + self._identity * 2),
                     self._relay,
                 )
         elif kind == 3:
@@ -427,7 +445,7 @@ class TendRtp:
         """Receiver reports keep the camera sending; silence ends the receiver."""
         while not self._ended.is_set():
             await asyncio.sleep(2)
-            if time.monotonic() - self._last_video_at > FRAME_TIMEOUT:
+            if self._watch_silence and time.monotonic() - self._last_video_at > FRAME_TIMEOUT:
                 self._finish(CannotConnect("Tend camera stopped sending video"))
                 return
             report = self._report()
@@ -435,6 +453,32 @@ class TendRtp:
                 port = self._ports[1]
                 if port.peer is not None:
                     port.send(report, port.peer)
+
+    def send(self, payload: bytes, payload_type: int = 8) -> None:
+        """Send one RTP packet to the camera over the media port, in datagram fragments.
+
+        The timestamp counts the payload clock from the first packet sent; the marker
+        bit is clear (oRTP's rtp_session_send_with_ts, as the app sends talkback).
+        """
+        port = self._ports[0] if self._ports else None
+        if self._ended.is_set() or port is None or not port.ready or port.peer is None:
+            raise CannotConnect("Tend media connection is not open")
+        if not 0 <= payload_type <= 127 or len(payload) > MAX_PACKET:
+            raise ProtocolError("Invalid Tend media packet")
+        now = time.monotonic()
+        if self._send_started is None:
+            self._send_started = now
+        timestamp = round((now - self._send_started) * AUDIO_CLOCK) & 0xFFFFFFFF
+        packet = (
+            struct.pack("!BBHII", 0x80, payload_type, self._send_sequence, timestamp, self._ssrc)
+            + payload
+        )
+        self._send_sequence = (self._send_sequence + 1) & 0xFFFF
+        count = -(-len(packet) // SEND_CHUNK)
+        for index in range(count):
+            chunk = packet[index * SEND_CHUNK : (index + 1) * SEND_CHUNK]
+            port.send(struct.pack("<IHH", self._message_id, count, index) + chunk, port.peer)
+        self._message_id = (self._message_id + 1) & 0xFFFFFFFF
 
     def _finish(self, error: CannotConnect | None = None) -> None:
         if self._ended.is_set():

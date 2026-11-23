@@ -188,6 +188,23 @@ async def test_video_request_start_and_stop_use_one_correlation(legacy):
         await legacy.session.start("owner:camera", "token")
 
 
+async def test_requested_wakeup_is_carried_by_the_video_request_only(legacy):
+    # The app's seedonkRequireVideoSend formats "%@|%@|%@|%@" with "wakeup=1|" last.
+    legacy.login()
+    legacy.feed(accept())
+    legacy.session.wakeup = 1
+    await legacy.session.start("owner:camera", "token")
+    await legacy.session.close()
+    frames = await commands(legacy)
+    assert [frame.data for frame in frames] == [
+        b"require-video-send|owner|9|wakeup=1|",
+        b"start-video-receive|owner|9|",
+        b"modify-device|owner|QTY=3+FPS=20+SIZE=0+SAVE=0|",
+        b"stop-video-receive|owner|9|",
+    ]
+    assert parse_properties(frames[0].options)["CX_DSTID"] == "owner:camera"
+
+
 async def test_first_rendezvous_miss_is_retried_once_with_a_fresh_request(legacy):
     legacy.login()
     legacy.feed(accept())
@@ -287,10 +304,14 @@ async def test_acceptance_inside_a_batched_push_names_its_relay(legacy):
 async def test_no_acceptance_times_out(legacy, monkeypatch):
     monkeypatch.setattr(tend_legacy, "OFFER_TIMEOUT", 0.05)
     legacy.login()
-    with pytest.raises(CannotConnect, match="failed or timed out"):
+    with pytest.raises(CannotConnect, match="did not answer the video request"):
         await legacy.session.start("owner:camera", "token")
     assert not legacy.receivers
     legacy.writer.close.assert_called_once()
+    # An unanswered request is not repeated: the camera did not miss a rendezvous.
+    sent = [frame.data for frame in await commands(legacy)]
+    assert sent.count(b"require-video-send|owner|9|") == 1
+    assert legacy.session.transport["modes_tried"] == [9]
 
 
 async def test_signaling_loss_kick_out_and_media_failure_end_the_session(legacy):
@@ -472,3 +493,192 @@ async def test_login_answer_is_read_within_one_bounded_run_of_frames(legacy):
     with pytest.raises(ProtocolError, match="did not return a session"):
         await legacy.session.start("owner:camera", "token")
     assert not legacy.receivers
+
+
+def answer(legacy, replies):
+    """Answer each require-video-send for a mode with that mode's frame, when it is sent."""
+    sent_modes = []
+
+    def write(data):
+        for mode, frame in replies.items():
+            if f"require-video-send|owner|{mode}|".encode() in data:
+                sent_modes.append(mode)
+                legacy.feed(frame)
+
+    legacy.writer.write.side_effect = write
+    return sent_modes
+
+
+def accept_mode(mode, metadata=b"url=rtp\\://relay.seedonk.com\\:5432\n"):
+    return Frame(438, options=metadata, data=f"accept-video-receive|owner:camera|{mode}|".encode())
+
+
+CHANNEL_LOGIN = {
+    "video-channel-host": "vc.broker.tend-us.tendplatform.com",
+    "video-channel-port-tls": "5101",
+}
+
+
+@pytest.fixture
+def channels(monkeypatch):
+    opened = []
+
+    def factory(on_record, on_end):
+        channel = MagicMock(start=AsyncMock(), close=AsyncMock(), path="tcp_relay")
+        channel.on_record, channel.on_end = on_record, on_end
+        opened.append(channel)
+        return channel
+
+    monkeypatch.setattr(tend_legacy, "TendChannel", factory)
+    return opened
+
+
+async def test_udp_failure_falls_back_through_the_relay_to_the_tls_channel(legacy, channels):
+    def failing(on_record, on_end):
+        media = MagicMock(
+            start=AsyncMock(side_effect=CannotConnect("UDP blocked")), close=AsyncMock()
+        )
+        legacy.receivers.append(media)
+        return media
+
+    legacy.receiver(failing)
+    legacy.login(INVENTORY + "+RTP=1", **CHANNEL_LOGIN)
+    modes = answer(legacy, {mode: accept_mode(mode) for mode in (9, 10, 0)})
+    await legacy.session.start("owner:camera", "token")
+    try:
+        # The app's order: UDP to the camera (twice), UDP through the relay, then TLS.
+        assert modes == [9, 9, 10, 0]
+        assert len(legacy.receivers) == 3 and len(channels) == 1
+        channel = channels[0]
+        address, sender, recipient, sources = channel.start.await_args.args
+        assert address == ("vc.broker.tend-us.tendplatform.com", 5101)
+        assert len(sender) == 16 and sources == {"owner:camera", "owner"}
+        assert legacy.session.media is channel
+        data = [frame.data for frame in await commands(legacy)]
+        # Each failed attempt is stopped in its own mode; the channel is started at once.
+        assert data.count(b"stop-video-receive|owner|9|") == 2
+        assert b"stop-video-receive|owner|10|" in data
+        assert data[-2:] == [
+            b"start-video-receive|owner|0|",
+            b"modify-device|owner|QTY=3+FPS=20+SIZE=0+SAVE=0|",
+        ]
+        assert legacy.session.transport == {
+            "video_mode": 0,
+            "modes_tried": [9, 9, 10, 0],
+            "modes_skipped": [],
+            "camera_lists_rtp": True,
+            "camera_lists_rtp11": False,
+            "camera_has_key": True,
+            "video_channel_offered": True,
+            "wakeup": None,
+        }
+    finally:
+        await legacy.session.close()
+    assert (await commands(legacy))[-1].data == b"stop-video-receive|owner|0|"
+
+
+async def test_rtp11_camera_and_listed_failing_modes_change_the_order(legacy, channels):
+    legacy.login(INVENTORY + "+RTP=1+RTP11=1", **CHANNEL_LOGIN)
+    legacy.session.skip_modes = frozenset({9})
+    modes = answer(legacy, {11: accept_mode(11)})
+    await legacy.session.start("owner:camera", "token")
+    try:
+        assert modes == [11] and len(legacy.receivers) == 1 and not channels
+        assert legacy.session.transport["modes_skipped"] == [9]
+    finally:
+        await legacy.session.close()
+
+
+async def test_camera_without_a_key_is_asked_for_mode_8(legacy):
+    legacy.login("owner:camera,LIP=192.168.1.20")
+    modes = answer(legacy, {8: accept_mode(8)})
+    await legacy.session.start("owner:camera", "token")
+    try:
+        assert modes == [8]
+    finally:
+        await legacy.session.close()
+
+
+async def test_acceptance_for_another_mode_is_not_taken(legacy, monkeypatch):
+    monkeypatch.setattr(tend_legacy, "OFFER_TIMEOUT", 0.05)
+    legacy.login()
+    answer(legacy, {9: accept_mode(10)})
+    with pytest.raises(CannotConnect, match="did not answer"):
+        await legacy.session.start("owner:camera", "token")
+    assert not legacy.receivers
+
+
+async def test_unanswered_request_moves_on_to_the_tls_channel(legacy, channels, monkeypatch):
+    monkeypatch.setattr(tend_legacy, "OFFER_TIMEOUT", 0.05)
+    legacy.login(**CHANNEL_LOGIN)
+    modes = answer(legacy, {0: accept_mode(0, metadata=b"")})
+    await legacy.session.start("owner:camera", "token")
+    try:
+        assert modes == [0] and len(channels) == 1
+        assert legacy.session.transport["modes_tried"] == [9, 0]
+    finally:
+        await legacy.session.close()
+
+
+@pytest.mark.parametrize(
+    "reason,message",
+    [
+        ("wake-timeout", "did not wake up in time"),
+        ("wake-unavailable", "cannot be woken"),
+        ("WAKE-BUSY", "already being woken"),
+    ],
+)
+async def test_wake_denial_names_the_reason(legacy, reason, message):
+    from custom_components.myq.api.errors import CameraWakeFailed
+
+    legacy.login()
+    deny = Frame(411, data=f"deny-video-receive|owner:camera|{reason}|".encode())
+    answer(legacy, {9: deny})
+    legacy.session.wakeup = 1
+    with pytest.raises(CameraWakeFailed, match=message):
+        await legacy.session.start("owner:camera", "token")
+    assert not legacy.receivers
+
+
+async def test_talkback_signaling_on_an_open_session(legacy):
+    legacy.login()
+    await legacy.session.connect("owner:camera", "token")
+    try:
+        session_id = "owner:1700000000000"
+
+        def write(data):
+            if b"require-audio-send|" in data:
+                legacy.feed(
+                    Frame(
+                        436,
+                        options=b"url=rtp\\://audio.seedonk.com\\:6000\n",
+                        data=f"accept-audio-receive|owner:camera|{session_id}|9|".encode(),
+                    )
+                )
+
+        legacy.writer.write.side_effect = write
+        assert await legacy.session.request_audio(session_id, 9) == ("audio.seedonk.com", 6000)
+        await legacy.session.audio_command("start", session_id, 9)
+        await legacy.session.audio_command("stop", session_id, 9)
+        with pytest.raises(ProtocolError):
+            await legacy.session.audio_command("pause", session_id, 9)
+        frames = await commands(legacy)
+        assert [frame.data for frame in frames] == [
+            f"require-audio-send|owner|{session_id}|9|".encode(),
+            f"start-audio-receive|owner|{session_id}|9|".encode(),
+            f"stop-audio-receive|owner|{session_id}|9|".encode(),
+        ]
+        assert {parse_properties(frame.options)["CX_DSTID"] for frame in frames} == {"owner:camera"}
+        assert not legacy.receivers  # Connecting alone opens no video.
+
+        def deny(data):
+            if b"require-audio-send|" in data:
+                legacy.feed(Frame(411, data=b"deny-audio-receive|owner:camera|busy|"))
+
+        legacy.writer.write.side_effect = deny
+        with pytest.raises(AccessDenied, match="declined talkback"):
+            await legacy.session.request_audio(session_id, 9)
+        # A talkback refusal leaves the session itself open.
+        assert legacy.session.connected
+    finally:
+        await legacy.session.close()

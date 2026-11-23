@@ -249,6 +249,11 @@
         "name": "Luce della telecamera {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Altoparlante"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Volume dell'altoparlante"

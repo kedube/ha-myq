@@ -249,6 +249,11 @@
         "name": "Luz da câmera {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Alto-falante"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Volume do alto-falante"

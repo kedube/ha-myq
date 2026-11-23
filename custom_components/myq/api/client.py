@@ -121,6 +121,20 @@ class Client:
             raise ProtocolError("MyQ profile did not contain a user ID")
         return data
 
+    async def features(self) -> frozenset[str]:
+        """The account's feature flags (ProfileServicesApi my/features, v6.0)."""
+        data = (await self.request("GET", PROFILES, "/api/v6.0/my/features")).json()
+        items = data.get("features") if isinstance(data, dict) else None
+        if not isinstance(items, list) or len(items) > 4096:
+            raise ProtocolError("MyQ feature list is invalid")
+        return frozenset(
+            item["feature_id"]
+            for item in items
+            if isinstance(item, dict)
+            and isinstance(item.get("feature_id"), str)
+            and 0 < len(item["feature_id"]) <= 128
+        )
+
     async def accounts(self) -> list[Account]:
         data = (await self.request("GET", ACCOUNTS, "/api/v6.0/accounts")).json()
         accounts = [Account.parse(row) for row in object_list(data, "accounts")]

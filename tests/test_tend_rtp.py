@@ -414,3 +414,108 @@ async def test_cancelled_setup_releases_sockets(socket_enabled):
     finally:
         silent.close()
     assert all(port.transport.is_closing() for port in receiver._ports)
+
+
+def test_media_kind_is_video_or_audio():
+    with pytest.raises(ProtocolError, match="media kind"):
+        TendRtp(lambda record: None, kind=b"X")
+
+
+async def test_audio_connection_registers_with_kind_a():
+    receiver = TendRtp(lambda record: None, kind=b"A", watch_silence=False)
+    receiver._relay, receiver._source_ip = RELAY, "192.168.1.5"
+    receiver._allowed = {RELAY[0]}
+    receiver._identity = b"A_owner".ljust(32, b"\0")
+    for index in range(2):
+        port = _Port(receiver, index)
+        port.transport = MagicMock()
+        port.transport.is_closing.return_value = False
+        port.number = 6000 + index
+        receiver._ports.append(port)
+    handshake = asyncio.create_task(receiver._handshake())
+    await asyncio.sleep(0)
+    registration = sent(receiver._ports[0])[0][0]
+    assert registration[20:25] == b"\x01\x00\x00\x00A"
+    assert registration[-64:] == b"A_owner".ljust(32, b"\0") * 2
+    # The relay's answer is acknowledged with the same kind.
+    receiver._setup(receiver._ports[1], candidates(CAMERA), RELAY)
+    assert sent(receiver._ports[1])[-1][0][20:23] == b"\x01\x01A"
+    receiver._ready.set()
+    await handshake
+    await receiver.close()
+
+
+async def test_audio_registration_names_the_audio_identity(socket_enabled, monkeypatch):
+    monkeypatch.setattr(tend_rtp, "CONNECT_TIMEOUT", 0.3)
+    received = []
+
+    class Relay(asyncio.DatagramProtocol):
+        def datagram_received(self, data, addr):
+            received.append(data)
+
+    loop = asyncio.get_running_loop()
+    relay, _ = await loop.create_datagram_endpoint(Relay, local_addr=("127.0.0.1", 0))
+    receiver = TendRtp(lambda record: None, kind=b"A", watch_silence=False)
+    try:
+        with pytest.raises(CannotConnect):
+            await receiver.start(
+                ("127.0.0.1", relay.get_extra_info("sockname")[1]), "owner", "", b""
+            )
+    finally:
+        relay.close()
+    assert received and all(data[24:25] == b"A" for data in received)
+    assert received[0][-64:] == b"A_owner".ljust(32, b"\0") * 2
+
+
+def test_send_splits_one_rtp_packet_into_numbered_fragments(monkeypatch):
+    receiver, _, _ = prepared_receiver(confirmed=True)
+    port = receiver._ports[0]
+    port.peer = CAMERA
+    clock = [100.0]
+    monkeypatch.setattr(tend_rtp.time, "monotonic", lambda: clock[0])
+    receiver._send_sequence = 65535
+    payload = bytes(range(256)) * 5  # 1,280 bytes: three datagrams with the RTP header.
+    receiver.send(payload)
+    clock[0] += 0.02
+    receiver.send(b"next")
+    datagrams = sent(port)
+    assert [peer for _, peer in datagrams] == [CAMERA] * 4
+    headers = [struct.unpack("<IHH", data[:8]) for data, _ in datagrams]
+    assert headers == [(0, 3, 0), (0, 3, 1), (0, 3, 2), (1, 1, 0)]
+    assert all(len(data) - 8 <= 540 for data, _ in datagrams)
+    packet = b"".join(data[8:] for data, _ in datagrams[:3])
+    version, kind, sequence, timestamp, source = struct.unpack("!BBHII", packet[:12])
+    assert (version, kind, sequence, timestamp, source) == (0x80, 8, 65535, 0, receiver._ssrc)
+    assert packet[12:] == payload
+    second = datagrams[3][0][8:]
+    # The sequence wraps; the timestamp counts 8 kHz from the first packet; no marker.
+    assert struct.unpack("!BBHI", second[:8]) == (0x80, 8, 0, 160)
+    assert second[12:] == b"next"
+
+
+def test_send_needs_a_confirmed_media_port():
+    receiver, _, _ = prepared_receiver(confirmed=False)
+    with pytest.raises(CannotConnect):
+        receiver.send(b"audio")
+    receiver._ports[0].ready, receiver._ports[0].peer = True, CAMERA
+    with pytest.raises(ProtocolError):
+        receiver.send(b"audio", payload_type=200)
+
+
+async def test_audio_connection_does_not_end_on_silence(monkeypatch):
+    receiver, _, ended = prepared_receiver(confirmed=True)
+    receiver._watch_silence = False
+    monkeypatch.setattr(tend_rtp, "FRAME_TIMEOUT", 0)
+    original = asyncio.sleep
+    calls = []
+
+    async def sleep(_delay):
+        calls.append(1)
+        if len(calls) > 3:
+            receiver._ended.set()
+        await original(0)
+
+    monkeypatch.setattr(tend_rtp.asyncio, "sleep", sleep)
+    receiver._last_video_at = -1.0
+    await receiver._maintain()
+    assert ended == [] and len(calls) == 4

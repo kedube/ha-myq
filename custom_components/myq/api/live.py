@@ -138,6 +138,9 @@ class LiveSession:
         self._control_details: dict = {}
         self._can_control = False
         self._ready = False
+        # The video request's wake field and whether the camera may be asleep (TendSession).
+        self.wakeup: int | None = None
+        self.camera_asleep = False
 
     @property
     def _browser(self) -> RTCPeerConnection | None:
@@ -315,6 +318,7 @@ class LiveSession:
 
         self._tend = TendSession()
         self._tend.on_status = self._on_status
+        self._tend.wakeup, self._tend.camera_asleep = self.wakeup, self.camera_asleep
         options = await self._tend.start(alias, token)
         self._controls = LiveControls(self._tend)
         self._controls.configure(self._control_details, can_control=self._can_control)

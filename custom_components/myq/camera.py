@@ -32,7 +32,15 @@ from .api.live import MAX_VIEWERS, LiveSession
 from .api.models import Device
 from .api.tend_legacy import LegacyTendSession
 from .api.tend_source import RETRY_SECONDS, TendSource
-from .api.video import camera_enabled, camera_online, wakeable
+from .api.video import (
+    MODE_OVERRIDE,
+    camera_enabled,
+    camera_online,
+    live_wake_plan,
+    may_be_asleep,
+    override_modes,
+    wakeable,
+)
 from .const import CONF_ENABLE_CAMERAS
 from .entity import MyQEntity, discover_entities
 from .exceptions import myq_error
@@ -369,9 +377,16 @@ class MyQCamera(MyQCameraBase):
         self._live_starts[session_id] = cast(asyncio.Task, asyncio.current_task())
         try:
             await self.coordinator.async_acquire_live(stream)
-            details = await self.coordinator.video.wakeup(device, self.details)
+            # As for TC cameras: wake a sleeping camera as the account's flags say,
+            # rather than wait for it to report FULL_POWER.
+            video = self.coordinator.video
+            features = await video.account_features()
+            post, _ = live_wake_plan(self.details, features)
+            details = await video.wake_best_effort(device, self.details, post=post)
             if _live_route(device, details) != "kvs" or not camera_enabled(details):
                 raise CommandRejected("The camera is no longer available for live video")
+            _, stream.wakeup = live_wake_plan(details, features)
+            stream.camera_asleep = may_be_asleep(details)
             can_control = False
             if self._can_control:
                 access = (await self.coordinator.management.account_access()).get(device.account_id)
@@ -541,15 +556,23 @@ class MyQTendCamera(MyQCameraBase):
             session = LegacyTendSession(self._opener_serials(device))
             session.on_video, session.on_status = on_video, self._status_changed
             await self.coordinator.async_acquire_live(session)
-            # The Tend session wakes the camera itself, so do not block the stream on
-            # the camera first reporting FULL_POWER; nudge it and proceed.
-            details = await self.coordinator.video.wake_best_effort(device, self.details)
+            # Never block the stream on the camera first reporting FULL_POWER: wake it
+            # as the account's flags say (HTTP, or Tend's video service) and proceed.
+            video = self.coordinator.video
+            features = await video.account_features()
+            post, _ = live_wake_plan(self.details, features)
+            details = await video.wake_best_effort(device, self.details, post=post)
             if _live_route(device, details) != "legacy" or not camera_enabled(details):
                 raise CommandRejected("The camera is no longer available for live video")
+            _, session.wakeup = live_wake_plan(details, features)
+            session.camera_asleep = may_be_asleep(details)
+            if features is not None and MODE_OVERRIDE in features:
+                session.skip_modes = override_modes(details)[0]
             token = await self.coordinator.client.auth.access_token()
             await session.start(details["alias"], token)
         except BaseException as err:
             if session is not None:
+                self._source.last_transport = session.transport
                 # Its own task: a start cancelled again while it cleans up (the reader
                 # left and video was stopped) must still close and release the session.
                 await asyncio.shield(
@@ -564,6 +587,7 @@ class MyQTendCamera(MyQCameraBase):
                 self._reported = str(err)
             raise
         self._reported = None
+        self._source.last_transport = session.transport
         return session
 
     async def _abandon(self, session: LegacyTendSession) -> None:

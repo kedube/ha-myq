@@ -190,6 +190,7 @@ async def test_real_h264_media_reaches_viewer_and_all_peers_close(video_service)
     errors = AsyncMock()
     async with aiohttp.ClientSession() as http:
         stream = live.LiveSession(http, errors)
+        stream.wakeup, stream.camera_asleep = 1, True
         try:
             async with asyncio.timeout(15):
                 answer = await stream.start(
@@ -200,6 +201,7 @@ async def test_real_h264_media_reaches_viewer_and_all_peers_close(video_service)
             assert (frame.width, frame.height) == (640, 480)
             tend, kvs = video_service
             tend.start.assert_awaited_once_with("camera-alias", "private-token")
+            assert (tend.wakeup, tend.camera_asleep) == (1, True)
             assert "H264/90000" in kvs.remote.remoteDescription.sdp
             assert "a=recvonly" in kvs.remote.remoteDescription.sdp
             assert "a=sendonly" in answer

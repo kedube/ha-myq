@@ -9,6 +9,10 @@ class CannotConnect(MyQError):
     """Network failure."""
 
 
+class CameraWakeFailed(CannotConnect):
+    """Tend's video service could not wake the camera for live video or talkback."""
+
+
 class AuthenticationError(MyQError):
     """Sign-in failed, or MyQ ended the session; only a new sign-in can recover.
 

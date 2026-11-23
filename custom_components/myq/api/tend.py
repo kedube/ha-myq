@@ -10,16 +10,34 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from .errors import AccessDenied, CannotConnect, CommandRejected, MyQError, ProtocolError
+from .errors import (
+    AccessDenied,
+    CameraWakeFailed,
+    CannotConnect,
+    CommandRejected,
+    MyQError,
+    ProtocolError,
+)
 
 HOST = "server.seedonk.com"
 PORT = 5104
 HANDSHAKE_TIMEOUT = 5
+# A video request that asks Tend to wake the camera is answered once the camera is up:
+# allow it the 30 seconds the app's HTTP wake-up waits (DevicesManager's fallback).
+WAKEUP_ANSWER_TIMEOUT = 30
 LOGIN_TIMEOUT = 15
 MAX_LOGIN_FRAMES = 5
 KEEPALIVE_INTERVAL = 35
 MAX_NAKS = 10  # ConnectionManager.run: "more than 10 consecutive NAKs"
 MAX_FRAME_DATA = 1_024_000
+SERVICE = 121  # The header's service field; Tend's video and audio channels use 122.
+# deny-video-receive / deny-audio-receive reasons when Tend's video service was asked to
+# wake the camera (MediaConnectionManager.denyWakeReasonToLiveStreamErrorCode).
+WAKE_DENIALS = {
+    "wake-timeout": "The camera did not wake up in time",
+    "wake-unavailable": "The camera cannot be woken right now",
+    "wake-busy": "The camera is already being woken; try again shortly",
+}
 _HEADER = struct.Struct("<BBHHBIHHH2sQ")
 _tls_context: ssl.SSLContext | None = None
 
@@ -54,6 +72,7 @@ class Frame:
     recipient: int = 0
     options: bytes = field(default=b"", repr=False)
     data: bytes = field(default=b"", repr=False)
+    service: int = SERVICE
 
     def encode(self) -> bytes:
         header_length = _HEADER.size + len(self.sender) + len(self.options)
@@ -67,7 +86,7 @@ class Frame:
                 len(self.sender),
                 0,
                 len(self.data),
-                121,
+                self.service,
                 self.action,
                 2,
                 b"**",
@@ -180,6 +199,29 @@ def _alias(value: Any) -> str:
     return value
 
 
+def trusted_host(host: str) -> bool:
+    """A host name within Tend's own DNS domains."""
+    return (
+        len(host) <= 253
+        and re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", host) is not None
+        and all(
+            label and not label.startswith("-") and not label.endswith("-")
+            for label in host.split(".")
+        )
+        and any(
+            host == domain or host.endswith("." + domain)
+            for domain in ("seedonk.com", "tendplatform.com")
+        )
+    )
+
+
+def denial(reason: str) -> MyQError:
+    """The error for a deny-video-receive or deny-audio-receive reason."""
+    if (message := WAKE_DENIALS.get(reason.strip().lower())) is not None:
+        return CameraWakeFailed(message)
+    return AccessDenied("The camera declined live video")
+
+
 def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tuple[str, int] | None:
     """Honor only observed hub/datacenter redirects within Tend's DNS domains."""
     # The front door answers "1=<address>:<port>" and "redirectHost=<broker name>";
@@ -205,17 +247,7 @@ def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tupl
     else:
         return None
     host = host.lower()
-    if (
-        len(host) > 253
-        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", host)
-        or any(
-            not label or label.startswith("-") or label.endswith("-") for label in host.split(".")
-        )
-        or not any(
-            host == domain or host.endswith("." + domain)
-            for domain in ("seedonk.com", "tendplatform.com")
-        )
-    ):
+    if not trusted_host(host):
         raise ProtocolError("Tend redirect left the trusted camera service")
     return host, port
 
@@ -278,6 +310,21 @@ class TendSession:
         # f81/b: one CorrelationID per view, reused by its stop-video-receive.
         self._correlation = str(uuid.uuid4())
         self.on_status: Callable[[], None] | None = None
+        # The video request's wake field: 1 asks Tend's video service to wake the
+        # camera, 0 says it need not, None leaves the field out.
+        self.wakeup: int | None = None
+        # The camera may be asleep, so it gets longer to answer the video request.
+        self.camera_asleep = False
+
+    def _require_video(self, alias: str) -> str:
+        """The video request; the app appends "wakeup=1|" or "wakeup=0|" when Tend's
+        video service, not the client, wakes the camera (enable_vmw_wakeup)."""
+        field = "" if self.wakeup is None else f"wakeup={1 if self.wakeup else 0}|"
+        return f"require-video-send|{alias}|{self._video_mode}|{field}"
+
+    @property
+    def _answer_timeout(self) -> float:
+        return WAKEUP_ANSWER_TIMEOUT if self.camera_asleep else HANDSHAKE_TIMEOUT
 
     async def control(
         self, command: str, actions: tuple[tuple[str, str], ...], *, cleanup: bool = False
@@ -460,10 +507,10 @@ class TendSession:
         self._closed = asyncio.get_running_loop().create_future()
         try:
             await self._login(access_token)
-            async with asyncio.timeout(HANDSHAKE_TIMEOUT):
+            async with asyncio.timeout(self._answer_timeout):
                 self._requested = True
                 await self._command(
-                    f"require-video-send|{self._user_alias}|12|", correlation=self._correlation
+                    self._require_video(self._user_alias), correlation=self._correlation
                 )
                 while True:
                     response = await self._read_frame()
@@ -515,12 +562,17 @@ class TendSession:
             parts = message.strip().split("|")
             if parts[0] == "videomid" and len(parts) >= 5:
                 parts = parts[4:]
-            if parts[0] == "kick-out" or (
+            if parts[0] == "kick-out":
+                raise AccessDenied("Tend camera connection was denied or ended")
+            if (
                 parts[0] == "deny-video-receive"
                 and len(parts) > 1
                 and parts[1]
                 and parts[1] in {self._device_alias, self._video_alias}
             ):
+                error = denial(parts[2] if len(parts) > 2 else "")
+                if isinstance(error, CameraWakeFailed):
+                    raise error
                 raise AccessDenied("Tend camera connection was denied or ended")
         return messages
 
@@ -540,7 +592,7 @@ class TendSession:
                         self._status_changed(parts[1])
         except asyncio.CancelledError:
             raise
-        except AccessDenied as error:
+        except (AccessDenied, CameraWakeFailed) as error:
             self._fail(error)
         except (OSError, UnicodeError, asyncio.IncompleteReadError, MyQError):
             self._fail(CannotConnect("Tend camera signaling disconnected"))

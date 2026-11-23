@@ -1,6 +1,7 @@
 """Allowlisted diagnostics exclude identifiers, tokens, media, and arbitrary payloads."""
 
 from .api.associations import wifi_gdo_pairs
+from .api.video import override_modes, power_summary
 from .camera import _live_route
 
 
@@ -16,9 +17,16 @@ async def async_get_config_entry_diagnostics(hass, entry):
         if not device.is_camera:
             return {}
         source = getattr(coordinator, "video_sources", {}).get(device.key)
+        details = coordinator.data.cameras.get(device.key)
+        video = getattr(coordinator, "video", None)
         return {
             # "legacy": a TC camera served as a stream source; "kvs": MyQ WebRTC.
-            "live_video_route": _live_route(device, coordinator.data.cameras.get(device.key, {})),
+            "live_video_route": _live_route(device, details or {}),
+            # What decides whether live video wakes the camera, and the last wake's result.
+            "camera_power": power_summary(details) if details else None,
+            # Where the device document lists video modes that fail (key path only).
+            "override_modes_path": override_modes(details)[1] if details else None,
+            "last_wake": getattr(video, "wakes", {}).get(device.key),
             "live_video_source": source.status() if source is not None else None,
             "live_view_open": device.key in getattr(coordinator, "live_sessions", {})
             or (source is not None and source.session is not None),
@@ -39,6 +47,8 @@ async def async_get_config_entry_diagnostics(hass, entry):
     return {
         "last_update_success": coordinator.last_update_success,
         "account_access_error": coordinator.data.account_access_error,
+        # Account feature flags that change how live video starts (None: not read yet).
+        "live_video_flags": getattr(getattr(coordinator, "video", None), "live_flags", None),
         # The idle Tend connection uses the same login as live video.
         "camera_status_connected": getattr(monitor, "connected", None),
         "camera_status_error": getattr(monitor, "last_error", None),

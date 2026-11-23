@@ -44,6 +44,16 @@ def block_curl_cloud_access(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def unread_account_flags(request, monkeypatch):
+    """Live video reads the account's feature flags; HA tests opt into specific flags."""
+    if "hass" in request.fixturenames:
+        monkeypatch.setattr(
+            "custom_components.myq.api.video.Video.account_features",
+            AsyncMock(return_value=None),
+        )
+
+
+@pytest.fixture(autouse=True)
 def isolate_optional_settings_reads(request, monkeypatch):
     """HA tests opt into specific setting payloads; never contact new cloud routes."""
     if "hass" in request.fixturenames:

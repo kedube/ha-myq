@@ -249,6 +249,11 @@
         "name": "カメラライト {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "スピーカー"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "スピーカーの音量"

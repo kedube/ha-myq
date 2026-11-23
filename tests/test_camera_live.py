@@ -166,6 +166,31 @@ async def test_native_offer_uses_current_token_and_tend_alias(live_camera):
     assert stream.candidate.await_count == 1
 
 
+@pytest.mark.parametrize(
+    ("power", "asleep"),
+    [
+        (None, False),  # Mains powered, reporting available: the request is unchanged.
+        ({"sleepMode": "LOW_POWER_DEEP_SLEEP", "sleepInterval": 30}, True),
+        ({"sleepMode": "FULL_POWER_BOOT"}, True),
+    ],
+)
+async def test_webrtc_view_asks_tend_to_wake_without_waiting(live_camera, power, asleep):
+    camera = live_camera.camera
+    if power is not None:
+        camera.details["status"]["pwr"] = power
+    messages = []
+    request = AsyncMock()
+    # A camera that never reports FULL_POWER must not hold the view up.
+    with patch.object(camera.coordinator.client, "request", request):
+        await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
+    stream = live_camera.instances[0]
+    # Flags unread: the HTTP wake-up and wakeup=1 both go to a camera that may sleep.
+    assert (stream.wakeup, stream.camera_asleep) == ((1 if asleep else None), asleep)
+    assert messages == [WebRTCAnswer("synthetic-answer")]
+    posts = [call for call in request.call_args_list if call.args[0] == "POST"]
+    assert len(posts) == (1 if asleep else 0)
+
+
 async def test_idle_status_connection_resumes_after_owned_live_cleanup(hass, live_camera):
     camera = live_camera.camera
     await camera.async_handle_async_webrtc_offer("offer", "viewer", Mock())

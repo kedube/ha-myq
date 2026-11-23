@@ -249,6 +249,11 @@
         "name": "Kameralicht {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Lautsprecher"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Lautsprecherlautstärke"

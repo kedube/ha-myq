@@ -1,7 +1,9 @@
 """Tend camera details, settings, and refreshed snapshots from the APK."""
 
 import asyncio
+import logging
 import math
+import time
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -20,10 +22,16 @@ from .errors import (
 from .exclusive import ExclusiveLocks
 from .models import Device, nested
 
+_LOGGER = logging.getLogger(__name__)
+
 VIDEO = "https://media.hubs.tend-us.tendplatform.com"
-# Live view: DevicesManager waits for a push with one fallback read after 30 s.
-# Without that push here, details are re-read every 3 s (at most 10 reads).
-WAKEUP_TIMEOUT = 30
+# Account feature flags (my/features) that change how live video starts.
+VMW_WAKEUP = "enable_vmw_wakeup"
+MODE_OVERRIDE = "enable_connection_mode_override"
+LIVE_FLAGS = (VMW_WAKEUP, MODE_OVERRIDE, "enable_new_live_stream_connection_flow")
+FEATURES_MAX_AGE = 3600  # Re-read the flags hourly; a failed read is retried sooner.
+FEATURES_RETRY = 300
+# Live view sends the wake once, then allows one re-read this long before going ahead.
 WAKEUP_POLL_INTERVAL = 3
 # Settings writes: RestApiVideoKeypadDeviceAwakener (mz0/b) polls every 2 s for 15 s.
 SETTINGS_WAKE_TIMEOUT = 15
@@ -191,6 +199,81 @@ def _awake(details: dict, requires_wakeup: bool) -> bool:
     return mode == "FULL_POWER"
 
 
+def power_summary(details: dict) -> dict[str, Any]:
+    """The power and model fields that decide live-video wake-ups; no identifiers."""
+    interval = nested(details, "status", "pwr", "sleepInterval")
+    if interval is not None:
+        try:
+            if type(interval) not in (int, float) or not math.isfinite(interval):
+                interval = "invalid"
+        except OverflowError:
+            interval = "invalid"
+    try:
+        model = _model(details)
+    except ProtocolError:
+        model = "invalid"
+    if model is not None and (len(model) > 64 or not model.isprintable()):
+        model = "invalid"
+    return {
+        "online": camera_online(details),
+        "sleep_mode": sleep_mode(details),
+        "sleep_interval": interval,
+        "battery_reported": battery_powered(details),
+        "hardware_model": model,
+        "wakeable": wakeable(details),
+        "may_be_asleep": may_be_asleep(details),
+    }
+
+
+def live_wake_plan(details: dict, features: frozenset[str] | None) -> tuple[bool, int | None]:
+    """(send the HTTP wake-up, the video request's wake field) for live video.
+
+    With enable_vmw_wakeup the app leaves waking a camera that needs it to Tend's video
+    service (wakeup=1, and no HTTP wake-up); a camera that does not need it gets
+    wakeup=0. Without the flag it sends the HTTP wake-up and no field. While the
+    account's flags are unknown, both are sent for a camera that may be asleep.
+    """
+    asleep = may_be_asleep(details)
+    if features is None:
+        return True, 1 if asleep else None
+    if VMW_WAKEUP in features:
+        return not asleep, 1 if asleep else 0
+    return True, None
+
+
+def override_modes(details: dict) -> tuple[frozenset[int], str | None]:
+    """Video modes the device document lists as failing (``override_modes``), and where.
+
+    Where MyQ puts the list was not recovered from the app, so the document is searched
+    for the key; only a list of mode numbers is used.
+    """
+
+    def search(value: Any, path: tuple[str, ...]) -> tuple[Any, str] | None:
+        if not isinstance(value, dict) or len(path) > 4:
+            return None
+        for key, item in value.items():
+            if key in ("override_modes", "overrideModes"):
+                return item, ".".join((*path, key))
+        for key, item in value.items():
+            if isinstance(key, str) and (found := search(item, (*path, key))) is not None:
+                return found
+        return None
+
+    found = search(details, ())
+    if found is None:
+        return frozenset(), None
+    value, path = found
+    if not isinstance(value, list) or len(value) > 16:
+        return frozenset(), path
+    modes = set()
+    for item in value:
+        if type(item) is str and item.isascii() and item.isdigit():
+            item = int(item)
+        if type(item) is int and 0 <= item <= 15:
+            modes.add(item)
+    return frozenset(modes), path
+
+
 def wakeable(details: dict) -> bool:
     """A camera that may report offline while asleep, so a wake is worth sending."""
     try:
@@ -199,12 +282,47 @@ def wakeable(details: dict) -> bool:
         return False
 
 
+def may_be_asleep(details: dict) -> bool:
+    """A camera that sleeps, or does not report itself available, so live video asks
+    Tend's video service to wake it. A powered camera reporting available does not."""
+    try:
+        return _requires_wakeup(details) or not _awake(details, False)
+    except ProtocolError:
+        return True
+
+
 class Video:
     def __init__(self, client: Client) -> None:
         self.client = client
         self._locks = ExclusiveLocks()
         # Capture time (tend-dttm) of the latest image returned for each camera.
         self.captured: dict[str, datetime | None] = {}
+        # What the latest live-video wake did, per camera, for diagnostics.
+        self.wakes: dict[str, str] = {}
+        self._features: frozenset[str] | None = None
+        self._features_due = -math.inf
+        self._features_lock = asyncio.Lock()
+
+    @property
+    def live_flags(self) -> dict[str, bool] | None:
+        """The live-video feature flags as last read, for diagnostics."""
+        if self._features is None:
+            return None
+        return {flag: flag in self._features for flag in LIVE_FLAGS}
+
+    async def account_features(self) -> frozenset[str] | None:
+        """The account's feature flags, cached; None while they cannot be read."""
+        async with self._features_lock:
+            if time.monotonic() < self._features_due:
+                return self._features
+            try:
+                self._features = await self.client.features()
+                self._features_due = time.monotonic() + FEATURES_MAX_AGE
+            except MyQError as error:
+                # Flags read earlier stay in use; a failed read never stops live video.
+                _LOGGER.debug("MyQ feature flags could not be read: %s", type(error).__name__)
+                self._features_due = time.monotonic() + FEATURES_RETRY
+            return self._features
 
     @asynccontextmanager
     async def settings_operation(self, device: Device | None):
@@ -252,50 +370,24 @@ class Video:
             json={},
         )
 
-    async def _wait_awake(
-        self, device: Device, *, live: bool, limit: float, interval: float
-    ) -> dict[str, Any]:
-        async with asyncio.timeout(limit):
+    async def _wait_awake(self, device: Device) -> dict[str, Any]:
+        async with asyncio.timeout(SETTINGS_WAKE_TIMEOUT):
             while True:
                 details = await self.details(device)
-                if _awake(details, True if live else _sleeps(details)):
+                if _awake(details, _sleeps(details)):
                     return details
-                await asyncio.sleep(interval)
+                await asyncio.sleep(SETTINGS_WAKE_INTERVAL)
 
-    async def wakeup(self, device: Device, details: dict | None = None) -> dict:
-        """Check availability before live view, waking a camera that sleeps.
+    async def wake_best_effort(
+        self, device: Device, details: dict | None = None, *, post: bool = True
+    ) -> dict:
+        """Nudge a camera awake for live video, then proceed whatever power it reports.
 
-        TendDevice.checkRequiresWakeup decides; DevicesManager sends the POST even when
-        the camera reports offline, then waits. Android waits for an SDK push with a
-        30-second fallback read; this integration re-reads every few seconds within
-        the same bound. The POST is sent once.
-        """
-        self._path(device)
-        if details is None:
-            details = await self.details(device)
-        # An unrecognized power mode reads as UNKNOWN, not available: try a wake.
-        unknown = camera_online(details) and sleep_mode(details) == "UNKNOWN"
-        required = unknown or _requires_wakeup(details)
-        if not required:
-            if not _awake(details, False):
-                raise CommandRejected("MyQ camera is unavailable for live video")
-            return details
-        await self._post_wakeup(device)
-        try:
-            return await self._wait_awake(
-                device, live=True, limit=WAKEUP_TIMEOUT, interval=WAKEUP_POLL_INTERVAL
-            )
-        except TimeoutError:
-            raise CannotConnect("MyQ camera did not wake up in time") from None
-
-    async def wake_best_effort(self, device: Device, details: dict | None = None) -> dict:
-        """Nudge a TC camera awake, then proceed regardless of its reported power state.
-
-        The TC/legacy live route negotiates its own media session, which wakes the
-        camera; it does not depend on the camera first reporting FULL_POWER. Blocking
-        the stream on that (as wakeup() does) stalls cameras that never report it, so
+        Live video asks Tend's video service to wake the camera through the video
+        request itself, so it does not depend on the camera first reporting FULL_POWER.
+        Blocking on that (as wakeup() does) stalls cameras that never report it, so
         here the wake POST is a best-effort nudge: a camera that sleeps gets one POST,
-        then streaming continues with whatever details are current. A camera that
+        then live video continues with whatever details are current. A camera that
         reports offline and cannot be woken is still refused; auth and rate-limit
         failures from the POST still propagate. The POST is sent at most once.
         """
@@ -304,18 +396,26 @@ class Video:
             details = await self.details(device)
         # Already available: nothing to nudge.
         if _awake(details, _requires_wakeup(details)):
+            self.wakes[device.key] = "not_needed"
             return details
         # Offline and not wakeable: no session is possible.
         if not camera_online(details) and not wakeable(details):
+            self.wakes[device.key] = "camera_unavailable"
             raise CommandRejected("MyQ camera is unavailable for live video")
+        if not post:
+            # Tend's video service wakes it, through the video request.
+            self.wakes[device.key] = "left_to_tend"
+            return details
         try:
             await self._post_wakeup(device)
         except MyQError as error:
+            self.wakes[device.key] = "failed: " + type(error).__name__
             # A failed nudge must not block the stream; the session may still wake it.
             # Only errors a snapshot fallback must not hide (auth, rate limit) propagate.
             if _fatal(error):
                 raise
             return details
+        self.wakes[device.key] = "sent"
         # Give the camera a brief chance to report fresh state, but never wait it out.
         try:
             async with asyncio.timeout(WAKEUP_POLL_INTERVAL):
@@ -338,9 +438,7 @@ class Video:
             return details
         await self._post_wakeup(device)
         try:
-            return await self._wait_awake(
-                device, live=False, limit=SETTINGS_WAKE_TIMEOUT, interval=SETTINGS_WAKE_INTERVAL
-            )
+            return await self._wait_awake(device)
         except TimeoutError:
             details = await self.details(device)
             if camera_online(details):

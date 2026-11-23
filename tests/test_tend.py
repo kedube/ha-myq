@@ -162,6 +162,35 @@ async def test_start_routes_and_stops_using_alias_not_serial(monkeypatch):
         await session.start("device-alias", "another-token")
 
 
+async def test_requested_wakeup_rides_on_the_webrtc_video_request(monkeypatch):
+    # Same request format as mode 9: require-video-send|<source>|<mode>|wakeup=1|.
+    session, _, writer, _ = fake_session(
+        monkeypatch,
+        wire(519, data=b"alias=user-alias\n"),
+        wire(438, options=b'{"kvs":{}}', data=b"accept-video-receive|device-alias|12|"),
+    )
+    session.wakeup = 1
+    await session.start("device-alias", "secret-token")
+    await session.close()
+    sent = await commands(writer)
+    assert sent[1].data == b"require-video-send|user-alias|12|wakeup=1|"
+    # The stop request never carries the wake field.
+    assert sent[-2].data == b"stop-video-receive|user-alias|12|"
+
+
+async def test_a_camera_asked_to_wake_gets_longer_to_answer(monkeypatch):
+    monkeypatch.setattr(tend, "HANDSHAKE_TIMEOUT", 0.01)
+    monkeypatch.setattr(tend, "WAKEUP_ANSWER_TIMEOUT", 5)
+    session, reader, _, _ = fake_session(monkeypatch, wire(519, data=b"alias=user\n"))
+    session.camera_asleep = True
+    task = asyncio.create_task(session.start("cam", "secret"))
+    await asyncio.sleep(0.05)  # Well past HANDSHAKE_TIMEOUT.
+    assert not task.done()
+    reader.feed_data(wire(438, options=b'{"kvs":{}}', data=b"accept-video-receive|cam|12|"))
+    assert await task == {"kvs": {}}
+    await session.close()
+
+
 async def test_typed_controls_and_alias_scoped_status_push(monkeypatch):
     session, reader, writer, _ = fake_session(
         monkeypatch,

@@ -249,6 +249,11 @@
         "name": "Cameralamp {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "Luidspreker"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "Luidsprekervolume"

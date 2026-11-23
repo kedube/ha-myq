@@ -149,7 +149,8 @@ wakes it.
 ### Live video
 
 Open the camera entity, or a dashboard card with live view. A sleeping camera
-is woken first. How the video reaches you depends on the camera.
+is woken as the view opens, which can take several seconds. How the video
+reaches you depends on the camera.
 
 **TC cameras.** Cameras whose serial number starts with `TC`, including those
 built into garage door openers, are an ordinary Home Assistant stream source.
@@ -158,9 +159,14 @@ Assistant unchanged, and Home Assistant plays it with WebRTC (through its
 built-in go2rtc) or HLS. Nothing is re-encoded, so the load on the Home
 Assistant host is small.
 
-- Video only: no camera audio, talkback, or in-view pan/tilt and siren buttons.
+- Video only: no camera audio or in-view pan/tilt and siren buttons. Talk
+  through the camera with its [speaker](#speaker) instead.
 - Every viewer, and every Home Assistant feature reading the stream, shares one
   camera session. It closes about 15 seconds after the last one stops.
+- The video comes over UDP, straight from the camera or through MyQ's relay.
+  Where UDP is blocked it falls back, as the MyQ app does, to MyQ's encrypted
+  TLS video channel. Each fallback adds some seconds before the picture
+  appears.
 - Home Assistant's stream features work, including `camera.record` and
   **Preload camera stream**. Preloading keeps the camera streaming all the time;
   leave it off unless you want that.
@@ -238,6 +244,32 @@ talk** (or Space or Enter) to speak. Releasing it, leaving the tab, the
 30-second limit or closing the view mutes the microphone. Browsers allow
 microphone access only over HTTPS or on localhost. With several viewers, only
 the first viewer can talk.
+
+### Speaker
+
+A TC camera that advertises talkback gets a **Speaker** media player. Anything
+Home Assistant can play to a media player plays through the camera: text to
+speech (`tts.speak`), files from **Media**, or an audio address. For example:
+
+```yaml
+action: tts.speak
+target:
+  entity_id: tts.home_assistant_cloud
+data:
+  media_player_entity_id: media_player.garage_camera_speaker
+  message: The garage door is open.
+```
+
+- The integration downloads the audio (up to 10 MB), encodes it for the camera
+  and sends at most the first two minutes. MP3, WAV, Ogg, FLAC, AAC and M4A
+  files work.
+- It uses the open live-video session when there is one, and otherwise signs
+  in to the camera for the duration of the message.
+- Playing something new stops what is playing; **Stop** ends it early.
+- It needs an account role that can control devices.
+
+A camera that lists sounds stored on it (only some cameras do) offers them when
+you browse its speaker. Those sounds also play on cameras on the WebRTC route.
 
 ### Status updates
 
@@ -322,9 +354,12 @@ installation and Bluetooth-only lock operations are done in the MyQ app.
 ## Diagnostics and privacy
 
 - **Diagnostics** (the device or integration's **Download diagnostics**) show
-  device types, reported status, account roles, camera routes and the last
-  live-video error. They leave out tokens, names, serial numbers, account IDs and
-  camera payloads.
+  device types, reported status, account roles, camera routes, each camera's
+  power state (online, sleep mode and interval, battery, hardware model), the
+  result of the last live-video wake-up, the account's live-video feature flags,
+  which video modes a TC camera tried and which one it used, and the last
+  live-video error. They leave out tokens, names, serial numbers, account IDs,
+  addresses and camera payloads.
 - **Tokens** are stored in Home Assistant's configuration entry storage and are
   included in backups. Passwords, debug tokens and verification codes are not
   stored.

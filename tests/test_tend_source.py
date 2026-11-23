@@ -526,6 +526,7 @@ async def test_status_reports_counts_and_no_addresses(source):
         "media_path": None,
         "camera_packets": None,
         "unreadable_packets": None,
+        "transport": None,
         "last_error": None,
     }
     url = await served.url()

@@ -249,6 +249,11 @@
         "name": "摄像头灯 {number}"
       }
     },
+    "media_player": {
+      "speaker": {
+        "name": "扬声器"
+      }
+    },
     "number": {
       "speaker_volume": {
         "name": "扬声器音量"

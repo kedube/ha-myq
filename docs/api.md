@@ -269,6 +269,21 @@ be read.
 | Wi-Fi lock auto lock and door sensor, keypad lockout reset | Owner, co-owner |
 | Opener settings, lock mode, renaming, accessories, auto relock, camera settings and schedules, guest changes | Owner |
 
+### Feature flags
+
+`GET profiles /api/v6.0/my/features` lists the features MyQ has enabled for the
+user: `{"features": [{"feature_id": "<flag>"}, …]}`. Three change how live
+video starts:
+
+| Flag | Effect |
+| --- | --- |
+| `enable_vmw_wakeup` | Tend's video service wakes a sleeping camera, through the video request's `wakeup` field, instead of the wake-up request (see [Live video](#live-video)) |
+| `enable_connection_mode_override` | Video modes MyQ lists as failing for a camera are skipped (see [Mode 9](#mode-9-tc-cameras)) |
+| `enable_new_live_stream_connection_flow` | Changes the app's mode order for some cameras; the integration does not act on it |
+
+The integration reads the list when live video starts, at most once an hour (a
+failed read is retried after five minutes, keeping the flags read before).
+
 ## Devices
 
 ### Device list
@@ -567,6 +582,7 @@ token and `AntiCSRF: AntiCSRF`.
 | `GET /cxs/api/devices/{id}/cam/recentImage.jpg?size=HD&forceRefresh=true` | Take a new image |
 | `GET /cxs/api/devices/{id}/cam/recentImage.jpg?size=HD&forceUseExisting=true` | The latest existing image |
 | `POST /cxs/api/devices/{id}/do/wakeup` | Wake a sleeping camera; body `{}` |
+| `POST /cxs/api/devices/{id}/audio/player/do/play` | Play a sound stored on the camera; body `{"trackId": "<id>"}` |
 
 The image answer's `tend-dttm` header is the capture time
 (`yyyy-MM-ddTHH:mm:ss`, UTC). The app uses the existing image for battery
@@ -617,10 +633,11 @@ the wake-up request and re-reads the details every 2 seconds for up to 15
 seconds, until it reports online (writing anyway if it is still online at the
 deadline).
 
-For **live video**, the TC/legacy media session wakes the camera as it
-negotiates, so the integration does not wait for `FULL_POWER`: it sends the
-wake-up request as a best-effort nudge and proceeds to open the session with the
-current details. A camera that is offline and cannot be woken is refused.
+For **live video** on either route, the integration does not wait for
+`FULL_POWER`. A camera that is not available gets the wake-up request once,
+unless Tend's video service wakes it (see [Live video](#live-video)); the
+integration re-reads its details (waiting at most 3 seconds) and opens the
+session with them. A camera that is offline and cannot be woken is refused.
 
 ## Camera signaling (Tend)
 
@@ -720,11 +737,45 @@ There are two live-video routes:
 
 | Camera | Route |
 | --- | --- |
-| Serial starting `TC` (cameras built into openers, and others) | Mode 9: H.264 over UDP |
+| Serial starting `TC` (cameras built into openers, and others) | H.264 over UDP (modes 9, 8, 10, 11) or Tend's TLS video channel (mode 0) |
 | `cap.cam.kvsWebRTC` true | Mode 12: WebRTC through Amazon Kinesis Video Streams (KVS) |
 
 Both start the same way: read the details, wake the camera if it needs it, log
-in to Tend, and send a `require-video-send` command.
+in to Tend, and send a `require-video-send` command:
+
+```text
+require-video-send|<source alias>|<mode>|
+require-video-send|<source alias>|<mode>|wakeup=1|
+require-video-send|<source alias>|<mode>|wakeup=0|
+```
+
+The `wakeup` field says whether Tend's video service should wake the camera
+before it answers. Who wakes the camera depends on the account's
+`enable_vmw_wakeup` feature flag (see [Feature flags](#feature-flags)):
+
+| Flag | Camera may be asleep | Wake-up request | `wakeup` field |
+| --- | --- | --- | --- |
+| On | Yes | Not sent | `1` |
+| On | No | Not needed | `0` |
+| Off | Yes | Sent | Left out |
+| Off | No | Not needed | Left out |
+| Not read | Yes | Sent | `1` |
+| Not read | No | Not needed | Left out |
+
+A camera "may be asleep" when it sleeps on a timer, is a battery model, or does
+not report itself available. Such a camera gets 30 seconds to answer the video
+request.
+
+If Tend's video service cannot wake the camera, it answers
+`deny-video-receive|<camera alias>|<reason>|`:
+
+| Reason | Meaning |
+| --- | --- |
+| `wake-timeout` | The camera did not wake up in time |
+| `wake-unavailable` | The camera cannot be woken now |
+| `wake-busy` | A wake-up is already in progress |
+
+Any other reason means the camera declined.
 
 ### Mode 12: KVS WebRTC
 
@@ -734,7 +785,7 @@ sequenceDiagram
     participant T as Tend broker
     participant K as KVS signaling
     participant C as Camera
-    V->>T: 411 require-video-send|<user alias>|12|
+    V->>T: 411 require-video-send|<user alias>|12| (+ wakeup=1|)
     T-->>V: accept-video-receive with serverOpt.kvs
     V->>K: Open the signed WSS channel URL
     V->>K: SDP_OFFER, ICE_CANDIDATE
@@ -744,9 +795,9 @@ sequenceDiagram
 ```
 
 - The acceptance arrives as action 438, or inside action 501, within five
-  seconds. Its server options hold `kvs`: `channelUrl`, `channelArn`,
-  `channelName`, `endpoints`, `region` and `iceServers` (each with `urls`,
-  `username`, `password`, `ttl`).
+  seconds (30 seconds for a camera that may be asleep). Its server options hold
+  `kvs`: `channelUrl`, `channelArn`, `channelName`, `endpoints`, `region` and
+  `iceServers` (each with `urls`, `username`, `password`, `ttl`).
 - `channelUrl` is a pre-signed WebSocket URL. Use it exactly as given; MyQ
   tokens are not sent to it.
 - Signaling messages are JSON: `{"action": "SDP_OFFER", "messagePayload": …,
@@ -764,19 +815,43 @@ sequenceDiagram
 **Camera.** The login answer's `device-info-list` has one row per camera:
 `<account alias>:<camera>,NAME=value+NAME=value`. The row whose identity is the
 camera's alias is the camera; failing that, the row whose `GSN` is the serial of
-its opener. The row gives the camera's local address (`LIP`) and, optionally, a
-16-character AES key.
+its opener. The row's fields:
+
+| Field | Meaning |
+| --- | --- |
+| `LIP` | The camera's local address |
+| `AES` | Optional 16-character AES key |
+| `RTP` | `1`: the camera supports UDP video (modes 8–11) |
+| `RTP11` | `1`: UDP through the relay uses mode 11 instead of 10 |
+| `VMODES` | JSON describing the app's view layout and PTZ controls; not used for the connection |
+
+**Modes.** The modes are tried in the app's order, each until the camera
+accepts and media flows:
+
+| Mode | Transport | When |
+| --- | --- | --- |
+| 9 (8 without `AES`) | UDP, directly to the camera where possible | Always, twice if the first rendezvous misses (four seconds apart) |
+| 10 (11 with `RTP11=1`) | UDP through Tend's relay | The row has `RTP=1` |
+| 0 | Tend's TLS video channel | The login answer names a video channel |
+
+A mode the camera does not accept within 15 seconds (30 if it may be asleep) is
+stopped and the next one tried; a refusal ends the attempt. With the account's
+`enable_connection_mode_override` flag, MyQ can list modes that are known to
+fail for a camera (`override_modes` in the device document), and those are
+skipped. Where in the document MyQ puts the list was not established, so the
+integration looks for the key anywhere in the first levels of the document.
 
 **Negotiation.** Over action 411:
 
-1. `require-video-send|<account alias>|9|` is answered by a message starting
-   `accept-video-receive|` that names a relay as `rtp://<host>:<port>`.
-2. After the UDP rendezvous below: `start-video-receive|<account alias>|9|`,
-   then `modify-device|<account alias>|QTY=3+FPS=20+SIZE=0+SAVE=0|`.
-3. To stop: `stop-video-receive|<account alias>|9|`, then logout.
-
-If the rendezvous times out, the integration stops the request and makes it
-once more after four seconds.
+1. `require-video-send|<account alias>|<mode>|` (with a `wakeup` field, see
+   above) is answered by a message starting
+   `accept-video-receive|<camera>|<mode>|`. For a UDP mode it names a relay as
+   `rtp://<host>:<port>`.
+2. After the UDP rendezvous below: `start-video-receive|<account alias>|<mode>|`,
+   then `modify-device|<account alias>|QTY=3+FPS=20+SIZE=0+SAVE=0|`. Mode 0
+   sends `start-video-receive` as soon as the camera accepts, then joins the
+   video channel.
+3. To stop: `stop-video-receive|<account alias>|<mode>|`, then logout.
 
 **UDP rendezvous.** Video uses two consecutive local UDP ports: the first for
 video, the second for receiver reports. Setup packets start with `SDNK`, with
@@ -794,9 +869,11 @@ Choose the camera's local address first, then any private address, then the last
 one announced (its public address). The camera may also stream through the
 relay.
 
-**Media.** Each camera packet is split across datagrams that share their first
-four bytes; the payload starts at byte 8. The joined packet is an RTP packet
-(12-byte header) whose payload is a `w1` envelope:
+**Media.** Each camera packet is split across datagrams of at most 540 bytes of
+payload, each led by an 8-byte little-endian header: a 32-bit message number
+shared by the packet's datagrams, the number of datagrams, and this one's index
+from 0. The joined packet is an RTP packet (12-byte header) whose payload is a
+`w1` envelope:
 
 | Bytes | Content |
 | --- | --- |
@@ -808,7 +885,98 @@ four bytes; the payload starts at byte 8. The joined packet is an RTP packet
 An encrypted body is AES-128-CBC with PKCS#7 padding: a 16-byte IV, then the
 ciphertext, with the key from `device-info-list`. Each record is H.264 with
 Annex B start codes. Receiver reports go to the camera on the second port every
-two seconds. Mode 9 carries video only.
+two seconds. These modes carry video only.
+
+**TLS video channel (mode 0).** The login answer names the channel as
+`video-channel-host` with `video-channel-port-tls`, or as lines
+`socket,<host>,<port>,<TLS port>` in `video-hostname` or `video-host` (TLS port
+5101 when the line has none). Only hosts in `seedonk.com` or `tendplatform.com`,
+or public addresses, are used.
+
+1. Open TLS to the channel. Its certificate must be valid for the channel's own
+   name, or for `server.seedonk.com` as the brokers' is.
+2. Send one frame with action 508, the header's service field 122 instead of
+   121, the login answer's sender block and recipient, and no options or data.
+   Any answer but action 1 accepts it.
+3. Video arrives as action 413 (and 414) frames; action 257 is an
+   acknowledgement. Send action 526 every 60 seconds as a keepalive. A channel
+   that brings no video for 30 seconds has ended.
+4. To stop: `stop-video-receive|<account alias>|0|` on the signaling
+   connection, then action 408 on the channel.
+
+Each video frame's data, with big-endian lengths:
+
+| Bytes | Content |
+| --- | --- |
+| 0 | `0x05` |
+| 1 | Unused |
+| 2–5 | Length *n* of the source alias |
+| 6– | The source alias: the camera's, compared without regard to case |
+| 6+*n*–9+*n* | Length of the rest |
+| 10+*n*–13+*n* | Codec, size index, channel, and the key-frame bit |
+| 14+*n*– | Records, each a four-byte little-endian length and H.264 data |
+
+The records are not encrypted: TLS is the only encryption.
+
+#### Talkback on TC cameras
+
+Talkback is a media connection of its own on the camera's signaling session. It
+needs `cap.spk.talkback` and a codec in `cap.spk.codecList`: Opus when the list
+has `opus`, otherwise G.711 µ-law when it has a `g711` entry.
+
+1. `require-audio-send|<account alias>|<session id>|<mode>|` over action 411,
+   where the session id is `<account alias>:<epoch milliseconds>`. The answer
+   is action 436, `accept-audio-receive|<camera>|<session id>|<mode>|`, naming
+   a relay as `rtp://<host>:<port>` for a UDP mode. A refusal is
+   `deny-audio-receive|<camera>|<reason>|`.
+2. The modes are tried in video's order: 9 (8 without `AES`) over UDP, then
+   mode 0 over Tend's TLS audio channel when the login answer names one
+   (`audio-channel-host` with `audio-channel-port-tls`, or `audio-hostname` or
+   `audio-host`, read as for video).
+3. `start-audio-receive|<account alias>|<session id>|<mode>|` once the
+   connection is up (mode 0: as soon as the camera accepts, before the channel
+   is joined), then the talkback messages, then
+   `stop-audio-receive|<account alias>|<session id>|<mode>|`.
+
+**UDP.** The rendezvous is video's, with kind `A` in place of `V` in the
+registration and kind-100 packets, and the identity `A_<account alias>`. Each
+talkback message is the payload of one RTP packet: version 2, payload type 8, a
+timestamp counting 8 kHz from the first packet, marker clear. The packet is
+split into datagrams as camera packets are (see **Media**). Nothing is
+encrypted.
+
+**TLS audio channel.** Joined as the video channel is, with action 509 in place
+of 508. The talkback messages are written to the channel as they are, without
+frames; action 526 every 60 seconds keeps it open.
+
+**Messages.** All integers are little-endian. The destination is the camera's
+alias; the stream id is the decimal epoch milliseconds at the start of the talk.
+
+| Bytes | Content |
+| --- | --- |
+| 0–3 | `SDNK` |
+| 4–8 | `01`, the type, `01`, `00`, `00` |
+| 9–10 | Length of the destination |
+| 11– | The destination |
+| then 4 bytes | Length of the rest |
+| then 1 byte | Length of the stream id |
+| then | The stream id, then the type's own fields |
+
+| Type | Fields after the stream id |
+| --- | --- |
+| 7, START | Codec (16 for Opus, 1 for G.711), then seven zero bytes |
+| 9, DATA | Sequence number from 0 (4 bytes), audio length (4 bytes), the audio, four zero bytes |
+| 8, STOP | Four zero bytes |
+
+A talk is START, a 20 ms pause, one DATA every 20 ms in real time, then STOP.
+Opus is 16 kHz mono in 20 ms frames, VOIP application, complexity 1, at a
+constant bit rate (libopus' default for these settings, about 19 kbit/s).
+G.711 µ-law is 8 kHz mono in 20 ms frames.
+
+**Stored sounds.** A camera with `cap.spk.playback` lists the sounds it holds in
+`cap.spk.playbackTrackList` (`id`, `descr`, `type` of `NOISE` or `MUSIC`,
+`lengthSec`, `folder`). `POST /cxs/api/devices/{id}/audio/player/do/play` with
+`{"trackId": "<id>"}` plays one.
 
 ## Recordings
 

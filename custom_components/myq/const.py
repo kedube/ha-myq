@@ -17,6 +17,7 @@ PLATFORMS = [
     Platform.BUTTON,
     Platform.UPDATE,
     Platform.EVENT,
+    Platform.MEDIA_PLAYER,
 ]
 DEFAULT_POLL_INTERVAL = 60
 CONF_TOKENS = "tokens"

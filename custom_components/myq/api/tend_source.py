@@ -27,8 +27,9 @@ _LOGGER = logging.getLogger(__name__)
 # The camera stops this long after its last reader leaves, so a player that reconnects
 # straight away (a page reload, a second card) reuses the open session.
 IDLE_SECONDS = 15
-# Login, the camera's acceptance, two UDP rendezvous attempts and a possible wake-up.
-START_TIMEOUT = 90
+# Login, a possible wake-up, and each video mode in turn: two UDP rendezvous attempts,
+# Tend's UDP relay and its TLS video channel, each awaiting the camera's acceptance.
+START_TIMEOUT = 150
 # After a failed start or a session that ended on its own, readers are refused for this
 # long instead of each one opening another camera login: Home Assistant's players retry
 # on their own, about once a second.
@@ -147,6 +148,8 @@ class TendSource:
         self.unframed = 0
         self.keyframes = 0
         self.last_error: str | None = None
+        # How the latest session reached the camera (modes tried, flags), set by its owner.
+        self.last_transport: dict[str, Any] | None = None
 
     @property
     def session(self) -> Any:
@@ -172,6 +175,7 @@ class TendSource:
             "media_path": getattr(media, "path", None),
             "camera_packets": getattr(media, "packets", None),
             "unreadable_packets": getattr(media, "unreadable", None),
+            "transport": self.last_transport,
             "last_error": self.last_error,
         }
 

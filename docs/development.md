@@ -133,7 +133,7 @@ The client in `api/`:
 | Management | `management.py`, `alerts.py`, `history.py` |
 | Cameras | `video.py` (REST, snapshots, wake-up), `camera_settings.py`, `camera_commands.py`, `recordings.py` |
 | Tend signaling | `tend.py` (Cxnet framing and the mode-12 session), `status.py` (idle status connection), `live_controls.py` |
-| TC live video | `tend_legacy.py` (mode-9 negotiation), `tend_rtp.py` (UDP receiver), `tend_source.py` (loopback H.264 stream source) |
+| TC live video | `tend_legacy.py` (video mode negotiation), `tend_rtp.py` (UDP receiver), `tend_channel.py` (TLS video channel), `tend_source.py` (loopback H.264 stream source), `tend_audio.py` (talkback and stored sounds) |
 | WebRTC live video | `kvs.py` (KVS signaling), `live.py` (aiortc relay to browsers) |
 
 Live video takes one of two paths in `camera.py`:
