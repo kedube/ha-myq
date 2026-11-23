@@ -59,7 +59,8 @@ from Home Assistant's own MyQ integration, removed in 2023, can't be used:
 delete them, then add MyQ again.
 
 **Marketplace (Home Assistant 2026.11 and later).** HACS is built in as the
-Marketplace from 2026.11, and installs made through HACS carry over.
+[Marketplace](https://www.home-assistant.io/integrations/marketplace) from
+2026.11, and installs made through HACS carry over.
 
 1. Open **Settings → Marketplace** and choose **Add from link**.
 2. Enter `kedube/ha-myq` and choose **Add**.

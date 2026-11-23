@@ -541,7 +541,9 @@ class MyQTendCamera(MyQCameraBase):
             session = LegacyTendSession(self._opener_serials(device))
             session.on_video, session.on_status = on_video, self._status_changed
             await self.coordinator.async_acquire_live(session)
-            details = await self.coordinator.video.wakeup(device, self.details)
+            # The Tend session wakes the camera itself, so do not block the stream on
+            # the camera first reporting FULL_POWER; nudge it and proceed.
+            details = await self.coordinator.video.wake_best_effort(device, self.details)
             if _live_route(device, details) != "legacy" or not camera_enabled(details):
                 raise CommandRejected("The camera is no longer available for live video")
             token = await self.coordinator.client.auth.access_token()

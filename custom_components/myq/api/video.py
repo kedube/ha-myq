@@ -288,6 +288,41 @@ class Video:
         except TimeoutError:
             raise CannotConnect("MyQ camera did not wake up in time") from None
 
+    async def wake_best_effort(self, device: Device, details: dict | None = None) -> dict:
+        """Nudge a TC camera awake, then proceed regardless of its reported power state.
+
+        The TC/legacy live route negotiates its own media session, which wakes the
+        camera; it does not depend on the camera first reporting FULL_POWER. Blocking
+        the stream on that (as wakeup() does) stalls cameras that never report it, so
+        here the wake POST is a best-effort nudge: a camera that sleeps gets one POST,
+        then streaming continues with whatever details are current. A camera that
+        reports offline and cannot be woken is still refused; auth and rate-limit
+        failures from the POST still propagate. The POST is sent at most once.
+        """
+        self._path(device)
+        if details is None:
+            details = await self.details(device)
+        # Already available: nothing to nudge.
+        if _awake(details, _requires_wakeup(details)):
+            return details
+        # Offline and not wakeable: no session is possible.
+        if not camera_online(details) and not wakeable(details):
+            raise CommandRejected("MyQ camera is unavailable for live video")
+        try:
+            await self._post_wakeup(device)
+        except MyQError as error:
+            # A failed nudge must not block the stream; the session may still wake it.
+            # Only errors a snapshot fallback must not hide (auth, rate limit) propagate.
+            if _fatal(error):
+                raise
+            return details
+        # Give the camera a brief chance to report fresh state, but never wait it out.
+        try:
+            async with asyncio.timeout(WAKEUP_POLL_INTERVAL):
+                return await self.details(device)
+        except (TimeoutError, MyQError):
+            return details
+
     async def ready(self, device: Device) -> dict[str, Any]:
         """Fresh details for a settings write, waking a camera that is not AVAILABLE.
 

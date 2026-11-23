@@ -608,10 +608,19 @@ PMX-SAV524MT7686-STM-III   PMX-SAV524MT7686-STM-IV
 KDS-SAV524MT7686-CYPHS-I   KDS-SAV524MT7686-CYPHS-II
 ```
 
-After the wake-up request, the camera is ready when its details report it
-online and at `FULL_POWER` (other states include `LOW_POWER_DEEP_SLEEP` and
-`FULL_POWER_BOOT`). The integration re-reads the details every 3 seconds for up
-to 30 seconds.
+A camera's power state is reported in `status.pwr.sleepMode`: `FULL_POWER`,
+`LOW_POWER_DEEP_SLEEP`, or `FULL_POWER_BOOT` (any other value is treated as
+unknown).
+
+For a **settings write**, the camera must be ready first: the integration sends
+the wake-up request and re-reads the details every 2 seconds for up to 15
+seconds, until it reports online (writing anyway if it is still online at the
+deadline).
+
+For **live video**, the TC/legacy media session wakes the camera as it
+negotiates, so the integration does not wait for `FULL_POWER`: it sends the
+wake-up request as a best-effort nudge and proceeds to open the session with the
+current details. A camera that is offline and cannot be woken is refused.
 
 ## Camera signaling (Tend)
 

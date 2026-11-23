@@ -144,14 +144,14 @@ async def test_no_alias_means_no_stream(hass, tend_camera):
 async def test_reader_opens_the_camera_and_receives_its_video(hass, tend_camera, socket_enabled):
     camera = tend_camera.camera
     url = await camera.stream_source()
-    wakeup = AsyncMock(return_value=tend_camera.details)
-    with patch.object(camera.coordinator.video, "wakeup", wakeup):
+    wake = AsyncMock(return_value=tend_camera.details)
+    with patch.object(camera.coordinator.video, "wake_best_effort", wake):
         async with aiohttp.ClientSession() as http, http.get(url) as response:
             assert response.status == 200
             session = tend_camera.sessions[0]
             session.start.assert_awaited_once_with("owner:camera", "test-access")
             assert session.openers == {"OPENER-1"}
-            wakeup.assert_awaited_once()
+            wake.assert_awaited_once()
             # The idle status connection is paused while the camera session is open.
             assert camera.coordinator._live_owners == {session}
             assert camera._live_open
@@ -174,7 +174,7 @@ async def test_session_closes_after_the_last_reader_and_releases_the_status_feed
     monkeypatch.setattr(tend_source, "IDLE_SECONDS", 0.05)
     camera = tend_camera.camera
     with patch.object(
-        camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
     ):
         async with aiohttp.ClientSession() as http, http.get(await camera.stream_source()):
             await until(lambda: camera._live_open)
@@ -190,7 +190,7 @@ async def test_coordinator_ends_video_when_the_camera_may_no_longer_stream(
     devices = {tend_camera.device.key: tend_camera.device}
     details = dict(tend_camera.details)
     with patch.object(
-        camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
     ):
         async with (
             aiohttp.ClientSession() as http,
@@ -231,7 +231,9 @@ async def test_failed_start_answers_the_player_and_releases_everything(
         )
         await hass.async_block_till_done()
     caplog.set_level(logging.DEBUG, logger="custom_components.myq.camera")
-    with patch.object(camera.coordinator.video, "wakeup", AsyncMock(return_value=refreshed)):
+    with patch.object(
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=refreshed)
+    ):
         async with aiohttp.ClientSession() as http:
             for _ in range(2):
                 async with http.get(url) as response:
@@ -265,7 +267,9 @@ async def test_start_cancelled_twice_still_releases_the_status_feed(hass, tend_c
         await close_session(self)
 
     with (
-        patch.object(camera.coordinator.video, "wakeup", return_value=tend_camera.details),
+        patch.object(
+            camera.coordinator.video, "wake_best_effort", return_value=tend_camera.details
+        ),
         patch.object(FakeTendSession, "_start", side_effect=start),
         patch.object(FakeTendSession, "close", close),
     ):
@@ -288,7 +292,9 @@ async def test_authentication_failure_starts_reauth(hass, tend_camera, socket_en
     FakeTendSession.start_error = AuthenticationError("MyQ sign-in expired")
     with (
         patch.object(
-            camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+            camera.coordinator.video,
+            "wake_best_effort",
+            AsyncMock(return_value=tend_camera.details),
         ),
         patch.object(tend_camera.entry, "async_start_reauth") as reauth,
     ):
@@ -303,7 +309,9 @@ async def test_status_push_during_video_rereads_the_camera(hass, tend_camera, so
     camera = tend_camera.camera
     with (
         patch.object(
-            camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+            camera.coordinator.video,
+            "wake_best_effort",
+            AsyncMock(return_value=tend_camera.details),
         ),
         patch.object(camera.coordinator, "request_camera_refresh") as refresh,
     ):
@@ -320,7 +328,7 @@ async def test_unload_closes_the_session_and_the_address(hass, tend_camera, sock
     url = await camera.stream_source()
     assert camera.coordinator.video_sources == {camera.device_key: camera._source}
     with patch.object(
-        camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
     ):
         async with aiohttp.ClientSession() as http:
             async with http.get(url) as response:
@@ -345,7 +353,9 @@ async def test_turning_the_camera_off_ends_video_first(hass, tend_camera, socket
 
     with (
         patch.object(
-            camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+            camera.coordinator.video,
+            "wake_best_effort",
+            AsyncMock(return_value=tend_camera.details),
         ),
         patch.object(camera.coordinator.video, "setting", setting),
         patch.object(camera.coordinator, "execute", lambda operation: operation),
@@ -376,7 +386,7 @@ async def test_failed_poll_does_not_end_video_that_is_playing(hass, tend_camera,
     """The video arrives over UDP; a cloud read that times out says nothing about it."""
     camera = tend_camera.camera
     with patch.object(
-        camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
     ):
         async with (
             aiohttp.ClientSession() as http,
@@ -403,7 +413,9 @@ async def test_failed_camera_details_read_keeps_the_stream_and_the_video(
     camera = tend_camera.camera
     coordinator = camera.coordinator
     url = await camera.stream_source()
-    with patch.object(coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)):
+    with patch.object(
+        coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
+    ):
         async with aiohttp.ClientSession() as http, http.get(url):
             await until(lambda: camera._live_open)
             with patch(
@@ -433,7 +445,7 @@ async def test_stopping_home_assistant_ends_the_camera_session(hass, tend_camera
     """Stopping does not remove entities, so nothing else would tell the camera to stop."""
     camera = tend_camera.camera
     with patch.object(
-        camera.coordinator.video, "wakeup", AsyncMock(return_value=tend_camera.details)
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
     ):
         async with aiohttp.ClientSession() as http:
             async with http.get(await camera.stream_source()) as response:

@@ -364,7 +364,7 @@ async def home_camera(hass, enable_custom_integrations, tokens, camera_device, c
             AsyncMock(return_value=camera_details),
         ),
         patch(
-            "custom_components.myq.api.video.Video.wakeup",
+            "custom_components.myq.api.video.Video.wake_best_effort",
             AsyncMock(return_value=camera_details),
         ),
     ):

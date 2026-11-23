@@ -12,6 +12,7 @@ from custom_components.myq.api.errors import (
     CannotConnect,
     CommandRejected,
     ProtocolError,
+    RateLimited,
 )
 from custom_components.myq.api.http import Response
 from custom_components.myq.api.video import Video
@@ -205,6 +206,55 @@ async def test_settings_wake_polls_every_two_seconds_then_writes_if_online(
     ] * 50
     # The app's handling of a failed wake did not decompile; an online camera is written.
     assert await Video(client).ready(camera_device) == asleep
+
+
+async def test_best_effort_wake_available_camera_sends_no_post(camera_device):
+    client = AsyncMock()
+    info = details()  # mains-powered, FULL_POWER
+    assert await Video(client).wake_best_effort(camera_device, info) is info
+    client.request.assert_not_called()
+
+
+async def test_best_effort_wake_does_not_block_on_full_power(camera_device, monkeypatch):
+    # The exact real-camera failure: a sleeping camera that never reports FULL_POWER.
+    # wakeup() would time out ("did not wake up in time"); wake_best_effort must not.
+    monkeypatch.setattr("custom_components.myq.api.video.WAKEUP_POLL_INTERVAL", 0.01)
+    client = AsyncMock()
+    asleep = details("LOW_POWER_DEEP_SLEEP", interval=10)
+    # POST ok, then a re-read that is still not FULL_POWER.
+    client.request.side_effect = [Response(204, {}, b""), response(asleep)]
+    result = await Video(client).wake_best_effort(camera_device, asleep)
+    # It proceeds with fresh details instead of raising.
+    assert result == asleep
+    assert [call.args[0] for call in client.request.call_args_list] == ["POST", "GET"]
+
+
+async def test_best_effort_wake_proceeds_even_if_the_post_fails(camera_device):
+    client = AsyncMock()
+    before = details("LOW_POWER_DEEP_SLEEP", interval=10)
+    client.request.side_effect = CannotConnect("MyQ wakeup POST failed")
+    # A failed nudge must not block the stream; the Tend session may still wake it.
+    result = await Video(client).wake_best_effort(camera_device, before)
+    assert result == before
+    assert client.request.call_count == 1
+
+
+async def test_best_effort_wake_still_propagates_fatal_failures(camera_device):
+    # Auth and rate-limit errors from the nudge must surface, not be swallowed.
+    client = AsyncMock()
+    client.request.side_effect = RateLimited(30)
+    asleep = details("LOW_POWER_DEEP_SLEEP", interval=10)
+    with pytest.raises(RateLimited):
+        await Video(client).wake_best_effort(camera_device, asleep)
+
+
+async def test_best_effort_wake_refuses_an_offline_unwakeable_camera(camera_device):
+    client = AsyncMock()
+    info = details()  # mains, no sleep interval, non-wakeup model
+    info["status"]["online"] = False
+    with pytest.raises(CommandRejected, match="unavailable"):
+        await Video(client).wake_best_effort(camera_device, info)
+    client.request.assert_not_called()
 
 
 def test_absurd_sleep_interval_is_a_protocol_error():

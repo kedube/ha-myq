@@ -9,8 +9,8 @@
 
 ## Environment
 
-The project targets Python 3.13 and Home Assistant 2026.2.3, the oldest
-supported release.
+The test environment uses Python 3.13 and Home Assistant 2026.2.3.
+`hacs.json` declares Home Assistant 2026.2.0 as the minimum supported release.
 
 ```sh
 python3.13 -m venv .venv
@@ -162,9 +162,10 @@ Live video takes one of two paths in `camera.py`:
 
 ## Research tools
 
-Command-line tools for investigating MyQ's sign-in and API. They are separate
-from the integration, never operate a device and never save tokens. Install
-them in their own environment, since they import the installed package:
+Command-line tools for investigating MyQ's sign-in and API are separate from
+the integration. The account probe reads device data without operating devices;
+the capture helper writes private authentication evidence. Install the desktop
+tools in their own environment, since they import the installed package:
 
 ```sh
 python3.13 -m venv .venv-tools
