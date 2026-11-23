@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.11] - 2026-11-23
+
 ### Fixed
 
 - Fix live video failing with "MyQ camera did not wake up in time". Live video
