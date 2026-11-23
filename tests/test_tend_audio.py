@@ -71,10 +71,11 @@ def test_messages_follow_the_apps_byte_layout():
     [
         ({"talkback": True, "codecList": ["G711", "OPUS"]}, "opus", True),
         ({"talkback": True, "codecList": ["g711u"]}, "g711", True),
-        ({"talkback": True, "codecList": ["speex"]}, None, False),
-        ({"talkback": True}, None, False),
+        # Without a usable list the codec comes from the login row once connected.
+        ({"talkback": True, "codecList": ["speex"]}, None, True),
+        ({"talkback": True}, None, True),
         ({"talkback": "yes", "codecList": ["opus"]}, "opus", False),
-        ({"talkback": True, "codecList": "opus"}, None, False),
+        ({"talkback": True, "codecList": "opus"}, None, True),
     ],
 )
 def test_talkback_needs_the_capability_and_a_codec(speaker, codec, talks):

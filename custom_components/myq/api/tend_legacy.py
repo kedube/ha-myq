@@ -37,6 +37,7 @@ RETRY_DELAY = 4
 KEEPALIVE_INTERVAL = 20
 CHANNEL_MODE = 0
 RTP_MODES = frozenset({8, 9, 10, 11})
+_CODEC = re.compile(r"[A-Za-z0-9_.-]{1,24}")
 _STATUS = (b"status|", b"device-info|", b"spydonk-device-info|", b"ptz-status|")
 
 
@@ -192,6 +193,14 @@ class LegacyTendSession(TendSession):
         return self._media
 
     @property
+    def speaker_codecs(self) -> list[str]:
+        """The talkback codecs the camera's row lists (SPKCDLIST, "opus:g711")."""
+        listed = self._row.get("SPKCDLIST", "")
+        return sorted(
+            {name.strip().lower() for name in listed.split(":") if _CODEC.fullmatch(name.strip())}
+        )[:8]
+
+    @property
     def transport(self) -> dict[str, Any]:
         """How video was reached, for diagnostics: modes and flags, no addresses."""
         return {
@@ -202,6 +211,7 @@ class LegacyTendSession(TendSession):
             "camera_lists_rtp11": self._row.get("RTP11") == "1",
             "camera_has_key": bool(self._key),
             "video_channel_offered": self._video_channel is not None,
+            "speaker_codecs_listed": self.speaker_codecs if self._row else None,
             "wakeup": self.wakeup,
         }
 

@@ -625,8 +625,10 @@ KDS-SAV524MT7686-CYPHS-I   KDS-SAV524MT7686-CYPHS-II
 ```
 
 A camera's power state is reported in `status.pwr.sleepMode`: `FULL_POWER`,
-`LOW_POWER_DEEP_SLEEP`, or `FULL_POWER_BOOT` (any other value is treated as
-unknown).
+`LOW_POWER_DEEP_SLEEP`, or `FULL_POWER_BOOT`, compared without regard to case.
+Cameras built into openers report the short codes `FP`, `LPDS` and `FP_BOOT`
+for the same states. Any other value is treated as unknown, which is not
+available.
 
 For a **settings write**, the camera must be ready first: the integration sends
 the wake-up request and re-reads the details every 2 seconds for up to 15
@@ -921,8 +923,10 @@ The records are not encrypted: TLS is the only encryption.
 #### Talkback on TC cameras
 
 Talkback is a media connection of its own on the camera's signaling session. It
-needs `cap.spk.talkback` and a codec in `cap.spk.codecList`: Opus when the list
-has `opus`, otherwise G.711 µ-law when it has a `g711` entry.
+needs `cap.spk.talkback` and a codec: Opus when the camera lists `opus`,
+otherwise G.711 µ-law when it lists `g711`. The list is `cap.spk.codecList`
+when the details have one; cameras built into openers list their codecs only in
+their `device-info-list` row, as `SPKCDLIST=opus:g711`.
 
 1. `require-audio-send|<account alias>|<session id>|<mode>|` over action 411,
    where the session id is `<account alias>:<epoch milliseconds>`. The answer

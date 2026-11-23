@@ -18,6 +18,10 @@ All notable changes to this project are documented here. The format follows
   (`wakeup=1|` on the video request) when MyQ enables `enable_vmw_wakeup`,
   otherwise with the wake-up request, and gives the camera 30 seconds to
   answer. This applies to TC cameras and to WebRTC cameras.
+- Cameras built into openers report their power state as a short code (`FP`
+  for full power). It was read as unknown, so every live view sent a needless
+  wake-up request first, and 0.10 waited for a full-power state that never
+  came. The short codes now read as the full names.
 - A camera Tend could not wake now says why ("did not wake up in time", "cannot
   be woken right now", "already being woken") instead of a generic refusal.
 
@@ -31,14 +35,15 @@ All notable changes to this project are documented here. The format follows
 - A **Speaker** media player for TC cameras that advertise talkback. Text to
   speech, media files and audio addresses play through the camera's speaker,
   encoded as Opus or G.711 as the camera allows, over the live view's session
-  or a session of its own. On cameras that list stored sounds, the speaker
-  also plays those.
+  or a session of its own. A camera that lists no codecs in its details (as
+  cameras built into openers do) talks in the codec its Tend login row lists.
+  On cameras that list stored sounds, the speaker also plays those.
 - The integration reads the account's MyQ feature flags (`my/features`) to
   decide how live video wakes cameras and which modes to skip.
 - Diagnostics show each camera's power state (online, sleep mode and interval,
   battery, hardware model, and a sleep mode the integration does not recognise
-  as the camera sent it), its speaker capabilities and whether it has a
-  Speaker, what the last live-video wake-up did, the account's live-video
+  as the camera sent it), its speaker capabilities, the talkback codecs its
+  login row lists, and whether it has a Speaker, what the last live-video wake-up did, the account's live-video
   feature flags, and the video modes a TC camera tried and used, so a camera
   that does not stream can be diagnosed.
 

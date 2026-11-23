@@ -15,7 +15,7 @@ import io
 import re
 import struct
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -40,23 +40,28 @@ _START, _STOP, _DATA = 7, 8, 9
 _FORMATS = "mp3,wav,ogg,flac,mov,aac,matroska,adts,au,aiff,amr"
 
 
-def talkback_codec(details: dict) -> str | None:
+def pick_codec(names: Iterable[str]) -> str | None:
     """AudioConnectionManager.talkbackCodec(): Opus when listed, else G.711 µ-law."""
-    codecs = nested(details, "cap", "spk", "codecList")
-    names = (
-        {item.strip().lower() for item in codecs if isinstance(item, str)}
-        if isinstance(codecs, list)
-        else set()
-    )
-    if "opus" in names:
+    listed = {name.strip().lower() for name in names}
+    if "opus" in listed:
         return "opus"
-    if any(name.startswith("g711") for name in names):
+    if any(name.startswith("g711") for name in listed):
         return "g711"
     return None
 
 
+def talkback_codec(details: dict) -> str | None:
+    """The talkback codec the camera's details list (cap.spk.codecList), if any."""
+    codecs = nested(details, "cap", "spk", "codecList")
+    if not isinstance(codecs, list):
+        return None
+    return pick_codec(item for item in codecs if isinstance(item, str))
+
+
 def can_talk(details: dict) -> bool:
-    return nested(details, "cap", "spk", "talkback") is True and talkback_codec(details) is not None
+    """cap.spk.talkback. Without a codec list in the details, the codec comes from the
+    camera's row in the Tend login answer (SPKCDLIST), once connected."""
+    return nested(details, "cap", "spk", "talkback") is True
 
 
 def stored_tracks(details: dict) -> list[tuple[str, str]]:

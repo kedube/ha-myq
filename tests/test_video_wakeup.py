@@ -430,3 +430,28 @@ def test_unrecognised_sleep_mode_is_reported_as_sent(raw, reported):
     summary = power_summary(info)
     assert summary["sleep_mode_reported"] == reported
     assert summary["sleep_mode"] == ("FULL_POWER" if reported is None else "UNKNOWN")
+
+
+@pytest.mark.parametrize(
+    "code,mode",
+    [("FP", "FULL_POWER"), ("fp_boot", "FULL_POWER_BOOT"), ("LPDS", "LOW_POWER_DEEP_SLEEP")],
+)
+def test_short_sleep_codes_read_as_the_full_names(code, mode):
+    from custom_components.myq.api.video import power_summary, sleep_mode
+
+    info = details(code)
+    assert sleep_mode(info) == mode
+    assert power_summary(info)["sleep_mode_reported"] is None
+
+
+async def test_opener_camera_reporting_fp_is_not_woken(camera_device):
+    # As cameras built into openers report themselves: FP, no battery, no sleep timer.
+    from custom_components.myq.api.video import live_wake_plan, may_be_asleep
+
+    client = AsyncMock()
+    info = details("FP", platform="MyQ:Alpha-RTL8715AQD-I")
+    info["status"]["pwr"] = {"sleepMode": "FP"}
+    assert not may_be_asleep(info)
+    assert live_wake_plan(info, frozenset()) == (True, None)
+    assert await Video(client).wake_best_effort(camera_device, info) is info
+    client.request.assert_not_called()

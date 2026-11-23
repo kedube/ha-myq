@@ -81,12 +81,21 @@ def camera_online(details: dict) -> bool:
     return isinstance(status, dict) and status.get("online") is True
 
 
+# Short codes some cameras report, as the app's live-stream code names them (jf1/j.p).
+_SLEEP_CODES = {"FP": "FULL_POWER", "FP_BOOT": "FULL_POWER_BOOT", "LPDS": "LOW_POWER_DEEP_SLEEP"}
+
+
 def sleep_mode(details: dict) -> str | None:
-    """SleepModeDeserializer: case-insensitive; any other value is UNKNOWN."""
+    """SleepModeDeserializer: case-insensitive; any other value is UNKNOWN.
+
+    Cameras built into openers report the short codes (FP, FP_BOOT, LPDS) that the
+    app's live-stream code uses for the same three states.
+    """
     mode = nested(details, "status", "pwr", "sleepMode")
     if mode is None:
         return None
     mode = mode.upper() if isinstance(mode, str) else "UNKNOWN"
+    mode = _SLEEP_CODES.get(mode, mode)
     return mode if mode in ("FULL_POWER", "LOW_POWER_DEEP_SLEEP", "FULL_POWER_BOOT") else "UNKNOWN"
 
 

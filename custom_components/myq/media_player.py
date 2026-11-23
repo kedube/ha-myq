@@ -31,6 +31,7 @@ from .api.tend_audio import (
     Talkback,
     can_talk,
     encode_audio,
+    pick_codec,
     play_track,
     stored_tracks,
     talkback_codec,
@@ -170,12 +171,14 @@ class MyQCameraSpeaker(MyQEntity, MediaPlayerEntity):
                     raise CommandRejected("The camera does not list this sound")
                 await play_track(self.coordinator.client, device, track_id)
                 return
-            codec = talkback_codec(self.camera_details)
-            if codec is None or not _talks(device, self.camera_details):
+            if not _talks(device, self.camera_details):
                 raise CommandRejected("This camera can only play its stored sounds")
             data = await self._download(media_id)
+            # Encoded before any session opens, so a file that is not audio fails at
+            # once: in the codec the details list, else Opus until the camera says.
+            codec = talkback_codec(self.camera_details) or "opus"
             frames = await self.hass.async_add_executor_job(encode_audio, data, codec)
-            await self._start_talk(device, frames, codec)
+            await self._start_talk(device, data, frames, codec)
         except AuthenticationError as err:
             self.coordinator.config_entry.async_start_reauth(self.hass)
             raise myq_error(err) from err
@@ -238,14 +241,25 @@ class MyQCameraSpeaker(MyQEntity, MediaPlayerEntity):
             finally:
                 await self.coordinator.async_release_live(session)
 
-    async def _start_talk(self, device: Device, frames: list[bytes], codec: str) -> None:
+    async def _start_talk(
+        self, device: Device, data: bytes, frames: list[bytes], encoded: str
+    ) -> None:
         """Open the talk before returning, so a failure reaches the caller; send in a task."""
         opened = asyncio.get_running_loop().create_future()
 
         async def run() -> None:
             try:
                 async with self._session(device) as session:
-                    talk = Talkback(session, frames, codec)
+                    # The details' codec list, failing that the camera's login row.
+                    codec = talkback_codec(self.camera_details) or pick_codec(
+                        session.speaker_codecs
+                    )
+                    if codec is None:
+                        raise CommandRejected("The camera does not name a talkback codec")
+                    audio = frames
+                    if codec != encoded:
+                        audio = await self.hass.async_add_executor_job(encode_audio, data, codec)
+                    talk = Talkback(session, audio, codec)
                     try:
                         await talk.open()
                         opened.set_result(None)

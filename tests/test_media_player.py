@@ -335,3 +335,50 @@ async def test_which_cameras_get_a_speaker(
             assert features == expected | MediaPlayerEntityFeature.BROWSE_MEDIA
         await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize(
+    "listed,codec,encodes",
+    [
+        (["g711"], "g711", 2),  # Encoded as Opus first, then again for the camera's codec.
+        (["opus"], "opus", 1),
+        ([], None, 1),
+    ],
+)
+async def test_camera_without_a_codec_list_talks_in_its_login_rows_codec(
+    hass, speaker, aioclient_mock, monkeypatch, listed, codec, encodes
+):
+    # Cameras built into openers list no codecs in their details (cap.spk.codecList).
+    speaker.details["cap"]["spk"].pop("codecList")
+    aioclient_mock.get(URL, content=wav())
+    from custom_components.myq import media_player
+
+    calls = []
+    real = media_player.encode_audio
+
+    def encode(data, name):
+        calls.append(name)
+        return real(data, name)
+
+    monkeypatch.setattr(media_player, "encode_audio", encode)
+    original = FakeSession.__init__
+
+    def with_codecs(self, openers=()):
+        original(self, openers)
+        self.speaker_codecs = listed
+
+    monkeypatch.setattr(FakeSession, "__init__", with_codecs)
+    if codec is None:
+        with pytest.raises(HomeAssistantError, match="talkback codec"):
+            await play(hass, speaker.entity_id, URL)
+        assert not FakeTalk.instances
+    else:
+        await play(hass, speaker.entity_id, URL)
+        talk = FakeTalk.instances[0]
+        await talk.streaming.wait()
+        assert talk.codec == codec
+        talk.release.set()
+        await hass.async_block_till_done()
+    assert len(calls) == encodes and calls[0] == "opus"
+    session = FakeSession.instances[0]
+    session.close.assert_awaited_once()

@@ -570,6 +570,7 @@ async def test_udp_failure_falls_back_through_the_relay_to_the_tls_channel(legac
             "camera_lists_rtp11": False,
             "camera_has_key": True,
             "video_channel_offered": True,
+            "speaker_codecs_listed": [],
             "wakeup": None,
         }
     finally:
@@ -680,5 +681,15 @@ async def test_talkback_signaling_on_an_open_session(legacy):
             await legacy.session.request_audio(session_id, 9)
         # A talkback refusal leaves the session itself open.
         assert legacy.session.connected
+    finally:
+        await legacy.session.close()
+
+
+async def test_login_row_lists_the_speaker_codecs(legacy):
+    legacy.login(INVENTORY + "+SPKCDLIST=OPUS: g711 :bad name:")
+    await legacy.session.connect("owner:camera", "token")
+    try:
+        assert legacy.session.speaker_codecs == ["g711", "opus"]
+        assert legacy.session.transport["speaker_codecs_listed"] == ["g711", "opus"]
     finally:
         await legacy.session.close()
