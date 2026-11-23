@@ -12,11 +12,18 @@ from .api.models import Device
 from .const import DOMAIN
 
 
-def _find_device(registry: dr.DeviceRegistry, entry_id: str, key: str) -> dr.DeviceEntry | None:
-    # HA 2026.11 scopes identifiers to their config entry; older versions don't.
+def find_device(registry: dr.DeviceRegistry, entry_id: str, key: str) -> dr.DeviceEntry | None:
+    """The registry device of one MyQ device, as registered by one config entry."""
+    # HA 2026.11 scopes identifiers to their config entry and deprecates the unscoped
+    # lookup; older versions have only that one.
     if finder := getattr(registry, "async_get_device_by_identifier", None):
         return finder((DOMAIN, key), entry_id)
     return registry.async_get_device(identifiers={(DOMAIN, key)})
+
+
+def _owners(device: dr.DeviceEntry) -> set[str]:
+    owner = getattr(device, "config_entry_id", None)
+    return {owner} if owner is not None else set(device.config_entries)
 
 
 def _owned_device(
@@ -28,9 +35,7 @@ def _owned_device(
     """Do not absorb another integration, account, or independently registered device."""
     if getattr(device, "is_composite_device", False):
         return False
-    owner = getattr(device, "config_entry_id", None)
-    owners = {owner} if owner is not None else device.config_entries
-    if owners != {entry_id}:
+    if _owners(device) != {entry_id}:
         return False
     return device.identifiers <= identifiers and all(
         entity.platform == DOMAIN and entity.config_entry_id == entry_id
@@ -58,9 +63,18 @@ def async_merge_opener_gateway(
         return False
     devices, entities = dr.async_get(hass), er.async_get(hass)
     identifiers = {(DOMAIN, opener.key), (DOMAIN, gateway.key)}
-    opener_entry = _find_device(devices, entry.entry_id, opener.key)
-    gateway_entry = _find_device(devices, entry.entry_id, gateway.key)
-    if any(
+    opener_entry = find_device(devices, entry.entry_id, opener.key)
+    gateway_entry = find_device(devices, entry.entry_id, gateway.key)
+    # Ownership decides whether two devices may be joined. Once they are one device,
+    # an entity someone else attached to it later (a template or threshold helper)
+    # must not undo the pairing: services would then find two MyQ devices on it.
+    merged = (
+        opener_entry is not None
+        and gateway_entry is not None
+        and opener_entry.id == gateway_entry.id
+        and entry.entry_id in _owners(opener_entry)
+    )
+    if not merged and any(
         not _owned_device(device, entities, entry.entry_id, identifiers)
         for device in (opener_entry, gateway_entry)
         if device is not None

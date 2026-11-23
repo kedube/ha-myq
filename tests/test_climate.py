@@ -354,3 +354,10 @@ async def test_ha_climate_services_and_permission_change(
             )
         request.assert_not_awaited()
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def test_out_of_range_temperature_rounds_to_nothing():
+    from custom_components.myq.api.climate import _rounded
+
+    assert _rounded(1e30, "fahrenheit") is None
+    assert str(_rounded(71.5, "fahrenheit")) == "72"

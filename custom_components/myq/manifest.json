@@ -3,7 +3,8 @@
   "name": "MyQ",
   "after_dependencies": [
     "frontend",
-    "media_source"
+    "media_source",
+    "stream"
   ],
   "codeowners": [
     "@kedube"

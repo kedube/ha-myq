@@ -20,6 +20,7 @@ from .api.errors import CommandRejected, MyQError
 from .api.management import AUTO_RELOCK_SECONDS, SCHEDULE_FEATURES, WEEKDAYS
 from .api.validation import validate_session
 from .const import DOMAIN
+from .device_registry import find_device
 from .exceptions import translated
 
 _DEVICE: dict[vol.Marker, Any] = {vol.Required("device_id"): cv.string}
@@ -142,7 +143,12 @@ def _read_pin(config_dir: str, filename: str) -> str:
         descriptor = os.open(
             Path(config_dir) / filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
         )
-        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+        try:
+            handle = os.fdopen(descriptor, "r", encoding="utf-8")
+        except BaseException:
+            os.close(descriptor)  # fdopen refuses a directory without closing it.
+            raise
+        with handle:
             info = os.fstat(handle.fileno())
             if (
                 not stat.S_ISREG(info.st_mode)
@@ -306,11 +312,13 @@ def async_register_services(hass: HomeAssistant) -> None:
             if call.service == "rename_device":
                 # Entities set the registry name only when added; follow the confirmed name.
                 registry = dr.async_get(hass)
-                if entry := registry.async_get_device(identifiers={(DOMAIN, device.key)}):
+                if entry := find_device(registry, coordinator.config_entry.entry_id, device.key):
                     registry.async_update_device(entry.id, name=data["name"].strip())
             return None
 
-        return await coordinator.execute(operation())
+        # A read changes nothing: it must not drop every cache and force a full poll.
+        runner = coordinator.query if call.service in _RESPONSES else coordinator.execute
+        return await runner(operation())
 
     for name, schema in SCHEMAS.items():
         async_register_admin_service(

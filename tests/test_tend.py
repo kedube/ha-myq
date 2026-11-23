@@ -534,3 +534,124 @@ async def test_command_session_sends_only_typed_commands(monkeypatch):
     # No view was requested, so only the logout follows.
     assert [frame.action for frame in sent][-1] == 408
     assert not any(frame.data.startswith(b"stop-video-receive") for frame in sent)
+
+
+async def test_broker_certificate_is_checked_against_the_front_door_name(monkeypatch):
+    """Every broker serves the front door's certificate, so its own name never matches."""
+    reader = stream(
+        wire(
+            519,
+            options=b"clear=clear\n",
+            data=b"1=192.0.2.21\\:5104\nredirectHost=b159.broker.tend-us.tendplatform.com\n" * 2,
+        ),
+        wire(519, data=b"alias=user\n"),
+        wire(438, options=b'{"kvs":{}}', data=b"accept-video-receive|cam|12|"),
+    )
+    writer = MagicMock(drain=AsyncMock(), wait_closed=AsyncMock())
+    opened = []
+
+    async def open_connection(host, port, **kwargs):
+        opened.append((host, port, kwargs["server_hostname"]))
+        assert kwargs["ssl"].verify_mode == ssl.CERT_REQUIRED and kwargs["ssl"].check_hostname
+        return reader, writer
+
+    monkeypatch.setattr(tend.asyncio, "open_connection", open_connection)
+    session = TendSession()
+    await session.start("cam", "secret")
+    await session.close()
+    assert opened == [
+        (tend.HOST, 5104, tend.HOST),
+        ("b159.broker.tend-us.tendplatform.com", 5104, tend.HOST),
+    ]
+
+
+async def test_login_answer_is_found_behind_unrelated_broker_frames(monkeypatch):
+    session, _, writer, _ = fake_session(
+        monkeypatch,
+        wire(503, data=b"\xff\xfe binary"),
+        wire(411, data=b"status|other|1|"),
+        wire(519, data=b"alias=user\n"),
+        wire(438, options=b'{"kvs":{}}', data=b"accept-video-receive|cam|12|"),
+    )
+    assert await session.start("cam", "secret") == {"kvs": {}}
+    await session.close()
+    assert [frame.action for frame in await commands(writer)][:2] == [519, 411]
+
+
+async def test_login_gives_up_when_no_answer_follows(monkeypatch):
+    session, _, writer, _ = fake_session(
+        monkeypatch, *[wire(411, data=b"status|other|1|")] * tend.MAX_LOGIN_FRAMES
+    )
+    with pytest.raises(ProtocolError, match="Unexpected Tend login response"):
+        await session.start("cam", "secret")
+    assert [frame.action for frame in await commands(writer)] == [519]
+    writer.close.assert_called_once()
+
+
+async def test_tls_context_adds_the_bundled_authorities(monkeypatch):
+    monkeypatch.setattr(tend, "_tls_context", None)
+    loaded = []
+    real = ssl.SSLContext.load_verify_locations
+
+    def load(self, cafile=None, capath=None, cadata=None):
+        loaded.append(cafile)
+        return real(self, cafile=cafile, capath=capath, cadata=cadata)
+
+    monkeypatch.setattr(ssl.SSLContext, "load_verify_locations", load)
+    context = await tend._client_tls_context()
+    import certifi
+
+    assert certifi.where() in loaded
+    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        wire(519, data="1=hub.seedonk.com\\:\u00b2\n".encode("iso-8859-1")),
+        wire(
+            1,
+            options=struct.pack("<I", 533),
+            data="host=hub.seedonk.com\nsslPort=\u00b2\n".encode("iso-8859-1"),
+        ),
+    ],
+)
+async def test_redirect_port_of_digits_python_cannot_read_is_a_protocol_error(monkeypatch, answer):
+    """ "²".isdigit() is true, yet int("²") raises: that must not escape as a ValueError."""
+    session, _, writer, connections = fake_session(monkeypatch, answer)
+    with pytest.raises(ProtocolError, match="redirect"):
+        await session.start("cam", "secret")
+    assert len(connections) == 1
+    writer.close.assert_called_once()
+
+
+async def test_push_that_is_not_text_does_not_end_the_status_session(monkeypatch):
+    changed = []
+    session = TendStatusSession({"camera-one"}, changed.append)
+    reader = stream(wire(519, data=b"alias=user\n"))
+    writer = MagicMock(drain=AsyncMock(), wait_closed=AsyncMock())
+
+    async def connect(host, port):
+        session._reader, session._writer = reader, writer
+
+    monkeypatch.setattr(session, "_connect", connect)
+    await session.subscribe("token")
+    reader.feed_data(wire(999, data=b"\x80\x81 not utf-8"))
+    reader.feed_data(wire(438, options=b"\xff", data=b"\xfe"))
+    reader.feed_data(wire(501, data=b"\x00\x03\x00\x00\x00\xff\xfe\xfd"))
+    reader.feed_data(wire(411, data=b"status|camera-one|1|"))
+    async with asyncio.timeout(1):
+        while not changed:  # noqa: ASYNC110
+            await asyncio.sleep(0.005)
+    assert session.connected and changed == ["camera-one"]
+    await session.close()
+
+
+def test_property_values_are_cut_only_at_real_line_ends():
+    """Java ends a line at \\n, \\r or \\r\\n; a value may hold other separators."""
+    assert parse_properties(b"a=one\x0ctwo\nb=x\x85y\r\nc=3\rd=4") == {
+        "a": "one\x0ctwo",
+        "b": "x\x85y",
+        "c": "3",
+        "d": "4",
+    }

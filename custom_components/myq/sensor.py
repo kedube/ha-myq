@@ -10,7 +10,7 @@ from homeassistant.helpers import device_registry as dr
 from .api.associations import associations
 from .api.locks import is_lock
 from .camera_entities import camera_entities
-from .const import DOMAIN
+from .device_registry import find_device
 from .entity import MyQEntity, discover_entities
 from .management_entities import management_sensor_entities, shown_by_control
 
@@ -121,13 +121,13 @@ class MyQDeviceType(MyQEntity, SensorEntity):
         access = self.coordinator.data.account_access.get(self.device.account_id)
         attributes = {"account_role": access.role if access is not None else "unknown"}
         registry = dr.async_get(self.hass)
-        own_entry = registry.async_get_device(identifiers={(DOMAIN, self.device.key)})
+        entry_id = self.coordinator.config_entry.entry_id
+        own_entry = find_device(registry, entry_id, self.device.key)
         for kind, devices in associations(self.device, self.coordinator.data.devices).items():
             attributes[kind] = [
                 entry.id
                 for device in devices
-                if (entry := registry.async_get_device(identifiers={(DOMAIN, device.key)}))
-                is not None
+                if (entry := find_device(registry, entry_id, device.key)) is not None
                 and (own_entry is None or entry.id != own_entry.id)
             ]
         return attributes

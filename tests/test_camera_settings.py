@@ -257,3 +257,10 @@ def test_entity_factories_and_current_readback(hass, camera_device, details):
     device = replace(camera_device, state={"online": False})
     coordinator.data.devices[device.key] = device
     assert not first.available
+
+
+def test_unexpected_chime_type_shape_reads_as_no_selection():
+    """A list is unhashable: looking it up in the alias table raised TypeError."""
+    from custom_components.myq.api.camera_settings import value
+
+    assert value({"settings": {"chime": {"type": ["D"]}}}, "chime_type") is None

@@ -1,6 +1,6 @@
 """Android request formatting, independent of browser sign-in and attestation.
 
-See docs/research/android-request-profile.md for the static evidence and limits.
+See docs/api.md, Request conventions.
 """
 
 from collections.abc import Mapping

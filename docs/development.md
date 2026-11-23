@@ -1,8 +1,16 @@
 # Development
 
+- [Environment](#environment)
+- [Checks](#checks)
+- [Packaging and releases](#packaging-and-releases)
+- [Layout](#layout)
+- [Ground rules](#ground-rules)
+- [Research tools](#research-tools)
+
 ## Environment
 
-The project targets Python 3.13 and Home Assistant 2026.2.3.
+The project targets Python 3.13 and Home Assistant 2026.2.3, the oldest
+supported release.
 
 ```sh
 python3.13 -m venv .venv
@@ -11,21 +19,16 @@ python3.13 -m venv .venv
 npm ci
 ```
 
-`--group` needs pip 25.1 or later. The `test` dependency group (in
-`pyproject.toml`) holds Home Assistant, pytest, ruff, mypy and the runtime
-dependencies; add `--group browser` for the opt-in browser tests. The project
-itself is deliberately not installed: the tests import the integration from the
-checkout, and an editable install (`pip install -e .`) gives `custom_components`
-a path entry that Home Assistant's loader cannot read, which fails every test that
-loads the integration.
-
-The optional extras (`browser`, `curl`, `probe`) are for the desktop sign-in
-helper and research tools, which run from their own environment (see the
-[research tools](research/probe.md)).
+`--group` needs pip 25.1 or later. The `test` group in `pyproject.toml` holds
+Home Assistant, pytest, ruff, mypy and the runtime dependencies; add
+`--group browser` for the opt-in browser tests. Don't install the project
+itself: the tests import the integration from the checkout, and an editable
+install gives `custom_components` a path entry that Home Assistant's loader
+cannot read.
 
 ## Checks
 
-These are the same checks CI runs:
+The same checks CI runs:
 
 ```sh
 .venv/bin/python -m ruff check .
@@ -36,33 +39,30 @@ npm run typecheck
 npm test
 ```
 
-Use a current Node LTS release. The sidebar and door card's browser-module tests
-run under Node with jsdom (`tests/frontend/`); TypeScript checks their JavaScript
-without a build step. The pytest run also includes the separate live card's Node
-tests (`tests/test_live_card.mjs`). Browser sign-in tests are opt-in because they
-open Chrome:
+Use a current Node LTS release. The sidebar and door card tests run under Node
+with jsdom (`tests/frontend/`); the pytest run includes the live card's Node
+tests (`tests/test_live_card.mjs`). Browser sign-in tests open Chrome, so they
+are opt-in:
 
 ```sh
 MYQ_BROWSER_TESTS=1 .venv/bin/python -m pytest -q tests/test_browser_auth.py
 ```
 
-All tests use synthetic MyQ responses and local HTTP, TLS and WebRTC peers. No
-test contacts MyQ or operates a device.
+Tests use synthetic MyQ responses and local HTTP, TLS, UDP and WebRTC peers.
+`tests/test_tend_end_to_end.py` runs a TC camera's live video from a simulated
+Tend service and camera through Home Assistant's stream worker.
 
-On GitHub, the Validate workflow also runs HACS's and Home Assistant's hassfest
-checks on every push, nightly and before a release; they cannot run locally.
-The same workflow checks that Home Assistant can install the manifest's
-requirements under its own package pins, for the minimum version in `hacs.json`
-and the latest release. A conflict there makes adding the integration fail
-with a 500 error, and the CI tests can't see it because they pin one Home
-Assistant version. This one needs network access and `uv`, and also runs locally:
+On GitHub, the Validate workflow also runs HACS and hassfest on every push,
+nightly and before a release. It also checks that Home Assistant can install
+the manifest's requirements under its own package pins, for the minimum version
+in `hacs.json` and the latest release; a conflict there makes adding the
+integration fail with a 500 error. That check needs network access and `uv`,
+and runs locally too:
 
 ```sh
 .venv/bin/python scripts/check_requirements.py            # minimum and latest
 .venv/bin/python scripts/check_requirements.py 2026.10.4  # specific versions
 ```
-`tests/test_translations.py` covers what hassfest checks in the translation
-files: every language has the English keys and placeholders, and no URLs or HTML.
 
 ## Packaging and releases
 
@@ -72,103 +72,169 @@ files: every language has the English keys and placeholders, and no URLs or HTML
 
 This writes two archives to `dist/`, each with a `.sha256` file:
 
-- `myq.zip` is the Home Assistant component, which HACS extracts into
+- `myq.zip`: the Home Assistant component, which HACS extracts into
   `custom_components/myq`. It leaves out the desktop-only modules
-  (`api/browser.py`, `api/har.py`). The curl transport is now a runtime dependency.
-- `myq-<version>.zip` is the full bundle: the component, the sign-in
-  helper and probe scripts, the README, the changelog, the license and the
-  `docs` folder.
+  (`api/browser.py`, `api/har.py`).
+- `myq-<version>.zip`: the component, the research scripts, the README,
+  changelog, license and `docs`.
 
-The component includes its icon in `brand/` (a neutral garage drawing; MyQ and
-Chamberlain marks are not used).
-
-For a private installation that includes an existing App Check registration:
+For a private installation that includes an App Check registration:
 
 ```sh
 python scripts/package.py --private-registration myq_app_check.json
 ```
 
-This creates `analysis/private/install/myq-install-private.zip`, with mode `0600`.
-Extract it at Home Assistant's configuration root: it contains
-`custom_components/myq/` and `myq_app_check.json`. The private ZIP stays outside
-`dist/`, which the release workflow publishes. Public archives exclude registration
-files even if one is accidentally placed inside the component or documentation.
-
-CI builds both archives on every push, so a packaging problem shows up before a
-release.
+This writes `analysis/private/install/myq-install-private.zip` with mode `0600`,
+containing `custom_components/myq/` and `myq_app_check.json`. It stays out of
+`dist/`, which releases publish, and public archives never include a
+registration file.
 
 ### Releasing
 
-Releases are manual. In GitHub, open **Actions → Release → Run workflow** on
-`main` and choose the kind of release, or run
-`gh workflow run release.yml -f bump=minor`:
+Releases are manual: **Actions → Release → Run workflow** on `main`, or
+`gh workflow run release.yml -f bump=minor`.
 
 | Kind | Effect |
 | --- | --- |
-| `minor` (default) | Adds 0.01: 0.01 → 0.02 → … → 0.99 → 1.00 → 1.01 |
-| `major` | Goes to the next round number: 0.37 → 1.00, 1.04 → 2.00 |
+| `minor` (default) | Adds 0.01: 0.09 → 0.10 → … → 0.99 → 1.00 |
+| `major` | The next whole number: 0.37 → 1.00, 1.04 → 2.00 |
 
-The first release is 0.01 (or 1.00 if it is a major one); until then the files
-carry 0.00. Versions are `MAJOR.NN`, and the released versions are the
-repository's tags (`0.01`, `0.02`, …). Home Assistant and HACS compare the two
-numbers, so 0.10 is newer than 0.09.
+Versions are `MAJOR.NN` and are the repository's tags. The workflow runs the CI
+and Validate checks, writes the version into `manifest.json`, `pyproject.toml`
+and `api/const.py`, moves the changelog's **Unreleased** section under the
+version, commits and tags on `main`, and publishes a GitHub release with that
+section as its notes and both archives attached. Running it again after a
+failure past the tag publishes the same version. `scripts/release.py` does the
+version and file updates.
 
-The workflow runs the CI and Validate checks, then writes the version into
-`manifest.json`, `pyproject.toml` and `api/const.py`, files the changelog's
-**Unreleased** section under the version, commits and tags that on `main`, and
-publishes a GitHub release with that section as its notes and both archives
-attached. If a run fails after pushing the tag, running it again publishes that
-same version. `scripts/release.py` does the version arithmetic and file updates;
-`tests/test_release.py` covers it.
-
-Keep the changelog's **Unreleased** section up to date as changes land; it
-becomes the release notes. The workflow pushes to `main` with the built-in
-`GITHUB_TOKEN`, so if `main` is protected, allow GitHub Actions to push to it.
+Keep the changelog's **Unreleased** section current; it becomes the release
+notes. The workflow pushes to `main` with `GITHUB_TOKEN`, so a protected `main`
+must allow GitHub Actions to push.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `custom_components/myq/` | Home Assistant platforms, config flow, coordinator, services, media source and the live card (`www/`) |
-| `custom_components/myq/frontend/` | Katherine Dubé's sidebar panel, dashboard door card, SVG door scenes and UI translations; adapted to the current entity registry by `panel.py` |
-| `custom_components/myq/api/` | The MyQ client, independent of Home Assistant: sign-in (`oauth`, `tokens`, `auth`, `app_check`, `handoff`), HTTP transport, device families, cameras (`video`, `tend`, `kvs`, `live`, `status`), recordings and management |
-| `scripts/` | The browser sign-in helper, the read-only account probe, the iPhone capture helper, APK route extraction and packaging |
-| `tests/` | Unit tests for the client and Home Assistant tests that load the integration |
-| `docs/` | User guides; `docs/api/` the MyQ API reference; `docs/research/` investigation records |
+| `custom_components/myq/` | Home Assistant platforms, config flow, coordinator, actions, media source, diagnostics |
+| `custom_components/myq/frontend/` | Sidebar panel, dashboard door card, door artwork and UI translations (registered by `panel.py`) |
+| `custom_components/myq/www/` | The live view card |
+| `custom_components/myq/api/` | The MyQ client, independent of Home Assistant |
+| `scripts/` | Packaging, release, requirement checks and research tools |
+| `tests/` | Client unit tests and Home Assistant tests that load the integration |
+| `docs/` | User documentation and the [API reference](api.md) |
 
-## App Check providers
+The client in `api/`:
 
-`api/app_check.py` defines where sign-in gets its App Check token:
+| Area | Modules |
+| --- | --- |
+| Sign-in and sessions | `auth.py` (hosted pages), `oauth.py` (PKCE), `tokens.py` (exchange, renewal, revocation), `firebase.py` and `app_check.py` (App Check) |
+| Transport | `http.py`, `curl_http.py` and `android_tls.py` (native requests with Android's TLS profile), `backoff.py` |
+| Accounts and devices | `client.py` (discovery and commands), `models.py`, `garage.py`, `locks.py`, `climate.py`, `account_access.py`, `associations.py` |
+| Management | `management.py`, `alerts.py`, `history.py` |
+| Cameras | `video.py` (REST, snapshots, wake-up), `camera_settings.py`, `camera_commands.py`, `recordings.py` |
+| Tend signaling | `tend.py` (Cxnet framing and the mode-12 session), `status.py` (idle status connection), `live_controls.py` |
+| TC live video | `tend_legacy.py` (mode-9 negotiation), `tend_rtp.py` (UDP receiver), `tend_source.py` (loopback H.264 stream source) |
+| WebRTC live video | `kvs.py` (KVS signaling), `live.py` (aiortc relay to browsers) |
 
-- `FirebaseDebugAppCheckProvider` (`api/firebase.py`): HA's default. Combines the
-  debug token entered in the sign-in form with bundled public Firebase app
-  metadata, or reads `myq_app_check.json` when the field is blank. It exchanges
-  the registered credential with Firebase, checking app/audience and TTL before
-  caching the proof. A supplied token takes precedence over the file and is
-  kept only in memory for that sign-in; it is not saved in the HA entry or
-  written to a registration file.
-- `SuppliedAppCheckProvider`: a token supplied for one sign-in.
-- `FileAppCheckProvider`: a JSON or raw token file kept current by an external
-  source. It reloads the file when the cached token gets stale or is rejected;
-  it does not renew the token itself.
-- `CachedAppCheckProvider`: wraps an asynchronous loader, with a timeout,
-  one acquisition at a time, expiry checks and redacted error categories.
+Live video takes one of two paths in `camera.py`:
 
-Each requires more than five minutes of validity. The token's expiry is read
-locally as a freshness hint only; MyQ verifies authenticity. The token is used
-only for the sign-in code exchange and is never saved.
+- **TC cameras** (`MyQTendCamera`) are a Home Assistant stream source.
+  `TendSource` serves the camera's H.264 records on a random loopback HTTP path
+  as raw Annex B: every reader starts at a keyframe led by its SPS and PPS, and
+  start codes are written the way FFmpeg writes them, which go2rtc and the stream
+  worker both read. The source owns the camera session, shares it among readers,
+  and closes it 15 seconds after the last one leaves.
+- **WebRTC cameras** (`MyQCamera`) answer Home Assistant's WebRTC offers
+  themselves: `LiveSession` opens the KVS session with an aiortc peer and relays
+  it to up to four browser peers.
 
 ## Ground rules
 
-- **Clean room:** the integration is written from observed protocol behaviour.
-  Do not copy decompiled app code into the repository; cite source locations
-  instead, as the API reference does. The panel and door artwork are reused
-  from Katherine Dubé's own UI with her express permission; that permission
-  does not extend to the reference checkout's authentication code.
-- **Keep research outside the repository.** APKs, decompiled sources, HAR files,
-  tokens and captures stay out of git (see `.gitignore`); `analysis/private/` is
-  for local notes only.
-- **No live side effects in tests.** Use synthetic responses and local peers.
+- **Clean room.** The integration is written from observed protocol behaviour.
+  Don't copy decompiled app code, or another integration's code, into the
+  repository. The panel, door card and door artwork are Katherine Dubé's UI,
+  reused with her permission.
+- **Keep private material out of git.** APKs, decompiled sources, HAR files,
+  tokens, captures and registration files stay outside the repository or in
+  `analysis/private/` (see `.gitignore`).
+- **No live side effects in tests.** Use synthetic responses and local peers;
+  no test may contact MyQ or operate a device.
 
-Research tooling (the account probe, iPhone capture and APK route extraction)
-is described in the [research notes](research/README.md).
+## Research tools
+
+Command-line tools for investigating MyQ's sign-in and API. They are separate
+from the integration, never operate a device and never save tokens. Install
+them in their own environment, since they import the installed package:
+
+```sh
+python3.13 -m venv .venv-tools
+.venv-tools/bin/python -m pip install '.[browser,curl]'
+```
+
+### Account probe
+
+`scripts/probe_account.py` signs in, then reads the profile, accounts, devices
+and camera capabilities without changing anything. It ends with a
+`SANITIZED REPORT` that is safe to share.
+
+```sh
+.venv-tools/bin/python scripts/probe_account.py --browser --app-check
+```
+
+`--browser` opens an isolated Chrome window for MyQ's sign-in pages and captures
+only the return to `com.myqops://android`. `--browser-har` instead prints an
+authorization address to open in your own Chrome, and reads a HAR exported
+after the redirect. `--app-check` asks for an App Check token at a hidden prompt;
+`--app-check-file` reads one from a file. Other options:
+
+| Option | Effect |
+| --- | --- |
+| `--browser --connection-check` | Stop once the sign-in page loads |
+| `--refresh` | Test an existing refresh token, entered at a hidden prompt |
+| `--http` | Use the plain HTTP form transport |
+| `--curl` | Use `curl_cffi` for HTTP |
+| `--curl-profile chrome` | Use the desktop Chrome profile instead of Android Chrome |
+
+### iPhone capture
+
+`scripts/capture_native.py` observes the sign-in of your own MyQ iPhone app
+through a temporary local mitmproxy. Only `partner-identity.myq-cloud.com` and
+`firebaseappcheck.googleapis.com` are decrypted, and the report keeps only
+selected OAuth fields, statuses and App Check tokens.
+
+```sh
+python -m venv analysis/private/capture-venv
+analysis/private/capture-venv/bin/python -m pip install 'mitmproxy>=12,<13'
+analysis/private/capture-venv/bin/python scripts/capture_native.py --prepare
+analysis/private/capture-venv/bin/python scripts/capture_native.py \
+  --session <directory printed by --prepare> --listen-host <Mac's local IP>
+```
+
+On the iPhone:
+
+1. **Settings → Wi-Fi → (i) → Configure Proxy → Manual**: the Mac's address,
+   port 8088.
+2. Open the local address the helper prints in Safari, download the
+   certificate, and install the profile.
+3. **Settings → General → About → Certificate Trust Settings**: trust it.
+4. Sign in to MyQ. Share only `sanitized-report.json`.
+
+The capture stops after 15 minutes (`--minutes` to change). `--passthrough`
+restores the phone's connection without decrypting anything, and
+`--firebase-only` decrypts only Firebase. Afterwards, turn the proxy off, remove
+the certificate profile, and delete the capture directory: it holds the
+certificate's private key and any captured tokens.
+
+### APK route extraction
+
+With JADX installed, `scripts/analyze_apk.py` lists the HTTP routes the app
+declares:
+
+```sh
+.venv-tools/bin/python scripts/analyze_apk.py '/path/to/MyQ.xapk' \
+  --work-dir /path/outside/the/repository
+```
+
+It writes `analysis/api_inventory.json` by default. Keep the work directory
+outside the repository; the inventory holds route facts and source locations,
+not app code.

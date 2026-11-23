@@ -691,3 +691,11 @@ async def test_removal_does_not_depend_on_reaching_myq(hass, entry, door):
         assert await hass.config_entries.async_remove(entry.entry_id)
         await hass.async_block_till_done()
     assert not hass.config_entries.async_entries(DOMAIN)
+
+
+async def test_rate_limited_command_is_not_watched_as_if_it_might_have_run(hass, entry, door):
+    """A 429, or a request held back during a cooldown, was not acted on by MyQ."""
+    from custom_components.myq.api.errors import RateLimited
+
+    reauth, tracked = await _open_cover_with_error(hass, entry, door, RateLimited(60))
+    assert not reauth and not tracked

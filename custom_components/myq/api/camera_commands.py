@@ -2,7 +2,8 @@
 
 The app sends these over its always-on Tend session (Audio Settings siren test,
 r80/f; preset moves, rd0/e GOTO "G"). The integration prefers an open live view's
-session, then the idle status session, then a short login used only for the command.
+session (a WebRTC view's, or a TC camera's video session), then the idle status
+session, then a short login used only for the command.
 Nothing is queued or replayed; a timed siren always ends with an explicit stop.
 """
 
@@ -48,10 +49,13 @@ class CameraCommands:
         client: Client,
         monitor: CameraStatusMonitor,
         live: Callable[[str], Any],
+        video: Callable[[str], Any] = lambda key: None,
     ) -> None:
         self.client = client
         self.monitor = monitor
         self._live = live
+        # A TC camera's open video session, if any (device key -> session).
+        self._video = video
         self._sirens: dict[str, tuple[asyncio.Task, dict[str, bool], Device, dict]] = {}
 
     async def _send(
@@ -61,6 +65,12 @@ class CameraCommands:
         stream = self._live(device.key)
         if stream is not None and getattr(stream, "ready", False):
             await stream.send_command(command, actions)
+            return
+        video = self._video(device.key)
+        if video is not None and getattr(video, "connected", False):
+            # The status session is paused while video plays, and another login
+            # beside the video session could end it: use the one already open.
+            await video.send_to(alias, command, actions)
             return
         if await self.monitor.command(alias, command, actions):
             return
@@ -75,8 +85,8 @@ class CameraCommands:
         require_control(details, "siren", permitted=True)
         if type(seconds) is not int or not 1 <= seconds <= MAX_SIREN_SECONDS:
             raise CommandRejected("Siren duration must be 1 to 60 seconds")
+        _alias(details.get("alias"))  # Refuse before touching a stop that is armed.
         await self._cancel_timer(device.key)
-        await self._send(device, details, "trigger-siren-action", SIREN_ON)
         owned = {"stop": True}
 
         async def stop_later() -> None:
@@ -89,7 +99,11 @@ class CameraCommands:
                 if self._sirens.get(device.key, (None,))[0] is asyncio.current_task():
                     self._sirens.pop(device.key, None)
 
+        # The stop is armed before the siren is asked to sound. If that request fails
+        # with its outcome unknown, or replaces a siren already sounding, the stop
+        # still goes out.
         self._sirens[device.key] = (asyncio.create_task(stop_later()), owned, device, details)
+        await self._send(device, details, "trigger-siren-action", SIREN_ON)
 
     async def _stop_quietly(self, device: Device, details: dict) -> None:
         with suppress(MyQError, OSError, TimeoutError):
@@ -107,8 +121,13 @@ class CameraCommands:
         return True
 
     async def stop_siren(self, device: Device, details: dict) -> None:
-        await self._cancel_timer(device.key)
+        if (entry := self._sirens.get(device.key)) is not None:
+            # The details the siren was started with: the current ones may be missing
+            # after a failed camera read, and the stop must still be addressed.
+            details = entry[3]
         await self._send(device, details, "trigger-siren-action", SIREN_OFF)
+        # Disarmed only once the stop has gone out; otherwise the timer still sends it.
+        await self._cancel_timer(device.key)
 
     async def go_to_preset(self, device: Device, details: dict, preset_id: int) -> None:
         require_control(details, "ptz", permitted=True)

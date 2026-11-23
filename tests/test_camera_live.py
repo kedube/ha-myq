@@ -29,20 +29,12 @@ class FakeLiveSession:
     """Only the media boundary is replaced; actual HA setup and entity run."""
 
     def __init__(
-        self,
-        http,
-        on_error,
-        *,
-        browser_ice_servers,
-        allow_talkback=False,
-        on_status=None,
-        legacy=False,
+        self, http, on_error, *, browser_ice_servers, allow_talkback=False, on_status=None
     ):
         self.on_error = on_error
         self.http = http
         self.browser_ice_servers = browser_ice_servers
         self.allow_talkback = allow_talkback
-        self.legacy = legacy
         self.on_status = on_status
         self.configure_controls = Mock()
         self.entered = asyncio.Event()
@@ -89,11 +81,7 @@ class FakeLiveSession:
 
 
 @pytest.fixture
-async def live_camera(
-    hass, enable_custom_integrations, tokens, camera_device, camera_details, request
-):
-    if getattr(request, "param", None) == "legacy":
-        camera_device = replace(camera_device, serial="TC-TEST-CAMERA")
+async def live_camera(hass, enable_custom_integrations, tokens, camera_device, camera_details):
     camera_details["alias"] = "tend-alias-distinct-from-CAM123"
     camera_details["cap"]["cam"]["kvsWebRTC"] = True
     entry = MockConfigEntry(
@@ -164,7 +152,6 @@ async def test_native_offer_uses_current_token_and_tend_alias(live_camera):
     ):
         await camera.async_handle_async_webrtc_offer("browser-offer", "viewer", messages.append)
     stream = live_camera.instances[0]
-    assert stream.legacy is False
     assert camera.coordinator.live_sessions[camera.device_key] is stream
     assert stream in camera.coordinator._live_owners
     camera.coordinator.status_monitor.pause.assert_awaited_once()
@@ -177,82 +164,6 @@ async def test_native_offer_uses_current_token_and_tend_alias(live_camera):
     stream.candidate.assert_awaited_once_with(candidate.to_dict(), "viewer")
     await camera.async_on_webrtc_candidate("unknown-viewer", candidate)
     assert stream.candidate.await_count == 1
-
-
-@pytest.mark.parametrize("live_camera", ["legacy"], indirect=True)
-@pytest.mark.parametrize("capability", [False, None, "missing"])
-async def test_tc_camera_without_kvs_offers_legacy_live_video(live_camera, capability):
-    camera = live_camera.camera
-    if capability == "missing":
-        camera.details["cap"]["cam"].pop("kvsWebRTC")
-    else:
-        camera.details["cap"]["cam"]["kvsWebRTC"] = capability
-    camera.details["cap"]["spk"] = {"talkback": True}
-    assert camera.supported_features & CameraEntityFeature.STREAM
-    assert camera.camera_capabilities.frontend_stream_types == {"web_rtc"}
-    messages = []
-    await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
-    stream = live_camera.instances[0]
-    assert stream.legacy is True and stream.allow_talkback is False
-    assert messages == [WebRTCAnswer("synthetic-answer")]
-    assert stream.start.call_args.args[0] == "tend-alias-distinct-from-CAM123"
-
-
-@pytest.mark.parametrize("live_camera", ["legacy"], indirect=True)
-@pytest.mark.parametrize(
-    ("capability", "alias"),
-    [
-        (0, "alias"),
-        (1, "alias"),
-        ("false", "alias"),
-        (False, ""),
-        (False, None),
-        (False, "x" * 257),
-    ],
-)
-async def test_legacy_camera_rejects_malformed_capability_or_alias(live_camera, capability, alias):
-    camera = live_camera.camera
-    camera.details["cap"]["cam"]["kvsWebRTC"] = capability
-    camera.details["alias"] = alias
-    assert not camera.supported_features & CameraEntityFeature.STREAM
-    messages = []
-    await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
-    assert isinstance(messages[0], WebRTCError)
-    assert not live_camera.instances
-
-
-@pytest.mark.parametrize("live_camera", ["legacy"], indirect=True)
-@pytest.mark.parametrize("change", ["route", "disabled", "alias"])
-async def test_legacy_wakeup_rechecks_selected_route_and_privacy(live_camera, change):
-    camera = live_camera.camera
-    camera.details["cap"]["cam"]["kvsWebRTC"] = False
-    refreshed = {**camera.details}
-    if change == "route":
-        refreshed["cap"] = {"cam": {"kvsWebRTC": True}}
-    elif change == "disabled":
-        refreshed = _privacy_details(refreshed)
-    else:
-        refreshed["alias"] = "x" * 257
-    messages = []
-    with patch.object(camera.coordinator.video, "wakeup", AsyncMock(return_value=refreshed)):
-        await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
-    stream = live_camera.instances[0]
-    assert stream.legacy and stream.closed
-    stream.start.assert_not_awaited()
-    assert isinstance(messages[0], WebRTCError)
-    assert not camera.coordinator._live_owners
-
-
-@pytest.mark.parametrize("live_camera", ["legacy"], indirect=True)
-async def test_tc_route_change_closes_the_current_native_session(hass, live_camera):
-    camera = live_camera.camera
-    camera.details["cap"]["cam"]["kvsWebRTC"] = False
-    await camera.async_handle_async_webrtc_offer("offer", "viewer", Mock())
-    camera.details["cap"]["cam"]["kvsWebRTC"] = True
-    camera.coordinator.async_update_listeners()
-    await hass.async_block_till_done()
-    assert live_camera.instances[0].closed
-    assert not camera._live_sessions
 
 
 async def test_idle_status_connection_resumes_after_owned_live_cleanup(hass, live_camera):
@@ -676,3 +587,32 @@ async def test_snapshot_uses_the_live_frame_while_a_view_is_open(hass, live_came
         assert await camera.async_camera_image() == b"\xff\xd8\xfflive-frame"
     cloud.assert_not_awaited()
     assert hass.states.get(camera.entity_id).attributes["image_source"] == "live"
+
+
+async def test_defect_during_a_start_does_not_leave_the_camera_busy(live_camera):
+    """Only MyQ errors were cleaned up; anything else left the view and the status
+    feed's pause behind, and every later viewer was told the camera is busy."""
+    camera = live_camera.camera
+    messages = []
+    with (
+        patch.object(FakeLiveSession, "_start", AsyncMock(side_effect=ValueError("a defect"))),
+        pytest.raises(ValueError, match="a defect"),
+    ):
+        await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
+    assert live_camera.instances[0].closed and messages[-1].code == "stream_failed"
+    assert not camera._live_sessions and not camera.coordinator._live_owners
+    await camera.async_handle_async_webrtc_offer("offer", "viewer", messages.append)
+    assert messages[-1] == WebRTCAnswer("synthetic-answer")
+
+
+async def test_failed_poll_does_not_close_an_open_view(hass, live_camera):
+    camera = live_camera.camera
+    await camera.async_handle_async_webrtc_offer("offer", "viewer", Mock())
+    with patch(
+        "custom_components.myq.api.client.Client.discover",
+        AsyncMock(side_effect=CannotConnect("cloud timeout")),
+    ):
+        await camera.coordinator.async_refresh()
+        await hass.async_block_till_done()
+    assert not camera.coordinator.last_update_success
+    assert not live_camera.instances[0].closed and camera._live_sessions

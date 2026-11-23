@@ -235,7 +235,7 @@ async def test_camera_buttons_refresh_permission_and_keep_stop_after_revocation(
     async def execute(operation):
         return await operation
 
-    coordinator.execute = execute
+    coordinator.query = execute
     buttons = {
         button.action: button for button in camera_control_buttons(coordinator, camera_device)
     }
@@ -267,7 +267,7 @@ def button_coordinator(camera_device, stream, camera, access):
     async def execute(operation):
         return await operation
 
-    coordinator.execute = execute
+    coordinator.query = execute
     return coordinator
 
 

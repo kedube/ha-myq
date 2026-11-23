@@ -14,7 +14,7 @@ import json
 import math
 import re
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -41,6 +41,7 @@ EVENT_MEDIA = "https://events-media.prod.video.myq.com"
 MEDIA_ORIGINS = frozenset((VIDEO, EVENT_MEDIA))
 PAGE_SIZE = 50
 MAX_BOUNDARY = 500
+MAX_LISTED = 4096  # Events remembered as belonging to the camera they were listed for.
 PLAYBACK_TTL = 600  # Idle lifetime; each request extends it.
 PLAYBACK_MAX = 7200  # Absolute lifetime of one playback grant.
 INFO_TTL = 600
@@ -100,11 +101,18 @@ def _earlier(timestamp: str) -> str:
     return date.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _finite(value: int | float) -> bool:
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False  # An integer too large for a float.
+
+
 def _count(value: object) -> float:
     if isinstance(value, bool):
         return 0
     if isinstance(value, (int, float)):
-        return value if math.isfinite(value) else 0
+        return value if _finite(value) else 0
     if isinstance(value, str):
         try:
             number = float(value)
@@ -202,7 +210,7 @@ def _duration(value: object) -> float | None:
     """TendMotionEvent.duration: seconds as a Float."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value) if math.isfinite(value) and value >= 0 else None
+    return float(value) if _finite(value) and value >= 0 else None
 
 
 def _row(data: object, device: Device) -> Recording | None:
@@ -242,8 +250,15 @@ def _parse_cursor(value: str | None) -> tuple[str | None, set[str]]:
         if not isinstance(seen, list) or len(seen) > MAX_BOUNDARY:
             raise ValueError
         return _date(end), {_identifier(item) for item in seen}
-    except (ValueError, TypeError, binascii.Error, ProtocolError):
+    except (ValueError, TypeError, binascii.Error, RecursionError, ProtocolError):
         raise ProtocolError("Invalid recording page") from None
+
+
+def _redirected(url: str, location: str) -> str:
+    try:
+        return urljoin(url, location)
+    except ValueError:
+        raise ProtocolError("Recording redirect destination is invalid") from None
 
 
 def authenticated_host(host: str) -> bool:
@@ -327,7 +342,7 @@ async def fetch_media(
             location = response.header("Location")
             if not location:
                 raise ProtocolError("Recording redirect did not contain a destination")
-            url = urljoin(url, location)
+            url = _redirected(url, location)
             continue
         check_status(response)
         return response, url
@@ -340,12 +355,25 @@ def _pattern(info: Any, name: str) -> str | None:
     return pattern if isinstance(pattern, str) and pattern.count("{eventId}") == 1 else None
 
 
+class _TooManyResources(ProtocolError):
+    """A playlist names more media addresses than one playback may hold."""
+
+
 class Recordings:
     """On-demand event discovery; does not poll, delete, or mark events viewed."""
 
     def __init__(self, client: Client) -> None:
         self.client = client
         self._info: tuple[float, dict] | None = None
+        # Event ID -> key of the camera MyQ listed it for, newest last; bounded.
+        self._cameras: dict[str, str] = {}
+
+    def _listed(self, device: Device, events: Iterable[Recording]) -> None:
+        for event in events:
+            self._cameras.pop(event.id, None)
+            self._cameras[event.id] = device.key
+        while len(self._cameras) > MAX_LISTED:
+            del self._cameras[next(iter(self._cameras))]
 
     def _params(self, device: Device, **extra: str) -> dict[str, str]:
         return {
@@ -416,6 +444,7 @@ class Recordings:
             elif dated and (oldest := min(dated)) and (end is None or oldest <= end):
                 # Nothing on this page was displayable; continue strictly before it.
                 next_cursor = _cursor(_earlier(oldest), [])
+        self._listed(device, selected)
         return RecordingPage(tuple(selected), next_cursor)
 
     async def door_clips(self, device: Device, start: str, end: str) -> tuple[Recording, ...]:
@@ -435,11 +464,12 @@ class Recordings:
             event = _row(row, device)
             if event is not None and _door_clip(event) and event.id not in clips:
                 clips[event.id] = event
+        self._listed(device, clips.values())
         return tuple(sorted(clips.values(), key=lambda item: (item.timestamp, item.id)))
 
-    async def _media_info(self, *, force: bool = False) -> dict:
+    async def _media_info(self) -> dict:
         cached = self._info
-        if not force and cached is not None and time.monotonic() - cached[0] < INFO_TTL:
+        if cached is not None and time.monotonic() - cached[0] < INFO_TTL:
             return cached[1]
         response = await self.client.request(
             "GET", VIDEO, EVENTS + "/mediaDownloadInfo", headers={"AntiCSRF": "AntiCSRF"}
@@ -464,6 +494,7 @@ class Recordings:
         event = Recording.parse(response.json(), device)
         if event.id != event_id:
             raise AccessDenied("Recording is not available for playback")
+        self._listed(device, (event,))
         return event
 
     async def playback(self, device: Device, event_id: str) -> Playback:
@@ -501,6 +532,10 @@ class Recordings:
         if not device.is_camera:
             raise AccessDenied("Recordings require a camera")
         event_id = _identifier(event_id)
+        if self._cameras.get(event_id) != device.key:
+            # Not an event MyQ listed for this camera: confirm that it belongs to it,
+            # as playback does, before serving its picture under this camera.
+            await self.event(device, event_id)
         try:
             pattern = _pattern(await self._media_info(), "thumbnail")
         except (AuthenticationError, RateLimited):
@@ -579,7 +614,7 @@ class Playback:
             if existing == url:
                 return key
         if len(self.resources) >= 512:
-            raise ProtocolError("Recording contains too many media resources")
+            raise _TooManyResources("Recording contains too many media resources")
         key = str(len(self.resources))
         self.resources[key] = url
         return key
@@ -628,7 +663,7 @@ class Playback:
                 upstream.close()
                 if not location:
                     raise ProtocolError("Recording redirect did not contain a destination")
-                url = urljoin(url, location)
+                url = _redirected(url, location)
                 continue
             try:
                 check_status(Response(upstream.status, dict(upstream.headers), b""))
@@ -657,7 +692,9 @@ class Playback:
             lines: list[str] = []
             kept = dropped = 0
             for line in manifest.splitlines():
-                if not line or line.startswith("#"):
+                # A whitespace-only line is not an address (it would resolve to the
+                # playlist itself).
+                if not line.strip() or line.startswith("#"):
                     if "URI=" in line:
                         expected = line.count("URI=")
                         try:
@@ -668,6 +705,8 @@ class Playback:
                                 ),
                                 line,
                             )
+                        except _TooManyResources:
+                            raise ValueError from None
                         except ProtocolError:
                             if line.startswith(("#EXT-X-MEDIA:", "#EXT-X-I-FRAME-STREAM-INF:")):
                                 dropped += 1
@@ -680,6 +719,9 @@ class Playback:
                 try:
                     lines.append(link(self.register(urljoin(base, line.strip()))))
                     kept += 1
+                except _TooManyResources:
+                    # Dropping the rest would play as a complete, shorter recording.
+                    raise ValueError from None
                 except ProtocolError:
                     dropped += 1
                     # Drop the tags that described only this URI.

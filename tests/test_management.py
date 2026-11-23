@@ -1060,3 +1060,16 @@ async def test_guests_can_only_be_given_devices_the_app_offers(tokens, http, doo
             opener, "guest-1", "access-1", [opener.serial, thermostat.serial]
         )
     assert all(call.args[0] == "GET" for call in http.request.call_args_list)
+
+
+async def test_accessory_name_is_trimmed_before_the_uniqueness_check(tokens, http, door):
+    """ "Remote " is the same name as "Remote" once MyQ trims it."""
+    manager = make_management(tokens, http, door)
+    payload = accessory_payload(door)
+    payload["gdo_transmitter_names"].append(
+        {**payload["gdo_transmitter_names"][0], "name": "Keypad", "tx_serial_number": "TX03-test"}
+    )
+    http.request.side_effect = [json_response(payload)]
+    with pytest.raises(CommandRejected, match="already has that name"):
+        await manager.rename_accessory(door, "TX02-test", " keypad ")
+    assert not [call for call in http.request.call_args_list if call.args[0] == "PUT"]

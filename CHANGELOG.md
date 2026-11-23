@@ -5,6 +5,105 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Fix every connection to MyQ's video service failing, which left live video,
+  the background camera status connection and camera commands (siren, saved
+  positions) not working. The service redirects each login to a broker that
+  presents the main server's certificate; the broker is now verified against
+  that name instead of its own, which never matched.
+- Fix TC camera live video (the cameras built into garage door openers, among
+  others). Release 0.09 decoded and re-encoded the video inside Home Assistant,
+  which is slow on a Raspberry Pi and lowers picture quality. TC cameras are now
+  a Home Assistant stream source: Home Assistant's own players (WebRTC through
+  its built-in go2rtc, or HLS) play the camera's H.264 unchanged. This has local
+  tests only; playback on a physical camera is not yet confirmed.
+- Make the TC video exchange as tolerant as clients known to work with these
+  cameras: other messages before the login answer, a camera listed under its
+  opener, any acceptance message, undecodable service messages, a first
+  connection attempt that times out (retried once), video arriving from another
+  port or through the service's relay, and partly malformed video packets no
+  longer end a session.
+- Fix a door, lock, light or settings command being sent to MyQ twice with no
+  error shown. The network library re-sends any request when a connection it is
+  reusing fails before an answer arrives; commands and session renewals now use
+  a connection of their own, and such a failure is reported as "outcome
+  unknown" instead.
+- Fix a timed siren that could be left sounding: when the request to start it
+  had an unknown outcome, when a second press failed, or when "stop" was
+  pressed while the camera's details were unavailable. The stop is now
+  scheduled before the siren is asked to sound and is cancelled only once a
+  stop has been sent.
+- Fix live video ending whenever one MyQ poll, or one re-read of that camera's
+  details, failed. A camera's last details are kept for up to 30 minutes when a
+  re-read fails.
+- Fix TC camera video starts that Home Assistant gave up on after 30 seconds
+  beginning again from the login on every retry. The start now continues and
+  the retry joins it. Turning the camera off, unloading and stopping Home
+  Assistant end a start immediately instead of waiting up to 90 seconds, and
+  stopping Home Assistant now closes camera sessions.
+- Fix the Home Assistant log filling with "does not generate unique IDs" errors,
+  one per poll, after an entity ID was renamed, and entities that are disabled
+  being built and refused again on every poll.
+- Fix every device-targeted `myq.*` action failing with "device not found" for
+  a garage door once a helper entity (template, threshold and similar) was
+  attached to its device.
+- Fix a camera setting showing its old value for up to 15 minutes after a
+  successful change when a poll ran during the change, and a camera's pushed
+  status update being overwritten by a poll already in progress.
+- Fix MyQ WebRTC live views using memory without limit while a viewer's browser
+  could not complete its connection, and a camera reporting "busy" until
+  restart after one viewer's connection failed or a start hit an unexpected
+  error.
+- Fix a session renewal that MyQ had already answered being lost when the
+  integration was unloaded at that moment, which then required signing in again.
+- Fix a reconnect delay for the background camera connection that only ever
+  grew, reaching 15 minutes after four ordinary disconnects.
+- Fix an unreadable saved session failing setup with an error instead of asking
+  for a new sign-in.
+- Smaller fixes: a signed MyQ WebRTC address written without a path was
+  rejected; a long recording playlist was silently cut short; a recording
+  thumbnail was served without checking that the event belongs to the selected
+  camera; an accessory could be renamed to an existing name by adding a space;
+  a rate-limited command was watched as if it might have run; removing a device
+  while the integration was not loaded raised an error; and malformed values
+  from MyQ in several places raised a Python error instead of a MyQ one.
+
+### Changed
+
+- A camera whose serial starts with `TC` always uses the stream-source route,
+  whatever it reports about MyQ's WebRTC capability. Other cameras with that
+  capability keep the integration's WebRTC relay.
+- TC live video is video only and has no in-view pan/tilt or siren buttons. Its
+  camera session is shared by everything reading the stream and closes about 15
+  seconds after the last reader stops. Home Assistant stream features such as
+  `camera.record` now apply to TC cameras.
+- Diagnostics report each camera's live video route, the TC stream source's
+  counters and last error, and whether the camera status connection is up, so a
+  download shows where live video stopped. No addresses or identifiers are
+  included.
+- A failed session renewal is not sent again for 30 seconds, and never again
+  with a session MyQ has ended. A request answered "unauthorized" within five
+  minutes of a renewal fails by itself instead of renewing again, so one
+  endpoint that always refuses cannot rotate the session on every poll.
+- The actions that only read (`myq.get_*`), pan/tilt, saved positions and the
+  siren no longer discard cached roles and camera details and force a full poll.
+- Door clip links for the Activity entity are read again only when the door's
+  history changes, or while a recent event may still be waiting for its clip.
+- TC video is accepted only on a UDP port the camera has confirmed. A TC
+  session that provides no playable keyframe within 25 seconds ends with that
+  reason in diagnostics, which now also count records that were not H.264.
+- Siren and saved-position commands for a TC camera use its open video session
+  when there is one, instead of a second login beside it.
+- Home Assistant 2026.11's entry-scoped device lookups are used throughout,
+  which removes its deprecation warnings for this integration.
+- The documentation is rewritten and reduced to the README, a
+  [sign-in guide](https://github.com/kedube/ha-myq/blob/main/docs/sign-in.md),
+  a [user guide](https://github.com/kedube/ha-myq/blob/main/docs/user-guide.md),
+  an [API reference](https://github.com/kedube/ha-myq/blob/main/docs/api.md) and
+  [development notes](https://github.com/kedube/ha-myq/blob/main/docs/development.md).
+  The research notes and generated route catalogs are no longer published.
+
 ## [0.09] - 2026-11-22
 
 ## [0.08] - 2026-11-22
@@ -128,13 +227,13 @@ real MyQ account yet; see the [README](https://github.com/kedube/ha-myq/blob/mai
 
 - Garage doors and gates, lamps, locks, linked thermostats and cameras, with the
   MyQ app's safety checks, health sensors, opener and lock settings, recordings,
-  live video and two-way audio. See [devices](https://github.com/kedube/ha-myq/blob/main/docs/devices.md) and
-  [cameras](https://github.com/kedube/ha-myq/blob/main/docs/cameras.md).
+  live video and two-way audio. See [devices](https://github.com/kedube/ha-myq/blob/main/docs/user-guide.md#devices-and-entities) and
+  [cameras](https://github.com/kedube/ha-myq/blob/main/docs/user-guide.md#cameras).
 - Sign-in through a browser helper with an App Check token, a one-time MyQ
   sign-in link, or an existing refresh token. Deleting the integration ends its
   MyQ session.
 - Account management actions for accessories, lock PINs, guests, camera
-  schedules, alerts and device names. See [actions](https://github.com/kedube/ha-myq/blob/main/docs/integration-actions.md).
+  schedules, alerts and device names. See [actions](https://github.com/kedube/ha-myq/blob/main/docs/user-guide.md#actions).
 - Translations into German, Spanish, French, Italian, Japanese, Dutch, Polish,
   Brazilian Portuguese and Simplified Chinese, including entity names, select
   options and error messages.
@@ -169,4 +268,4 @@ These follow a review of the integration against the MyQ Android app's code.
   integration, which was removed in 2023, and other MyQ custom integrations. It
   replaces any of them installed in `custom_components/myq`. Entries the removed
   integration left behind fail to set up with a message to delete them.
-- Signing in has not worked yet; see the [sign-in guide](https://github.com/kedube/ha-myq/blob/main/docs/sign-in.md#what-is-known).
+- Signing in has not worked yet; see the [sign-in guide](https://github.com/kedube/ha-myq/blob/main/docs/sign-in.md).

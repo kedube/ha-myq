@@ -54,7 +54,7 @@ from .const import (
     DOMAIN,
     MIN_POLL_INTERVAL,
 )
-from .device_registry import async_merge_opener_gateway
+from .device_registry import async_merge_opener_gateway, find_device
 from .exceptions import myq_error, translation
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,13 +74,19 @@ ACCESS_TTL = 1800  # Roles gate entity availability only; every write re-reads t
 ACCESSORY_TTL = 300  # Only while an accessory battery sensor is enabled (off by default).
 ALERTS_TTL = 1800
 CAMERA_TTL = 900  # Status pushes re-read a camera when it reports a change.
+# When a re-read fails, the last details are kept this long after the last good read.
+CAMERA_STALE_SECONDS = 2 * CAMERA_TTL
 CAMERA_PUSH_COOLDOWN = 60
 # The app fetches the accounts list when it starts or the account changes (fn0/a), not
 # on every poll; a failed device read fetches it again.
 ACCOUNTS_TTL = 6 * 3600
 MISSING_POLLS_BEFORE_REMOVAL = 3
-# Errors that prove MyQ did not act on a command: refused, unauthorized or never sent.
-NOT_EXECUTED = (CommandRejected, AccessDenied, SessionRenewalFailed)
+# A door clip can be uploaded some minutes after the door moved; until then its history
+# entry is looked for again on each poll.
+DOOR_CLIP_SETTLE = 600
+# Errors that prove MyQ did not act on a command: refused, unauthorized, rate limited
+# (an HTTP 429, or a request held back locally during a cooldown) or never sent.
+NOT_EXECUTED = (CommandRejected, AccessDenied, SessionRenewalFailed, RateLimited)
 _TARGETS = {"opening": "open", "closing": "closed", "locking": "locked", "unlocking": "unlocked"}
 
 
@@ -170,14 +176,21 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         self.history = History(client)
         self.alerts = Alerts(client)
         self._history_devices: set[str] = set()
+        # Door key -> (its door-event IDs when last read, their clip links).
+        self._clip_links: dict[str, tuple[tuple[str, ...], dict[str, str]]] = {}
         self._alerts_cache: dict[str, tuple[float, tuple[AlertRule, ...]]] = {}
         self.live_sessions: dict[str, Any] = {}
+        # Device key -> the TC camera's local stream source, for diagnostics.
+        self.video_sources: dict[str, Any] = {}
         self._tracked_accessories: set[str] = set()
         self._accessory_cache: dict[str, tuple[float, tuple[Accessory, ...]]] = {}
         self._access_cache: tuple[float, dict[str, AccountAccess]] | None = None
         self.status_monitor = CameraStatusMonitor(client, self._status_changed, self._status_error)
         self.camera_commands = CameraCommands(
-            client, self.status_monitor, lambda key: self.live_sessions.get(key)
+            client,
+            self.status_monitor,
+            lambda key: self.live_sessions.get(key),
+            lambda key: getattr(self.video_sources.get(key), "session", None),
         )
         self._status_started = False
         self._live_owners: set[object] = set()
@@ -188,6 +201,12 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         # Monotonic times, which count from boot: "never" must be -inf, not 0.0, or a
         # host up for less than a TTL would treat data it never read as fresh.
         self._camera_read_at: dict[str, float] = {}
+        # When each camera was last read successfully; unlike the above, never cleared.
+        self._camera_ok_at: dict[str, float] = {}
+        # Counts cache invalidations, so a read that began before one is not kept.
+        self._cache_generation = 0
+        # Camera details a status push read while a poll was running: device key -> details.
+        self._pushed: dict[str, dict[str, Any]] = {}
         self._accounts_read_at = -math.inf
         self._last_full = -math.inf
         self._transitions: set[tuple[str, str]] = set()
@@ -201,6 +220,7 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
 
     async def _async_update_data(self) -> Snapshot:
         now = time.monotonic()
+        self._pushed.clear()
         try:
             accounts = self._tracked_accounts()
             if (
@@ -216,6 +236,13 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
             # Never keep polling quickly into an outage, quota or reauthentication.
             self._stop_tracking()
             raise
+        # A status push that re-read a camera while this poll ran is newer than the
+        # details the poll carried over from before it started.
+        for key, details in self._pushed.items():
+            if key in snapshot.devices:
+                snapshot.cameras[key] = details
+                snapshot.camera_errors.pop(key, None)
+        self._pushed.clear()
         self._adjust_poll_rate(snapshot)
         return snapshot
 
@@ -309,22 +336,27 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
                 if not device.is_camera or not device.online:
                     continue
                 if camera_limited:
-                    snapshot.camera_errors[device.key] = "RateLimited"
+                    self._camera_read_failed(snapshot, previous, device.key, "RateLimited")
                     continue
                 read_at = self._camera_read_at.get(device.key, -math.inf)
                 if device.key in previous and time.monotonic() - read_at < CAMERA_TTL:
                     snapshot.cameras[device.key] = previous[device.key]
                     continue
                 try:
+                    generation = self._cache_generation
                     snapshot.cameras[device.key] = await self.video.details(device)
-                    self._camera_read_at[device.key] = time.monotonic()
+                    self._pushed.pop(device.key, None)
+                    self._camera_ok_at[device.key] = time.monotonic()
+                    # Read while a command was changing things: use it, but read again.
+                    if generation == self._cache_generation:
+                        self._camera_read_at[device.key] = self._camera_ok_at[device.key]
                 except AuthenticationError as err:
                     raise self._auth_failed(err) from err
                 except RateLimited:
                     camera_limited = True
-                    snapshot.camera_errors[device.key] = "RateLimited"
+                    self._camera_read_failed(snapshot, previous, device.key, "RateLimited")
                 except MyQError as err:
-                    snapshot.camera_errors[device.key] = type(err).__name__
+                    self._camera_read_failed(snapshot, previous, device.key, type(err).__name__)
         await self._read_accessories(snapshot)
         await self._read_history(snapshot)
         await self._read_alerts(snapshot)
@@ -332,11 +364,26 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         self._prune_devices(snapshot)
         return snapshot
 
+    def _camera_read_failed(
+        self, snapshot: Snapshot, previous: dict[str, dict[str, Any]], key: str, error: str
+    ) -> None:
+        """Record a failed camera read, keeping recent details for the next attempt.
+
+        One failed read (a timeout, a rate limit) says nothing about the camera: its
+        entities and any video that is playing keep the last details. Every full poll
+        tries again, and details older than CAMERA_STALE_SECONDS are dropped.
+        """
+        snapshot.camera_errors[key] = error
+        read_at = self._camera_ok_at.get(key, -math.inf)
+        if key in previous and time.monotonic() - read_at < CAMERA_STALE_SECONDS:
+            snapshot.cameras[key] = previous[key]
+
     async def _read_account_access(self, snapshot: Snapshot) -> None:
         cached = self._access_cache
         if cached is not None and time.monotonic() - cached[0] < ACCESS_TTL:
             snapshot.account_access = cached[1]
             return
+        generation = self._cache_generation
         try:
             access = await self.management.account_access()
         except AuthenticationError as err:
@@ -348,7 +395,8 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
             snapshot.account_access_error = type(err).__name__
             snapshot.account_access = self.management.owner_access()
             return
-        self._access_cache = time.monotonic(), access
+        if generation == self._cache_generation:
+            self._access_cache = time.monotonic(), access
         snapshot.account_access = access
 
     async def _read_accessories(self, snapshot: Snapshot) -> None:
@@ -448,10 +496,30 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
     async def _link_door_clips(self, snapshot: Snapshot, doors: list[Device]) -> bool:
         """One clip read per followed opener with a camera. False stops on a rate limit."""
         for door in doors:
-            try:
-                snapshot.history_clips.update(
-                    await self.door_clip_links(door, snapshot.history.get(door.key, ()))
+            events = snapshot.history.get(door.key, ())
+            moves = [event for event in events if event.device_event in {"open", "closed"}]
+            ids = tuple(event.id for event in moves)
+            cached = self._clip_links.get(door.key)
+            # The same door events as last time: read again only while a clip may
+            # still be on its way for a recent one that has none yet.
+            if (
+                cached is not None
+                and cached[0] == ids
+                and (
+                    all(event.id in cached[1] for event in moves)
+                    or all(
+                        (dt_util.utcnow() - event.timestamp).total_seconds() > DOOR_CLIP_SETTLE
+                        for event in moves
+                        if event.id not in cached[1]
+                    )
                 )
+            ):
+                snapshot.history_clips.update(cached[1])
+                continue
+            try:
+                links = await self.door_clip_links(door, events)
+                self._clip_links[door.key] = ids, links
+                snapshot.history_clips.update(links)
             except AuthenticationError as err:
                 raise self._auth_failed(err) from err
             except RateLimited:
@@ -508,10 +576,10 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
             if not camera.is_camera:
                 continue
             opener = camera_opener(camera, self.data.devices)
-            camera_entry = registry.async_get_device(identifiers={(DOMAIN, camera.key)})
+            camera_entry = find_device(registry, self.config_entry.entry_id, camera.key)
             if opener is None or camera_entry is None:
                 continue
-            opener_entry = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+            opener_entry = find_device(registry, self.config_entry.entry_id, opener.key)
             if opener_entry is not None and camera_entry.via_device_id != opener_entry.id:
                 registry.async_update_device(camera_entry.id, via_device_id=opener_entry.id)
 
@@ -533,6 +601,8 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
             return (await self.alerts.rule(device, rule_id)).enabled is enabled
 
         await self.management._confirm(confirmed)
+        # A poll during the confirmation may have cached the rules from before it.
+        self._alerts_cache.pop(device.account_id, None)
 
     @callback
     def _prune_devices(self, snapshot: Snapshot) -> None:
@@ -644,7 +714,8 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
             return
         try:
             details = await self.video.details(device)
-            self._camera_read_at[key] = time.monotonic()
+            self._camera_read_at[key] = self._camera_ok_at[key] = time.monotonic()
+            self._pushed[key] = details
         except AuthenticationError:
             self.status_monitor.update_aliases(set())
             self.config_entry.async_start_reauth(self.hass)
@@ -730,6 +801,28 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
     def invalidate_accessories(self, device: Device) -> None:
         self._accessory_cache.pop(device.key, None)
 
+    @callback
+    def _invalidate(self) -> None:
+        self._cache_generation += 1
+        self._access_cache = None
+        self._camera_read_at.clear()
+
+    async def query(self, operation: Awaitable[Any]) -> Any:
+        """Run a cloud operation that changes nothing this integration polls.
+
+        For reads (history, alert rules, guests) and camera movements. Errors are
+        translated and reauthentication starts as in execute(), but no cache is
+        dropped and no poll follows.
+        """
+        try:
+            return await operation
+        except AuthenticationError as err:
+            self.status_monitor.update_aliases(set())
+            self.config_entry.async_start_reauth(self.hass)
+            raise myq_error(err) from err
+        except MyQError as err:
+            raise myq_error(err) from err
+
     async def execute(
         self,
         operation: Awaitable[Any],
@@ -744,10 +837,14 @@ class MyQCoordinator(DataUpdateCoordinator[Snapshot]):
         """
         # A command result, or a rejection, can follow a permission change, and a camera
         # setting change shows only in fresh camera details.
-        self._access_cache = None
-        self._camera_read_at.clear()
+        self._invalidate()
         try:
-            result = await operation
+            try:
+                result = await operation
+            finally:
+                # A poll that ran while the command was in progress (a camera can take
+                # 15 seconds to wake) cached what it read before the change.
+                self._invalidate()
         except AuthenticationError as err:
             # Raised only when MyQ ended the session at the token endpoint; a 401 on
             # the command itself was already renewed and resent once by the client.

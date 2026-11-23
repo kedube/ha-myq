@@ -174,6 +174,8 @@ def _candidate(data: dict) -> dict:
 
 def _event(message: str) -> dict | None:
     """Decode the AWS envelope without surfacing server bodies or peer details."""
+    if not message.strip():
+        return None  # An empty frame carries nothing; AWS's own clients skip it.
     try:
         if len(message) > MAX_MESSAGE:
             raise ValueError
@@ -227,12 +229,15 @@ class KvsSession:
             raise CannotConnect("MyQ video signaling session cannot be reopened")
         self.config.ensure_fresh()
         attempted = False
+        # Compared as URLs: the same address may be written without a path, or with
+        # the default port, which the HTTP client normalises before sending.
+        expected = URL(self.config.url, encoded=True)
 
         async def guard(request, handler):
             nonlocal attempted
             # aiohttp's websocket API has no allow_redirects argument. Reject the
             # redirect response before its HTTP client can follow Location.
-            if str(request.url) != self.config.url:
+            if request.url != expected:
                 raise ProtocolError("MyQ video signaling URL changed")
             if attempted:
                 raise CannotConnect("MyQ video signaling handshake replay was blocked")

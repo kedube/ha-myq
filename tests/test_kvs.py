@@ -329,3 +329,38 @@ async def test_bad_remote_message_fails_safely_and_closes(
             assert signaling._session is None
     finally:
         await runner.cleanup()
+
+
+@pytest.mark.parametrize("address", ["?signed=a%2Fb", "/?signed=a%2Fb"])
+async def test_signed_address_without_a_path_is_not_mistaken_for_a_redirect(
+    socket_enabled, tls_server_context, address
+):
+    """The HTTP client writes "host?query" as "host/?query"; that is the same address."""
+    raw_urls = []
+
+    async def handler(request):
+        raw_urls.append(request.raw_path)
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        async for _ in ws:
+            pass
+        return ws
+
+    runner, base = await local_server(handler, tls_server_context)
+    try:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as shared:
+            signaling = KvsSession(shared, KvsConfig(base + address, "us-east-1", ()), AsyncMock())
+            await signaling.open()
+            await signaling.close()
+        # What was signed is what was sent.
+        assert raw_urls == ["/?signed=a%2Fb"]
+    finally:
+        await runner.cleanup()
+
+
+def test_empty_signaling_frame_is_skipped():
+    from custom_components.myq.api.kvs import _event
+
+    assert _event("") is None and _event(" \r\n") is None
+    with pytest.raises(ProtocolError):
+        _event("not-json")

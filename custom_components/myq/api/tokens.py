@@ -11,12 +11,13 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
 from .app_check import AppCheckProof, validate_app_check_token
-from .const import CLIENT_ID, IDENTITY, NATIVE_HEADERS, REDIRECT_URI, SCOPE
+from .const import CLIENT_ID, IDENTITY, NATIVE_HEADERS, REDIRECT_URI, SCOPE, TIMEOUT
 from .errors import (
     ApplicationVerificationError,
     AuthenticationError,
     MyQError,
     ProtocolError,
+    RequestUnauthorized,
     SessionRenewalFailed,
 )
 from .http import HttpTransport, Response, check_status
@@ -45,24 +46,18 @@ LEGACY_MARGIN = 60.0
 # then code). ft0/g1 and ft0/c1 also sign out when the refresh fails with code 400.
 SESSION_ENDED_ERRORS = frozenset({"invalid_grant"})
 SESSION_ENDED_CODES = frozenset({"401.102", "400"})
+# A renewal that just failed is not sent again this soon: every caller waiting behind
+# it, and the next few requests, get the same answer instead of their own attempt.
+RENEWAL_RETRY_SECONDS = 30.0
+# A token MyQ issued this recently is not renewed again because one request was
+# answered 401: that answer is about the request. Without this, one endpoint that
+# always answers 401 would rotate the session, and rewrite the entry, on every poll.
+MIN_FORCED_RENEWAL = 300.0
 TOKEN_URL = IDENTITY + "/connect/token"
 # ip0/s.h, ip0/k.N: sign-out revocation.
 REVOCATION_URL = IDENTITY + "/connect/revocation"
 
 Grant = Literal["code", "refresh"]
-
-
-async def _complete_despite_cancellation[T](operation: Coroutine[Any, Any, T]) -> T:
-    """Finish token I/O even when the awaiting caller is cancelled.
-
-    A sent exchange consumes its authorization code or rotating refresh token
-    server-side, and only its response carries the replacement. A caller's timeout
-    (camera image, status pause, closed WebRTC offer, shutdown) must not discard it.
-    The task keeps the manager lock until the new tokens are published and persisted.
-    """
-    task = asyncio.create_task(operation)
-    task.add_done_callback(lambda done: done.cancelled() or done.exception())
-    return await asyncio.shield(task)
 
 
 def exchange_diagnostics(response: Response) -> dict[str, str | int | None]:
@@ -85,6 +80,8 @@ def exchange_diagnostics(response: Response) -> dict[str, str | int | None]:
         error, code = data.get("error"), data.get("code")
         if isinstance(error, str) and error in OAUTH_ERRORS:
             summary["oauth_error"] = error
+        if type(code) is int:
+            code = str(code)  # As http.renewable() reads the same field on API answers.
         if isinstance(code, str) and code in MYQ_CODES:
             summary["myq_code"] = code
     return summary
@@ -96,7 +93,7 @@ def _lifetime(value: Any) -> float:
         return DEFAULT_LIFETIME
     try:
         lifetime = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return DEFAULT_LIFETIME
     if not math.isfinite(lifetime) or lifetime <= 0:
         return DEFAULT_LIFETIME
@@ -152,6 +149,31 @@ class TokenManager:
         self.on_update = on_update
         self.last_exchange: dict[str, str | int | bool | None] | None = None
         self._lock = asyncio.Lock()
+        # Token I/O in flight. The set keeps each task alive after its caller is gone.
+        self._inflight: set[asyncio.Task[Any]] = set()
+        # The last failed renewal: (monotonic time, the refresh token sent, the error).
+        self._failure: tuple[float, str, MyQError] | None = None
+        self._renewed_at = -math.inf  # Monotonic time this manager last got new tokens.
+
+    async def _complete_despite_cancellation[T](self, operation: Coroutine[Any, Any, T]) -> T:
+        """Finish token I/O even when the awaiting caller is cancelled.
+
+        A sent exchange consumes its authorization code or rotating refresh token
+        server-side, and only its response carries the replacement. A caller's timeout
+        (camera image, status pause, closed WebRTC offer, shutdown) must not discard it.
+        The task keeps the manager lock until the new tokens are published and persisted.
+        """
+        task = asyncio.create_task(operation)
+        self._inflight.add(task)
+        task.add_done_callback(self._inflight.discard)
+        task.add_done_callback(lambda done: done.cancelled() or done.exception())
+        return await asyncio.shield(task)
+
+    async def drain(self) -> None:
+        """Wait for token I/O already sent, so closing the transport cannot lose it."""
+        if self._inflight:
+            # Each request is itself bounded by the network timeout.
+            await asyncio.wait(set(self._inflight), timeout=TIMEOUT + 5)
 
     async def _exchange(
         self,
@@ -181,6 +203,8 @@ class TokenManager:
         tokens = Tokens.from_response(response.json(), previous)
         # Publish the rotation before any other coroutine can use the old token.
         self.tokens = tokens
+        self._renewed_at = time.monotonic()
+        self._failure = None
         if self.on_update:
             await self.on_update(tokens)
         return tokens
@@ -237,33 +261,55 @@ class TokenManager:
                     grant="code",
                 )
 
-        return await _complete_despite_cancellation(exchange())
+        return await self._complete_despite_cancellation(exchange())
 
-    async def access_token(self, rejected_token: str | None = None) -> str:
-        return await _complete_despite_cancellation(self._access_token(rejected_token))
+    async def access_token(self, rejected_token: str | None = None, *, force: bool = False) -> str:
+        """A current access token, renewing first when it is due or was rejected.
 
-    async def _access_token(self, rejected_token: str | None) -> str:
+        ``rejected_token`` is the token a request was just answered 401 with. ``force``
+        renews it even though MyQ only just issued it (an explicit session check).
+        """
+        return await self._complete_despite_cancellation(self._access_token(rejected_token, force))
+
+    async def _access_token(self, rejected_token: str | None, force: bool) -> str:
         async with self._lock:
             tokens = self.tokens
             if tokens is None:
                 raise AuthenticationError("Sign in to MyQ first")
-            if tokens.renew_at > time.time() and tokens.access_token != rejected_token:
-                return tokens.access_token
+            due = tokens.renew_at <= time.time()
             # A concurrent request may already have rotated the rejected token.
+            if not due and tokens.access_token != rejected_token:
+                return tokens.access_token
+            if not due and not force and time.monotonic() - self._renewed_at < MIN_FORCED_RENEWAL:
+                raise RequestUnauthorized()
+            failure = self._failure
+            if failure is not None and failure[1] == tokens.refresh_token:
+                # MyQ ended the session: this refresh token is never sent again. Any
+                # other failure is shared by the callers queued behind it.
+                if (
+                    isinstance(failure[2], AuthenticationError)
+                    or time.monotonic() - failure[0] < RENEWAL_RETRY_SECONDS
+                ):
+                    raise failure[2].with_traceback(None)
             headers = {"IsRefresh": "true"}
             if tokens.access_token:
                 # ft0/i0 adds the stored access token to every request it sees,
                 # including the refresh that MyQOAuthInterceptor (ft0/t0) builds.
                 headers["Authorization"] = "Bearer " + tokens.access_token
-            tokens = await self._exchange(
-                {
-                    "client_id": CLIENT_ID,
-                    "grant_type": "refresh_token",
-                    "refresh_token": tokens.refresh_token,
-                },
-                headers,
-                grant="refresh",
-            )
+            sent = tokens.refresh_token
+            try:
+                tokens = await self._exchange(
+                    {
+                        "client_id": CLIENT_ID,
+                        "grant_type": "refresh_token",
+                        "refresh_token": sent,
+                    },
+                    headers,
+                    grant="refresh",
+                )
+            except MyQError as error:
+                self._failure = (time.monotonic(), sent, error)
+                raise
             return tokens.access_token
 
     async def revoke(self) -> bool:
@@ -301,4 +347,4 @@ class TokenManager:
                 self.tokens = None
                 return True
 
-        return await _complete_despite_cancellation(send())
+        return await self._complete_despite_cancellation(send())

@@ -183,3 +183,48 @@ async def test_tend_access_denial_waits_for_the_maximum_backoff(monitor, monkeyp
     async with asyncio.timeout(1):
         await backed_off.wait()
     assert delays == [status.MAX_RECONNECT_SECONDS]
+
+
+async def test_reconnect_pause_resets_after_a_session_that_worked(monitor, monkeypatch):
+    """Each drop of a healthy connection used to double the pause for good."""
+    subject, connected, _instances, _changes, client = monitor
+    client.auth.access_token = AsyncMock(return_value="token")
+    delays = []
+    sleep = asyncio.sleep
+
+    async def record(seconds):
+        delays.append(seconds)
+        await sleep(0)
+
+    monkeypatch.setattr(status.asyncio, "sleep", record)
+    subject.update_aliases({"camera"})
+    await subject.start()
+    for _ in range(4):
+        async with asyncio.timeout(1):
+            session = await connected.get()  # Logged in, and served for a while.
+        session.ended.set()  # Then the service drops the idle connection.
+    async with asyncio.timeout(1):
+        await connected.get()
+    await subject.close()
+    assert delays[:4] == [status.MIN_RECONNECT_SECONDS] * 4
+
+
+async def test_defect_in_the_status_connection_is_logged_not_swallowed(monkeypatch, caplog):
+    class Broken:
+        def __init__(self, aliases, on_status):
+            raise RuntimeError("a defect")
+
+    reported = AsyncMock()
+    monkeypatch.setattr(status, "TendStatusSession", Broken)
+    client = MagicMock()
+    client.auth.access_token = AsyncMock(return_value="token")
+    subject = status.CameraStatusMonitor(client, lambda alias: None, reported)
+    subject.update_aliases({"camera"})
+    await subject.start()
+    async with asyncio.timeout(1):
+        while not reported.await_count:  # noqa: ASYNC110
+            await asyncio.sleep(0.005)
+    await subject.close()
+    assert "Unexpected error in the camera status connection" in caplog.text
+    assert "RuntimeError: a defect" in caplog.text
+    assert subject.last_error == "Tend camera status connection failed"

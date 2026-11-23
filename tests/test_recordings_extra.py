@@ -1,5 +1,6 @@
 """App-matched recordings: lenient lists, door clips, thumbnails, MP4 fallback, proxy limits."""
 
+import base64
 from types import SimpleNamespace
 
 import aiohttp
@@ -308,7 +309,12 @@ async def test_grant_expiry_slides_within_an_absolute_bound(http, tokens, monkey
 
 
 async def test_thumbnail_prefers_the_advertised_pattern(http, tokens, camera_device):
-    http.request.side_effect = [json_response(info(thumbnail=True)), Response(200, {}, JPEG)]
+    # The event is first confirmed to be this camera's, as it was not listed here.
+    http.request.side_effect = [
+        json_response(event()),
+        json_response(info(thumbnail=True)),
+        Response(200, {}, JPEG),
+    ]
     body, kind = await api(http, tokens).thumbnail(camera_device, "event-1")
     assert (body, kind) == (JPEG, "image/jpeg")
     assert http.request.await_args.args == ("GET", VIDEO + EVENTS + "/event-1/media/thumb.jpg")
@@ -316,7 +322,11 @@ async def test_thumbnail_prefers_the_advertised_pattern(http, tokens, camera_dev
 
 
 async def test_thumbnail_falls_back_to_the_event_route(http, tokens, camera_device):
-    http.request.side_effect = [json_response(info()), Response(200, {}, b"\x89PNG\r\n\x1a\nimg")]
+    http.request.side_effect = [
+        json_response(event()),
+        json_response(info()),
+        Response(200, {}, b"\x89PNG\r\n\x1a\nimg"),
+    ]
     _, kind = await api(http, tokens).thumbnail(camera_device, "event-1")
     assert kind == "image/png"
     assert http.request.await_args.args == (
@@ -327,9 +337,34 @@ async def test_thumbnail_falls_back_to_the_event_route(http, tokens, camera_devi
 
 @pytest.mark.parametrize("body", [b"<html>", b"\xff\xd8\xff" + b"x" * (2 * 1024 * 1024)])
 async def test_thumbnail_must_be_a_small_image(http, tokens, camera_device, body):
-    http.request.side_effect = [json_response(info()), Response(200, {}, body)]
+    http.request.side_effect = [
+        json_response(event()),
+        json_response(info()),
+        Response(200, {}, body),
+    ]
     with pytest.raises(ProtocolError):
         await api(http, tokens).thumbnail(camera_device, "event-1")
+
+
+async def test_thumbnail_is_served_only_for_an_event_of_the_selected_camera(
+    http, tokens, camera_device
+):
+    recordings = api(http, tokens)
+    # An event MyQ listed for this camera needs no further check: one request each
+    # for the list, the media information and the picture.
+    http.request.side_effect = [
+        json_response({"items": [event("listed")]}),
+        json_response(info()),
+        Response(200, {}, JPEG),
+    ]
+    await recordings.page(camera_device)
+    assert (await recordings.thumbnail(camera_device, "listed"))[1] == "image/jpeg"
+    assert http.request.await_count == 3
+    # Any other event ID is confirmed first, and refused when it is another camera's.
+    http.request.side_effect = [json_response(event("elsewhere", srcId="OTHER-CAMERA"))]
+    with pytest.raises(AccessDenied):
+        await recordings.thumbnail(camera_device, "elsewhere")
+    assert http.request.await_count == 4  # The picture was never requested.
 
 
 # --- Home Assistant media source ----------------------------------------------------------
@@ -509,3 +544,50 @@ def test_status_values_match_the_app_enum():
         "DELETED",
     }
     assert rec.DOOR_TAG == "accessEventID*"
+
+
+# --- Input that used to escape as a bare Python error ---------------------------------------
+
+
+async def test_absurd_numbers_in_one_row_do_not_fail_the_page(http, tokens, camera_device):
+    """math.isfinite() raises on an integer too large for a float."""
+    http.request.return_value = json_response(
+        {
+            "items": [
+                event("huge", duration=10**400, tags={"peopleCount": 10**400}),
+                event("normal", duration=12),
+            ]
+        }
+    )
+    page = await api(http, tokens).page(camera_device)
+    assert {item.id for item in page.items} >= {"normal"}
+    assert next(item for item in page.items if item.id == "normal").duration == 12
+
+
+async def test_hostile_page_cursor_and_redirect_are_protocol_errors(http, tokens, camera_device):
+    from custom_components.myq.api.recordings import _parse_cursor, fetch_media
+
+    nested = base64.urlsafe_b64encode(b"[" * 100_000).decode().rstrip("=")
+    with pytest.raises(ProtocolError, match="recording page"):
+        _parse_cursor(nested)
+    url = VIDEO + EVENTS + "/event-1/media/video.m3u8"
+    http.request.return_value = Response(302, {"Location": "https://[not-an-address"}, b"")
+    with pytest.raises(ProtocolError, match="redirect"):
+        await fetch_media(Client(transport=http, tokens=tokens), url, "event-1")
+
+
+def test_playlist_longer_than_the_limit_fails_instead_of_playing_short(http, tokens):
+    base = VIDEO + EVENTS + "/event-1/media/video.m3u8"
+    playback = Playback(Client(transport=http, tokens=tokens), "event-1", base)
+    segments = "".join(f"#EXTINF:2,\nsegment-{index}.ts\n" for index in range(600))
+    manifest = ("#EXTM3U\n" + segments + "#EXT-X-ENDLIST\n").encode()
+    with pytest.raises(ProtocolError, match="HLS playlist"):
+        playback.rewrite_manifest(manifest, base, lambda key: "/ha/" + key)
+
+
+def test_whitespace_line_in_a_playlist_is_not_an_address(http, tokens):
+    base = VIDEO + EVENTS + "/event-1/media/video.m3u8"
+    playback = Playback(Client(transport=http, tokens=tokens), "event-1", base)
+    manifest = b"#EXTM3U\n#EXTINF:1,\nsegment.ts\n   \n#EXT-X-ENDLIST\n"
+    result = playback.rewrite_manifest(manifest, base, lambda key: "/ha/" + key).decode()
+    assert result.count("/ha/") == 1 and "/ha/0" not in result

@@ -16,6 +16,7 @@ HOST = "server.seedonk.com"
 PORT = 5104
 HANDSHAKE_TIMEOUT = 5
 LOGIN_TIMEOUT = 15
+MAX_LOGIN_FRAMES = 5
 KEEPALIVE_INTERVAL = 35
 MAX_NAKS = 10  # ConnectionManager.run: "more than 10 consecutive NAKs"
 MAX_FRAME_DATA = 1_024_000
@@ -23,12 +24,24 @@ _HEADER = struct.Struct("<BBHHBIHHH2sQ")
 _tls_context: ssl.SSLContext | None = None
 
 
+def _build_tls_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    try:
+        # Home Assistant ships certifi; a host without a system CA store still verifies.
+        import certifi
+
+        context.load_verify_locations(cafile=certifi.where())
+    except (ImportError, OSError, ssl.SSLError):
+        pass
+    return context
+
+
 async def _client_tls_context() -> ssl.SSLContext:
     """Load the CA store once, off the event loop, and reuse it for every session."""
     global _tls_context
     if _tls_context is None:
         # Concurrent first callers may each build one; any of them is equivalent.
-        _tls_context = await asyncio.to_thread(ssl.create_default_context)
+        _tls_context = await asyncio.to_thread(_build_tls_context)
     return _tls_context
 
 
@@ -130,7 +143,9 @@ def parse_properties(payload: bytes) -> dict[str, str]:
 
     result = {}
     pending = ""
-    for line in payload.decode("iso-8859-1").splitlines():
+    # Java ends a line at \n, \r or \r\n only; str.splitlines() would also cut values
+    # at form feeds, U+0085 and other separators.
+    for line in re.split(r"\r\n|\r|\n", payload.decode("iso-8859-1")):
         line = pending + line.lstrip(" \t\f")
         if (len(line) - len(line.rstrip("\\"))) % 2:
             pending = line[:-1]
@@ -167,11 +182,16 @@ def _alias(value: Any) -> str:
 
 def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tuple[str, int] | None:
     """Honor only observed hub/datacenter redirects within Tend's DNS domains."""
-    if response.action == 519 and "redirectHost" in login and "alias" not in login:
+    # The front door answers "1=<address>:<port>" and "redirectHost=<broker name>";
+    # an answer that carries a session is never a redirect.
+    session = bool(login.keys() & {"alias", "sid", "session-id"})
+    if response.action == 519 and "redirectHost" in login and not session:
         host, port = login["redirectHost"], current_port
-    elif response.action == 519 and "1" in login:
+    elif response.action == 519 and "1" in login and not session:
         parts = login["1"].split(":")
-        if len(parts) != 2 or not parts[1].isdigit() or not 1 <= int(parts[1]) <= 65535:
+        # isdigit() alone also accepts digits int() cannot read, such as "²".
+        port_text = parts[1] if len(parts) == 2 else ""
+        if not (port_text.isascii() and port_text.isdigit()) or not 1 <= int(port_text) <= 65535:
             raise ProtocolError("Invalid Tend hub redirect")
         host, port = parts[0], current_port  # The hub's port is the plaintext port.
     elif response.action == 1 and response.options == struct.pack("<I", 533):
@@ -179,7 +199,7 @@ def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tupl
             login = parse_properties(response.data.replace(b"&", b"\n"))
         host = login.get("host", "")
         port_text = login.get("sslPort", "")
-        if not port_text.isdigit() or not 1 <= int(port_text) <= 65535:
+        if not (port_text.isascii() and port_text.isdigit()) or not 1 <= int(port_text) <= 65535:
             raise ProtocolError("Invalid Tend datacenter redirect")
         port = int(port_text)
     else:
@@ -200,13 +220,20 @@ def _redirect(response: Frame, login: dict[str, str], current_port: int) -> tupl
     return host, port
 
 
+def _text(data: bytes) -> str:
+    return data.decode("utf-8", "replace")
+
+
 def _messages(response: Frame) -> list[str]:
-    """Decode the SDK's direct messages and action-501 batched push records."""
+    """Decode the SDK's direct messages and action-501 batched push records.
+
+    Not every broker push is text. Bytes that are not UTF-8 are replaced, so such a
+    push matches no command instead of ending the session.
+    """
     if response.action == 438:
         recipient = str(response.recipient) if response.recipient else "0" * 32
-        return [
-            f"videomid|system(-1)|{recipient}|{response.options.decode('utf-8')}|{response.data.decode('utf-8')}|"
-        ]
+        options = response.options.decode("utf-8", "replace")
+        return [f"videomid|system(-1)|{recipient}|{options}|{_text(response.data)}|"]
     if response.action == 501:
         messages = []
         offset = 0
@@ -219,12 +246,12 @@ def _messages(response: Frame) -> list[str]:
             if kind not in (0, 1) or length > len(response.data) - offset:
                 raise ProtocolError("Invalid Tend push record")
             if kind == 0:
-                messages.append(response.data[offset : offset + length].decode("utf-8"))
+                messages.append(_text(response.data[offset : offset + length]))
             offset += length
         return messages
     if response.action in (410, 413, 414, 503, 506, 2003):
         return []  # Binary and legacy media payloads are not command strings.
-    return [response.data.decode("utf-8")] if response.data else []
+    return [_text(response.data)] if response.data else []
 
 
 class TendSession:
@@ -237,7 +264,6 @@ class TendSession:
         self._recipient = 0
         self._device_alias = ""
         self._user_alias = ""
-        self._login_inventory = ""
         self._video_mode = 12
         self._video_alias = ""
         self._requested = False
@@ -339,11 +365,16 @@ class TendSession:
 
     async def _connect(self, host: str, port: int) -> None:
         context = await _client_tls_context()
+        # The front door redirects each login to a broker (bNNN.broker.tend-us...), and
+        # every broker presents the front door's own certificate, which names only
+        # server.seedonk.com and server.tend-us.tendplatform.com. Checking a broker
+        # against its own host name therefore always fails; whichever host answers
+        # must prove it holds the front door's certificate instead.
         self._reader, self._writer = await asyncio.open_connection(
             host,
             port,
             ssl=context,
-            server_hostname=host,
+            server_hostname=HOST,
             ssl_handshake_timeout=LOGIN_TIMEOUT,
         )
 
@@ -366,6 +397,29 @@ class TendSession:
             data=command.encode("utf-8"),
         )
 
+    def _client_properties(self, access_token: str) -> dict[str, str]:
+        return {
+            "CX_UNAME": "",
+            "CX_PASSWD": "myQ.accessToken:" + access_token,
+            "os_name": "Android",
+            "os_version": "17",
+            "partner-id": "myQ",
+            "sdk_version": "6.0.11698",
+            "current_version": "5.324.0.1132442",
+            "app-id": "com.chamberlain.android.liftmaster.myq",
+        }
+
+    async def _login_reply(self) -> tuple[Frame, dict[str, str]]:
+        """The login's answer; a broker may push unrelated frames ahead of it."""
+        for _ in range(MAX_LOGIN_FRAMES):
+            response = await self._read_frame()
+            if response.action in (1, 519):
+                return response, parse_properties(response.data)
+        raise ProtocolError("Unexpected Tend login response")
+
+    def _logged_in(self, login: dict[str, str]) -> None:
+        self._user_alias = _alias(login.get("alias"))
+
     async def _login(self, access_token: str) -> None:
         """The native IM login precedes both status listening and live-view requests."""
         async with asyncio.timeout(LOGIN_TIMEOUT):
@@ -374,22 +428,10 @@ class TendSession:
                 await self._connect(host, port)
                 await self._send(
                     519,
-                    options=properties(
-                        {
-                            "CX_UNAME": "",
-                            "CX_PASSWD": "myQ.accessToken:" + access_token,
-                            "os_name": "Android",
-                            "os_version": "17",
-                            "partner-id": "myQ",
-                            "sdk_version": "6.0.11698",
-                            "current_version": "5.324.0.1132442",
-                            "app-id": "com.chamberlain.android.liftmaster.myq",
-                        }
-                    ),
+                    options=properties(self._client_properties(access_token)),
                     data=properties({"CX_UNAME": "", "mode": "0"}),
                 )
-                response = await self._read_frame()
-                login = parse_properties(response.data)
+                response, login = await self._login_reply()
                 redirect = _redirect(response, login, port)
                 if redirect is None:
                     break
@@ -399,13 +441,9 @@ class TendSession:
                 host, port = redirect
             if response.action == 1:
                 raise AccessDenied("Tend camera login was rejected")
-            if response.action != 519:
-                raise ProtocolError("Unexpected Tend login response")
             self._sender, self._recipient = response.sender, response.recipient
             self._authenticated = True
-            self._user_alias = _alias(login.get("alias"))
-            if self._video_mode == 9:
-                self._login_inventory = login.get("device-info-list", "")
+            self._logged_in(login)
 
     async def _read_frame(self) -> Frame:
         if self._reader is None:
@@ -579,7 +617,6 @@ class TendSession:
                 await self._close_socket()
         if self._closed is not None and not self._closed.done():
             self._closed.set_result(None)
-        self._login_inventory = ""
 
     async def _close_socket(self) -> None:
         writer, self._writer = self._writer, None

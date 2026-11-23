@@ -1,8 +1,8 @@
 """Password and interactive MFA over the app's hosted OAuth form flow.
 
-The unified flow handles credentials, MFA and consent before completing OAuth.
-See docs/research/android-request-profile.md for behavioral evidence. An ordinary
-website landing page never counts as an API session.
+The unified flow handles credentials, MFA and consent before completing OAuth
+(see docs/api.md, Authentication). An ordinary website landing page never counts
+as an API session.
 """
 
 from collections.abc import Callable
@@ -16,6 +16,18 @@ from .errors import AuthenticationError, ProtocolError, UnsupportedAuthStep
 from .http import HttpTransport, check_status
 from .oauth import DEFAULT_LOCALE, OAuthSession, is_callback
 from .tokens import TokenManager, Tokens
+
+
+def _join(base: str, reference: str) -> str:
+    """urljoin for an address the server supplied: a malformed one is a protocol error.
+
+    urljoin raises ValueError for one such as "https://[x/", which would otherwise
+    leave the sign-in flow as an unhandled error.
+    """
+    try:
+        return urljoin(base, reference)
+    except ValueError:
+        raise ProtocolError("MyQ returned a malformed sign-in address") from None
 
 
 @dataclass(repr=False)
@@ -57,7 +69,7 @@ class Form:
             if match:
                 found.append(name)
         if not found and role == "code":
-            target = urlsplit(urljoin(page_url, self.action)).path.casefold()
+            target = urlsplit(_join(page_url, self.action)).path.casefold()
             if target == "/accountmfa/verifyotp":
                 email = self.identify("email")
                 candidates = [
@@ -105,7 +117,7 @@ class FormParser(HTMLParser):
         ):
             self._errors_tag, self._errors_depth = tag, 1
         if tag == "script" and a.get("src"):
-            src = urlsplit(urljoin(IDENTITY, a["src"]))
+            src = urlsplit(_join(IDENTITY, a["src"]))
             if (
                 src.scheme == "https"
                 and src.netloc == urlsplit(IDENTITY).netloc
@@ -264,7 +276,7 @@ class Login:
                 location = response.header("Location")
                 if not location:
                     raise ProtocolError("MyQ returned an empty sign-in redirect")
-                target = urljoin(url, location)
+                target = _join(url, location)
                 if response.status in {307, 308} and method == "POST":
                     # Replaying a password/OTP POST may duplicate an operation.
                     raise UnsupportedAuthStep("MyQ requires an unsupported form redirect")
@@ -328,7 +340,7 @@ class Login:
     async def _submit(self, form: Form, url: str, values: dict[str, str]) -> list[Form] | Tokens:
         if form.method != "post":
             raise UnsupportedAuthStep("Unsupported MyQ sign-in form method")
-        target = identity_url(urljoin(url, form.action))
+        target = identity_url(_join(url, form.action))
         return await self._navigate("POST", target, form.payload(values))
 
     async def _advance(self, result: list[Form] | Tokens) -> Challenge | Tokens:
@@ -344,12 +356,12 @@ class Login:
                 form
                 for form in result
                 if form.method == "post"
-                and urlsplit(urljoin(self._page_url, form.action)).path.casefold() == "/consent"
+                and urlsplit(_join(self._page_url, form.action)).path.casefold() == "/consent"
             ]
             if len(forms) != 1:
                 raise UnsupportedAuthStep("MyQ returned an unrecognized consent form")
             form = forms[0]
-            target = identity_url(urljoin(self._page_url, form.action))
+            target = identity_url(_join(self._page_url, form.action))
             if form.buttons and ("button", "yes") not in form.buttons:
                 raise UnsupportedAuthStep("MyQ returned an unrecognized consent action")
             # Consent is a one-shot action in this transaction, just like the
@@ -378,7 +390,7 @@ class Login:
                 raise UnsupportedAuthStep(
                     "MyQ consent did not provide an authorization continuation"
                 )
-            resume = identity_url(urljoin(IDENTITY, destinations[0]))
+            resume = identity_url(_join(IDENTITY, destinations[0]))
             parsed = urlsplit(resume)
             if parsed.path != "/connect/authorize/callback" or parsed.fragment:
                 raise ProtocolError("Unexpected consent continuation")

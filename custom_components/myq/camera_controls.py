@@ -110,7 +110,7 @@ class MyQCameraControl(MyQEntity, ButtonEntity):
                     raise CommandRejected("The live camera session ended")
                 await self._dispatch(stream)
 
-        await self.coordinator.execute(operation())
+        await self.coordinator.query(operation())
 
     async def _dispatch(self, stream) -> None:
         if self.feature == "ptz":
@@ -135,7 +135,7 @@ class MyQCameraControl(MyQEntity, ButtonEntity):
             else:
                 await commands.siren(device, details, seconds=10)
 
-        await self.coordinator.execute(operation())
+        await self.coordinator.query(operation())
 
 
 async def _fresh_details(coordinator, device, *, stop: bool = False) -> dict:
@@ -188,4 +188,4 @@ class MyQCameraPreset(MyQEntity, ButtonEntity):
             details = await _fresh_details(self.coordinator, device)
             await self.coordinator.camera_commands.go_to_preset(device, details, self.preset_id)
 
-        await self.coordinator.execute(operation())
+        await self.coordinator.query(operation())

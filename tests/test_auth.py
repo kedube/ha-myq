@@ -241,3 +241,17 @@ async def test_empty_validation_box_does_not_fail_and_wrong_code_can_be_retyped(
 async def test_form_sign_in_sends_the_requested_language(http):
     login = Login(http, AsyncMock(), locale="de-DE")
     assert parse_qs(urlsplit(login.authorize_url).query)["ui_locales"] == ["de-DE"]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        Response(302, {"Location": "https://[partner-identity.myq-cloud.com/x"}, b""),
+        Response(200, {}, PASSWORD_PAGE.replace(b"/Account/LoginWithEmail", b"https://[x/")),
+    ],
+)
+async def test_malformed_address_from_the_sign_in_service_is_a_protocol_error(http, response):
+    """urljoin raises ValueError for these; the flow must end with a MyQ error instead."""
+    http.request.side_effect = [response]
+    with pytest.raises(ProtocolError):
+        await Login(http, AsyncMock()).start("test@example.invalid", "not-a-real-password")

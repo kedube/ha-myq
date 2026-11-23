@@ -5,9 +5,9 @@ import logging
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -70,12 +70,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: MyQConfigEntry) -> bool:
     # One cooldown store per entry for the life of Home Assistant, so a setup retry or
     # reload cannot skip a Retry-After (HA retries setup after 5, 10, 20... seconds).
     backoff = hass.data.setdefault(DOMAIN, {}).setdefault(entry.entry_id, ServiceBackoff())
-    client = Client(
-        async_get_clientsession(hass),
-        Tokens(**entry.data[CONF_TOKENS]),
-        save_tokens,
-        backoff=backoff,
-    )
+    try:
+        tokens = Tokens(**entry.data[CONF_TOKENS])
+    except TypeError as err:
+        # Saved by another version, or edited: only a new sign-in can replace it.
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN,
+            translation_key="session_ended",
+            translation_placeholders={"detail": "The saved MyQ session is unreadable"},
+        ) from err
+    client = Client(async_get_clientsession(hass), tokens, save_tokens, backoff=backoff)
     coordinator = MyQCoordinator(hass, entry, client)
     entry.async_on_unload(client.close)
     coordinator.track_registered_accessories()
@@ -148,5 +152,7 @@ async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: MyQConfigEntry, device: dr.DeviceEntry
 ) -> bool:
     """Allow deleting a device only once MyQ no longer returns it."""
+    if entry.state is not ConfigEntryState.LOADED:
+        return False  # Not signed in or not set up: what MyQ returns is unknown.
     current = entry.runtime_data.data.devices
     return not any(domain == DOMAIN and key in current for domain, key in device.identifiers)

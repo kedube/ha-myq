@@ -2,18 +2,19 @@
 
 import re
 from collections.abc import Callable, Iterable
-from functools import partial
 from typing import Any
 
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo, format_mac
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api.models import Device, nested
 from .const import DOMAIN
 from .coordinator import MyQCoordinator
+from .device_registry import find_device
 
 
 def _text(value: Any) -> str | None:
@@ -25,8 +26,8 @@ def device_info(coordinator: MyQCoordinator, device: Device) -> DeviceInfo:
     if device.key in groups:
         device = coordinator.data.devices[groups[device.key]]
     elif device.device_type == "wifigdogateway":
-        registered = dr.async_get(coordinator.hass).async_get_device(
-            identifiers={(DOMAIN, device.key)}
+        registered = find_device(
+            dr.async_get(coordinator.hass), coordinator.config_entry.entry_id, device.key
         )
         if registered is not None and any(
             domain == DOMAIN and key != device.key for domain, key in registered.identifiers
@@ -94,6 +95,8 @@ def discover_entities(
     async_add_entities: AddEntitiesCallback,
     factory: Callable[[Device], Iterable[MyQEntity]],
 ) -> None:
+    domain = async_get_current_platform().domain
+    registry = er.async_get(coordinator.hass)
     known: set[str] = set()
 
     @callback
@@ -102,11 +105,17 @@ def discover_entities(
         for device in coordinator.data.devices.values():
             for entity in factory(device):
                 unique_id = entity.unique_id
-                if unique_id is not None and unique_id not in known:
-                    known.add(unique_id)
-                    # A pruned device can return later; its entities must be re-added.
-                    entity.async_on_remove(partial(known.discard, unique_id))
-                    new.append(entity)
+                if unique_id is None:
+                    continue
+                # Offered before and still registered: leave it alone, whether it is
+                # loaded, disabled or was given another entity ID. Home Assistant runs
+                # an entity's removal callbacks in all of those cases, so they cannot
+                # tell when to offer it again. A pruned device loses its registry
+                # entries, so its entities are offered again if it returns.
+                if unique_id in known and registry.async_get_entity_id(domain, DOMAIN, unique_id):
+                    continue
+                known.add(unique_id)
+                new.append(entity)
         if new:
             async_add_entities(new)
 

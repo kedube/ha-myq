@@ -160,3 +160,88 @@ async def test_missing_session_middleware_interface_blocks_mutations():
     with pytest.raises(ProtocolError, match="Cannot preserve HTTP middleware"):
         await Http(session).request("PUT", "https://example.invalid/action")
     session.request.assert_not_called()
+
+
+@pytest.mark.parametrize("method", ["PUT", "POST", "DELETE"])
+async def test_native_write_on_a_warm_connection_is_never_sent_twice(
+    monkeypatch, socket_enabled, tokens, door, method
+):
+    """As the fresh-connection case above, but after polling has left a connection open.
+
+    libcurl sends a request again, whatever its method, when a reused connection dies
+    before the first response byte. MyQ may already have acted on it.
+    """
+    from aiohttp import web
+
+    from custom_components.myq.api.client import Client
+    from custom_components.myq.api.errors import CommandUncertain
+
+    received = []
+
+    async def handler(request):
+        await request.read()
+        received.append(request.method)
+        if request.method == method and received.count(method) == 1:
+            request.transport.abort()  # Accepted; the answer is lost.
+        return web.json_response({})
+
+    app = web.Application()
+    app.router.add_route("*", "/{tail:.*}", handler)
+    runner = web.AppRunner(app, access_log=None)
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, "127.0.0.1", 0).start()
+        base = f"http://127.0.0.1:{runner.addresses[0][1]}"
+        monkeypatch.setattr("custom_components.myq.api.client.NATIVE_API_BASES", {base})
+        async with aiohttp.ClientSession() as session:
+            client = Client(session, tokens)
+            try:
+                await client.request("GET", base, "/warm-the-pool")
+                await client.request("GET", base, "/reads-still-share-a-connection")
+                with pytest.raises(CommandUncertain, match="outcome is unknown"):
+                    await client.device_mutation(door, method, base, "/command")
+                # The failure was reported, and a later write still works.
+                await client.device_mutation(door, method, base, "/command")
+            finally:
+                await client.close()
+        assert received == ["GET", "GET", method, method]
+    finally:
+        await runner.cleanup()
+
+
+async def test_closing_while_a_command_is_in_flight_reports_an_unknown_outcome(
+    monkeypatch, socket_enabled, tokens, door
+):
+    """A closed pool answers its pending requests with nothing; that is not a reply."""
+    import asyncio
+
+    from aiohttp import web
+
+    from custom_components.myq.api.client import Client
+    from custom_components.myq.api.errors import CommandUncertain
+
+    arrived = asyncio.Event()
+
+    async def handler(request):
+        await request.read()
+        arrived.set()
+        await asyncio.sleep(5)  # MyQ has the command; the answer never comes in time.
+        return web.json_response({})
+
+    app = web.Application()
+    app.router.add_route("*", "/{tail:.*}", handler)
+    runner = web.AppRunner(app, access_log=None, handler_cancellation=True, shutdown_timeout=0.1)
+    await runner.setup()
+    try:
+        await web.TCPSite(runner, "127.0.0.1", 0).start()
+        base = f"http://127.0.0.1:{runner.addresses[0][1]}"
+        monkeypatch.setattr("custom_components.myq.api.client.NATIVE_API_BASES", {base})
+        async with aiohttp.ClientSession() as session:
+            client = Client(session, tokens)
+            command = asyncio.create_task(client.device_mutation(door, "PUT", base, "/command"))
+            await arrived.wait()
+            await client.close()
+            with pytest.raises(CommandUncertain, match="outcome is unknown"):
+                await command
+    finally:
+        await runner.cleanup()

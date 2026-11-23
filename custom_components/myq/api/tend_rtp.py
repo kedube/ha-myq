@@ -1,8 +1,10 @@
-"""Receive the mode-9 Tend camera stream over authenticated UDP candidates.
+"""Receive the mode-9 Tend camera stream over UDP.
 
-The broker supplies the media identity, candidate relay and optional encryption
-key. None of those values are logged. This module only yields encoded H.264;
-camera discovery and signaling remain with the existing Tend connection.
+The broker supplies the media identity, a relay and an optional encryption key; none
+of those values are logged. What this receiver accepts follows clients known to work
+with TC cameras, which are lenient: any setup or media datagram from the relay or from
+a camera address the relay announced counts, and a media record is passed on as the
+camera sent it. Records are the camera's encoded H.264; nothing is decoded here.
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ import secrets
 import socket
 import struct
 import time
-from collections import deque
+from collections.abc import Callable
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
@@ -24,7 +26,6 @@ CONNECT_TIMEOUT = 8.0
 FRAME_TIMEOUT = 30.0
 MAX_PACKET = 2 * 1024 * 1024
 MAX_FRAGMENTS = 4096
-MAX_QUEUED_BYTES = 4 * 1024 * 1024
 _MAGIC = b"SDNK"
 _PEER = tuple[str, int]
 
@@ -33,35 +34,31 @@ def _setup_packet(kind: int, body: bytes) -> bytes:
     return struct.pack("!4sBBBB8sI", _MAGIC, 1, 0, 0, kind, bytes(8), len(body)) + body
 
 
-def _rtp_body(packet: bytes) -> bytes | None:
-    """Respect RTP CSRCs, extensions and padding before reading the camera payload."""
-    if len(packet) < 12 or packet[0] >> 6 != 2:
-        return None
-    start = 12 + (packet[0] & 15) * 4
-    end = len(packet)
-    if start > end:
-        return None
-    if packet[0] & 16:
-        if start + 4 > end:
-            return None
-        start += 4 + int.from_bytes(packet[start + 2 : start + 4], "big") * 4
-    if packet[0] & 32:
-        padding = packet[-1]
-        if not padding or padding > end - start:
-            return None
-        end -= padding
-    return packet[start:end] if start <= end else None
+def _candidates(data: bytes) -> list[_PEER]:
+    """Camera addresses in the relay's 110-byte reply: four 22-byte entries."""
+    if len(data) != 110:
+        return []
+    peers = []
+    for offset in range(20, 108, 22):
+        address = data[offset : offset + 4]
+        number = int.from_bytes(data[offset + 20 : offset + 22], "big")
+        if any(address) and number:
+            peers.append((str(ipaddress.IPv4Address(address)), number))
+    return peers
 
 
 def _video_records(payload: bytes, key: bytes) -> list[bytes]:
-    """Decode an entire bounded camera record envelope or discard it atomically."""
-    if not 10 <= len(payload) <= MAX_PACKET or payload[:2] != b"w1":
+    """The records of one camera media envelope, decrypted when it is marked encrypted.
+
+    A malformed tail ends the list; the records before it are still returned.
+    """
+    if len(payload) < 10 or payload[:2] != b"w1":
         return []
-    if int.from_bytes(payload[2:6], "little") != len(payload) - 6:
+    if int.from_bytes(payload[2:6], "little") + 6 != len(payload):
         return []
     body = payload[10:]
     if payload[6] >> 5 == 1:
-        if len(key) != 16 or len(body) < 32 or len(body) % 16:
+        if len(key) != 16 or len(body) < 32:
             return []
         try:
             decoder = Cipher(algorithms.AES(key), modes.CBC(body[:16])).decryptor()
@@ -70,21 +67,16 @@ def _video_records(payload: bytes, key: bytes) -> list[bytes]:
             body = unpad.update(padded) + unpad.finalize()
         except ValueError:
             return []
-    result = []
+    records = []
     cursor = 0
-    while cursor < len(body):
-        if len(body) - cursor < 4:
-            return []
+    while cursor + 4 <= len(body):
         size = int.from_bytes(body[cursor : cursor + 4], "little")
         cursor += 4
-        if not size or size > len(body) - cursor:
-            return []
-        record = body[cursor : cursor + size]
-        if not record.startswith((b"\x00\x00\x01", b"\x00\x00\x00\x01")):
-            return []
-        result.append(record)
+        if not size or cursor + size > len(body):
+            break
+        records.append(body[cursor : cursor + size])
         cursor += size
-    return result
+    return records
 
 
 class _Port(asyncio.DatagramProtocol):
@@ -93,7 +85,6 @@ class _Port(asyncio.DatagramProtocol):
         self.index = index
         self.transport: asyncio.DatagramTransport | None = None
         self.number = 0
-        self.candidates: tuple[_PEER, ...] = ()
         self.peer: _PEER | None = None
         self.ready = False
 
@@ -115,28 +106,31 @@ class _Port(asyncio.DatagramProtocol):
 
 
 class TendRtp:
-    """One bounded video receiver; ``local_ip`` in start is the camera's LAN IP."""
+    """One video receiver: port 0 carries media, port 1 its control channel."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        on_record: Callable[[bytes], None],
+        on_end: Callable[[CannotConnect], None] | None = None,
+    ) -> None:
+        self._on_record = on_record
+        self._on_end = on_end
         self._ports: list[_Port] = []
         self._relay: _PEER = ("", 0)
         self._camera_ip = ""
         self._source_ip = ""
+        # The relay, and the camera addresses the relay announced.
+        self._allowed: set[str] = set()
         self._identity = b""
         self._key = b""
         self._started = False
         self._ready = asyncio.Event()
         self._ended = asyncio.Event()
-        self._error: CannotConnect | None = None
-        self._queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
-        self._queued_bytes = 0
         self._maintenance: asyncio.Task | None = None
-        self._group: int | None = None
-        self._parts: dict[bytes, None] = {}
+        self._group: bytes | None = None
+        self._parts: list[bytes] = []
         self._part_bytes = 0
-        self._retired_groups: deque[int] = deque(maxlen=8)
-        self._discard_group = False
-        self._last_part_at = 0.0
+        self._oversize = False
         self._last_video_at = 0.0
         self._ssrc = secrets.randbits(32)
         self._remote_ssrc: int | None = None
@@ -149,9 +143,25 @@ class TendRtp:
         self._jitter = 0.0
         self._sender_report = 0
         self._sender_report_at = 0.0
+        # Counters for diagnostics: camera packets assembled, and those without video.
+        self.packets = 0
+        self.unreadable = 0
+
+    @property
+    def path(self) -> str | None:
+        """How media reaches this host: the camera's network, Tend's relay, or elsewhere."""
+        peer = self._ports[0].peer if self._ports and self._ports[0].ready else None
+        if peer is None:
+            return None
+        if peer[0] == self._relay[0]:
+            return "relay"
+        return "local" if ipaddress.ip_address(peer[0]).is_private else "remote"
 
     async def start(self, relay: _PEER, account_alias: str, local_ip: str, aes_key: bytes) -> None:
-        """Register the paired UDP ports and complete camera connectivity checks."""
+        """Register the paired UDP ports and complete the camera's connectivity checks.
+
+        ``local_ip`` is the camera's address on its own network, when the broker gave one.
+        """
         if self._started or self._ended.is_set():
             raise ProtocolError("A Tend media receiver cannot be reused")
         self._started = True
@@ -159,7 +169,7 @@ class TendRtp:
             identity = ("V_" + account_alias).encode("ascii")
         except (UnicodeError, TypeError):
             raise ProtocolError("Invalid Tend media identity") from None
-        if not account_alias or len(identity) > 258 or b"\0" in identity:
+        if not account_alias or b"\0" in identity:
             raise ProtocolError("Invalid Tend media identity")
         if len(aes_key) not in (0, 16) or not 1 <= relay[1] <= 65535:
             raise ProtocolError("Invalid Tend media registration")
@@ -173,6 +183,7 @@ class TendRtp:
                     *relay, family=socket.AF_INET, type=socket.SOCK_DGRAM
                 )
                 self._relay = (str(addresses[0][4][0]), relay[1])
+                self._allowed = {self._relay[0]} | ({local_ip} if local_ip else set())
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route:
                     route.connect(self._relay)
                     self._source_ip = route.getsockname()[0]
@@ -191,6 +202,7 @@ class TendRtp:
             raise
 
     async def _bind(self) -> None:
+        """Bind consecutive ports; wildcard binding lets the kernel pick each source address."""
         for _ in range(32):
             sockets = [socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for _ in range(2)]
             try:
@@ -221,12 +233,13 @@ class TendRtp:
         raise OSError("Could not allocate camera UDP ports")
 
     async def _handshake(self) -> None:
+        """Register with the relay until it names the camera, then probe the camera."""
         sequence = 0
         while not self._ready.is_set():
             if self._ended.is_set():
                 raise CannotConnect("Tend video UDP receiver was closed")
             for port in self._ports:
-                if not port.candidates:
+                if port.peer is None:
                     registration = (
                         struct.pack(
                             "!BBBBc4s16sH",
@@ -243,12 +256,10 @@ class TendRtp:
                     )
                     port.send(_setup_packet(1, registration), self._relay)
                 elif not port.ready:
-                    targets = (port.peer,) if port.peer is not None else port.candidates
-                    for target in targets:
-                        port.send(
-                            _setup_packet(3, bytes([1, sequence]) + self._identity * 2), target
-                        )
-                        port.send(_setup_packet(4, b"\x01"), target)
+                    port.send(
+                        _setup_packet(3, bytes([1, sequence]) + self._identity * 2), port.peer
+                    )
+                    port.send(_setup_packet(4, b"\x01"), port.peer)
             sequence = min(2, sequence + 1)
             try:
                 async with asyncio.timeout(0.1):
@@ -257,116 +268,103 @@ class TendRtp:
                 pass
 
     def _receive(self, port: _Port, data: bytes, remote: _PEER) -> None:
-        if self._ended.is_set():
+        if self._ended.is_set() or remote[0] not in self._allowed:
             return
-        if data.startswith(_MAGIC):
-            if len(data) < 20 or data[4:7] != b"\x01\0\0":
-                return
-            if int.from_bytes(data[16:20], "big") != len(data) - 20:
-                return
-            kind = data[7]
-            if kind == 2:
-                if remote != self._relay or port.candidates or len(data) != 110:
-                    return
-                candidates = []
-                for offset in range(20, 108, 22):
-                    address = ipaddress.IPv4Address(data[offset : offset + 4])
-                    number = int.from_bytes(data[offset + 20 : offset + 22], "big")
-                    # Never choose the receiver itself as the camera. An explicit
-                    # loopback relay also permits local protocol fixtures.
-                    if str(address) == self._source_ip or address.is_loopback:
-                        if not (address.is_loopback and self._relay[0] == self._source_ip):
-                            continue
-                    if number and not (address.is_unspecified or address.is_multicast):
-                        candidate = (str(address), number)
-                        if candidate not in candidates:
-                            candidates.append(candidate)
-                # Prefer the broker's camera LAN address, while retaining announced
-                # public candidates for installations that cannot route to that LAN.
-                candidates.sort(key=lambda item: item[0] != self._camera_ip)
-                port.candidates = tuple(candidates)
-                if candidates:
-                    port.send(
-                        _setup_packet(100, bytes([1, port.index]) + b"V" + self._identity * 2),
-                        self._relay,
-                    )
-                return
-            if remote not in port.candidates or (port.peer is not None and remote != port.peer):
-                return
-            if kind not in (3, 4, 5) or len(data) < 21:
-                return
-            port.peer = remote
-            if kind == 3:
-                for sequence in range(3):
-                    port.send(_setup_packet(3, bytes([1, sequence]) + self._identity * 2), remote)
-            elif kind == 4:
-                port.send(_setup_packet(5, data[20:21]), remote)
-            else:
-                port.ready = True
-                if len(self._ports) == 2 and all(endpoint.ready for endpoint in self._ports):
-                    self._ready.set()
+        if data[:4] == _MAGIC and len(data) >= 20:
+            self._setup(port, data, remote)
+        elif not port.ready:
+            # Media and reports count only once the camera has confirmed this port:
+            # nothing can be put into the stream before the handshake.
             return
-        if not port.ready or remote != port.peer:
-            return
-        if port.index:
+        elif port.index:
             self._rtcp(data)
         else:
             self._fragment(data)
 
-    def _fragment(self, data: bytes) -> None:
-        if len(data) <= 8:
-            return
-        now = time.monotonic()
-        group = int.from_bytes(data[:4], "little")
-        if group in self._retired_groups:
-            return
-        if self._group != group:
-            self._complete_packet()
-            if self._ended.is_set():
+    def _setup(self, port: _Port, data: bytes, remote: _PEER) -> None:
+        kind = data[7]
+        if kind == 2:
+            # Once the camera has confirmed a port, a late or repeated relay reply must
+            # not move it: receiver reports would then go where the camera is not.
+            if remote[0] != self._relay[0] or port.ready:
                 return
-            if self._group is not None:
-                self._retired_groups.append(self._group)
-            self._group = group
-            self._discard_group = False
-        elif now - self._last_part_at > 2:
-            self._parts.clear()
-            self._part_bytes = 0
-            self._discard_group = True
-        self._last_part_at = now
-        if self._discard_group:
+            peers = _candidates(data)
+            self._allowed.update(address for address, _ in peers)
+            private = [
+                peer
+                for peer in peers
+                if ipaddress.ip_address(peer[0]).is_private and peer[0] != self._source_ip
+            ]
+            # The camera's own network address first, then any private one, then the
+            # last announced (its public address).
+            port.peer = (
+                next((peer for peer in peers if peer[0] == self._camera_ip), None)
+                or (private[0] if private else None)
+                or (peers[-1] if peers else None)
+            )
+            if port.peer is not None:
+                port.send(
+                    _setup_packet(100, bytes([1, port.index]) + b"V" + self._identity * 2),
+                    self._relay,
+                )
+        elif kind == 3:
+            # The camera may answer from another announced address than the one probed.
+            port.peer = remote
+            for sequence in range(3):
+                port.send(_setup_packet(3, bytes([1, sequence]) + self._identity * 2), remote)
+        elif kind == 4:
+            port.peer = remote
+            port.send(_setup_packet(5, data[20:21] or b"\x01"), remote)
+        elif kind == 5:
+            port.peer = remote
+            port.ready = True
+            if len(self._ports) == 2 and all(endpoint.ready for endpoint in self._ports):
+                self._ready.set()
+
+    def _fragment(self, data: bytes) -> None:
+        """Collect one camera packet: its datagrams share the first four header bytes.
+
+        The second four header bytes are not understood, so datagrams are joined in
+        arrival order. A lost one costs that packet (its length no longer matches).
+        Reordered ones keep the length: an encrypted packet then fails to decrypt, a
+        plain one is passed on scrambled and shows as a damaged picture.
+        """
+        if len(data) < 8:
             return
-        # The last four header bytes are not established for camera video. Keep
-        # arrival order and suppress exact retransmissions without interpreting
-        # that word as an index or count. The checks below discard malformed
-        # assemblies; reconstructing reordered fragments needs more wire evidence.
-        if data in self._parts:
+        group = data[:4]
+        if group != self._group:
+            self._complete_packet()
+            self._group = group
+            self._oversize = False
+        if self._oversize:
             return
         if len(self._parts) >= MAX_FRAGMENTS or self._part_bytes + len(data) - 8 > MAX_PACKET:
             self._parts.clear()
             self._part_bytes = 0
-            self._discard_group = True
+            self._oversize = True
             return
-        self._parts[data] = None
+        self._parts.append(data[8:])
         self._part_bytes += len(data) - 8
 
     def _complete_packet(self) -> None:
-        packet = b"".join(fragment[8:] for fragment in self._parts)
+        if not self._parts:
+            return
+        packet = b"".join(self._parts)
         self._parts.clear()
         self._part_bytes = 0
-        payload = _rtp_body(packet)
-        if payload is None:
+        if len(packet) < 12 or packet[0] >> 6 != 2:
             return
-        records = _video_records(payload, self._key)
-        if not records:
-            return
+        self.packets += 1
         self._observe(packet)
-        for record in records:
-            if self._queue.full() or self._queued_bytes + len(record) > MAX_QUEUED_BYTES:
-                self._finish(CannotConnect("Tend video consumer is not keeping up"))
-                return
-            self._queue.put_nowait(record)
-            self._queued_bytes += len(record)
+        records = _video_records(packet[12:], self._key)
+        if not records:
+            self.unreadable += 1
+            return
         self._last_video_at = time.monotonic()
+        for record in records:
+            if self._ended.is_set():
+                return
+            self._on_record(record)
 
     def _observe(self, packet: bytes) -> None:
         sequence, timestamp, source = struct.unpack_from("!HII", packet, 2)
@@ -392,11 +390,10 @@ class TendRtp:
             size = (int.from_bytes(data[offset + 2 : offset + 4], "big") + 1) * 4
             if data[offset] >> 6 != 2 or size > len(data) - offset:
                 return
-            if data[offset + 1] == 200 and size >= 28:
-                source = int.from_bytes(data[offset + 4 : offset + 8], "big")
-                if self._remote_ssrc is None or source == self._remote_ssrc:
-                    self._sender_report = int.from_bytes(data[offset + 10 : offset + 14], "big")
-                    self._sender_report_at = time.monotonic()
+            if data[offset + 1] == 200 and size >= 20:
+                # The middle 32 bits of the sender report's NTP time.
+                self._sender_report = int.from_bytes(data[offset + 10 : offset + 14], "big")
+                self._sender_report_at = time.monotonic()
             offset += size
 
     def _report(self) -> bytes | None:
@@ -427,61 +424,37 @@ class TendRtp:
         )
 
     async def _maintain(self) -> None:
-        try:
-            while not self._ended.is_set():
-                await asyncio.sleep(2)
-                if time.monotonic() - self._last_video_at > FRAME_TIMEOUT:
-                    self._finish(CannotConnect("Tend camera stopped sending video"))
-                    return
-                report = self._report()
-                if report is not None and len(self._ports) == 2:
-                    port = self._ports[1]
-                    if port.peer is not None:
-                        port.send(report, port.peer)
-        except asyncio.CancelledError:
-            pass
-
-    async def recv(self) -> bytes:
-        """Return the next encoded record, with a bounded wait for a usable frame."""
-        if self._ended.is_set():
-            raise self._error or CannotConnect("Tend video receiver was closed")
-        try:
-            async with asyncio.timeout(FRAME_TIMEOUT):
-                frame = await self._queue.get()
-        except TimeoutError:
-            error = CannotConnect("Tend camera stopped sending video")
-            self._finish(error)
-            raise error from None
-        if frame is None:
-            raise self._error or CannotConnect("Tend video receiver was closed")
-        self._queued_bytes -= len(frame)
-        return frame
+        """Receiver reports keep the camera sending; silence ends the receiver."""
+        while not self._ended.is_set():
+            await asyncio.sleep(2)
+            if time.monotonic() - self._last_video_at > FRAME_TIMEOUT:
+                self._finish(CannotConnect("Tend camera stopped sending video"))
+                return
+            report = self._report()
+            if report is not None and len(self._ports) == 2:
+                port = self._ports[1]
+                if port.peer is not None:
+                    port.send(report, port.peer)
 
     def _finish(self, error: CannotConnect | None = None) -> None:
         if self._ended.is_set():
             return
-        self._error = error
         self._ended.set()
         self._parts.clear()
         self._key = b""
         self._identity = b""
-        while not self._queue.empty():
-            self._queue.get_nowait()
-        self._queued_bytes = 0
-        self._queue.put_nowait(None)
         for port in self._ports:
-            if port.index and port.peer is not None and port.ready:
-                port.send(struct.pack("!BBHI", 0x81, 203, 1, self._ssrc), port.peer)
+            if port.index and port.peer is not None:
+                bye = struct.pack("!BBHI", 0x81, 203, 1, self._ssrc)
+                port.send(bye, port.peer)
+                port.send(bye, port.peer)
             if port.transport is not None:
                 port.transport.close()
-
-    async def wait_closed(self) -> None:
-        await self._ended.wait()
-        if self._error is not None:
-            raise self._error
+        if error is not None and self._on_end is not None:
+            self._on_end(error)
 
     async def close(self) -> None:
-        """Close both sockets and unblock consumers, including during setup."""
+        """Close both sockets, including during setup."""
         self._finish()
         if self._maintenance is not None:
             self._maintenance.cancel()

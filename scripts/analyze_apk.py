@@ -80,7 +80,7 @@ def main() -> None:
     parser.add_argument("archive", type=Path)
     parser.add_argument("--work-dir", type=Path)
     parser.add_argument("--jadx-dir", type=Path, help="Reuse an existing JADX output directory")
-    parser.add_argument("--output", type=Path, default=Path("docs/api/api_inventory.json"))
+    parser.add_argument("--output", type=Path, default=Path("analysis/api_inventory.json"))
     args = parser.parse_args()
     work = args.work_dir or Path(tempfile.mkdtemp(prefix="ha-myq-analysis-"))
     work.mkdir(parents=True, exist_ok=True)

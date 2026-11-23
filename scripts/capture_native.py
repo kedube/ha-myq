@@ -405,7 +405,7 @@ async def run(
         print("Firebase-only mode: MyQ identity HTTPS passes through without decryption.")
     print(f"Private capture directory: {session}")
     print(f"Open this exact address on the phone: http://{host}:{port}/")
-    print("Phone setup and cleanup: docs/research/native-capture.md", flush=True)
+    print("Phone setup and cleanup: docs/development.md#iphone-capture", flush=True)
     diagnostic_server = None
     try:
         if tls_check_port:

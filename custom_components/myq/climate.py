@@ -35,7 +35,6 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
 
 class MyQClimate(MyQEntity, ClimateEntity):
     _attr_name = None
-    _enable_turn_on_off_backwards_compatibility = False
 
     def __init__(self, coordinator, device) -> None:
         super().__init__(coordinator, device, "climate")

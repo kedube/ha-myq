@@ -2,7 +2,7 @@
 
 import math
 import time
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, TypeGuard
 from urllib.parse import quote
 
@@ -128,7 +128,10 @@ def _rounded(value: Any, temperature_unit: str) -> Decimal | None:
     value = number(value)
     if value is None:
         return None
-    return Decimal(repr(value)).quantize(STEP[temperature_unit], rounding=ROUND_HALF_UP)
+    try:
+        return Decimal(repr(value)).quantize(STEP[temperature_unit], rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return None  # A magnitude no thermostat reports, beyond the rounding precision.
 
 
 def _filled(

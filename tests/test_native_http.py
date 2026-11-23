@@ -119,7 +119,9 @@ async def test_native_auth_wire_profile_and_browser_isolation(
                 "code~* +/é", "v" * 43 + "~", app_check_token="synthetic-proof"
             )
             assert tokens.access_token == "access-1"
-            assert await client.auth.access_token(rejected_token="access-1") == "access-2"
+            assert (
+                await client.auth.access_token(rejected_token="access-1", force=True) == "access-2"
+            )
             assert await client.profile() == {"user_id": "synthetic-user"}
             assert await client.auth.revoke() is True
             await transport.request("GET", base + "/browser", headers=browser_headers)
@@ -129,6 +131,7 @@ async def test_native_auth_wire_profile_and_browser_isolation(
                 assert session.headers["User-Agent"] == "SyntheticBrowser/1.0"
             else:
                 assert not transport.native_session.cookies
+                assert not transport.native_single_send.cookies
 
         assert [row[0] for row in received] == [
             "/browser",

@@ -109,7 +109,11 @@ def _sleep_interval(power: dict | None) -> bool:
     interval = power.get("sleepInterval") if power is not None else None
     if interval is None:
         return False
-    if type(interval) not in (int, float) or not math.isfinite(interval):
+    try:
+        valid = type(interval) in (int, float) and math.isfinite(interval)
+    except OverflowError:
+        valid = False  # An integer too large for a float.
+    if not valid:
         raise ProtocolError("MyQ camera sleep interval is invalid")
     return interval > 0
 
@@ -258,9 +262,7 @@ class Video:
                     return details
                 await asyncio.sleep(interval)
 
-    async def wakeup(
-        self, device: Device, details: dict | None = None, *, force: bool = False
-    ) -> dict:
+    async def wakeup(self, device: Device, details: dict | None = None) -> dict:
         """Check availability before live view, waking a camera that sleeps.
 
         TendDevice.checkRequiresWakeup decides; DevicesManager sends the POST even when
@@ -273,7 +275,7 @@ class Video:
             details = await self.details(device)
         # An unrecognized power mode reads as UNKNOWN, not available: try a wake.
         unknown = camera_online(details) and sleep_mode(details) == "UNKNOWN"
-        required = force or unknown or _requires_wakeup(details)
+        required = unknown or _requires_wakeup(details)
         if not required:
             if not _awake(details, False):
                 raise CommandRejected("MyQ camera is unavailable for live video")

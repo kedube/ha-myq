@@ -11,11 +11,15 @@ from cryptography.hazmat.primitives.padding import PKCS7
 
 from custom_components.myq.api import tend_rtp
 from custom_components.myq.api.errors import CannotConnect, ProtocolError
-from custom_components.myq.api.tend_rtp import TendRtp, _Port, _rtp_body, _video_records
+from custom_components.myq.api.tend_rtp import TendRtp, _candidates, _Port, _video_records
 
 KEY = bytes(range(16))
 SPS = bytes.fromhex("000000016742001e95a8280f0044")
 IDR = bytes.fromhex("00000165b8041014")
+RELAY = ("192.0.2.1", 5100)
+CAMERA = ("192.168.1.20", 4000)
+# Not a documentation range: Python counts those as private, as the selection does.
+PUBLIC = ("93.184.216.34", 4100)
 
 
 def envelope(*frames, key=None):
@@ -31,8 +35,8 @@ def envelope(*frames, key=None):
     return b"w1" + (len(content) + 4).to_bytes(4, "little") + flags + content
 
 
-def rtp(payload, *, sequence=1, timestamp=90000, source=42):
-    return struct.pack("!BBHII", 128, 96, sequence, timestamp, source) + payload
+def rtp(payload, *, sequence=1, timestamp=90000, source=42, first=128):
+    return struct.pack("!BBHII", first, 96, sequence, timestamp, source) + payload
 
 
 def fragment(group, index, payload):
@@ -53,17 +57,27 @@ def candidates(*peers):
     return setup(2, entries.ljust(90, b"\0"))
 
 
-def prepared_receiver():
-    receiver = TendRtp()
-    receiver._key = KEY
-    receiver._relay = ("192.0.2.1", 5100)
+def prepared_receiver(*, camera_ip=CAMERA[0], key=KEY, confirmed=False):
+    """A receiver on fake sockets; ``confirmed`` as after the camera's handshake."""
+    records, ended = [], []
+    receiver = TendRtp(records.append, ended.append)
+    receiver._key = key
+    receiver._relay = RELAY
+    receiver._camera_ip = camera_ip
+    receiver._source_ip = "192.168.1.5"
+    receiver._allowed = {RELAY[0]} | ({camera_ip} if camera_ip else set())
     receiver._identity = b"V_test".ljust(32, b"\0")
     for index in range(2):
         port = _Port(receiver, index)
         port.transport = MagicMock()
         port.transport.is_closing.return_value = False
+        port.ready = confirmed
         receiver._ports.append(port)
-    return receiver
+    return receiver, records, ended
+
+
+def sent(port):
+    return [(call.args[0], call.args[1]) for call in port.transport.sendto.call_args_list]
 
 
 def test_plain_and_encrypted_records_and_invalid_padding():
@@ -75,260 +89,328 @@ def test_plain_and_encrypted_records_and_invalid_padding():
     assert _video_records(encrypted, b"different-key-12") == []
 
 
-@pytest.mark.parametrize(
-    "payload",
-    [
-        b"",
-        b"w1" + bytes(8),
-        b"xx" + bytes(8),
-        envelope(IDR)[:-1],
-        envelope(b"not-an-annex-b-unit"),
-        # A valid record followed by a truncated one must not emit a partial packet.
-        b"w1"
-        + (4 + 4 + len(IDR) + 5).to_bytes(4, "little")
-        + bytes(4)
-        + len(IDR).to_bytes(4, "little")
-        + IDR
-        + b"\x09\0\0\0x",
-    ],
-)
-def test_invalid_envelopes_are_discarded(payload):
+@pytest.mark.parametrize("payload", [b"", b"w1" + bytes(7), b"xx" + bytes(8), envelope(IDR)[:-1]])
+def test_envelopes_with_a_wrong_marker_or_length_are_discarded(payload):
     assert _video_records(payload, KEY) == []
 
 
-def test_rtp_extension_csrc_and_padding():
-    payload = envelope(IDR)
-    header = bytearray(rtp(b""))
-    header[0] = 0xB1  # padding, extension, one CSRC
-    packet = bytes(header) + bytes(4) + b"\xbe\xde\0\x01" + bytes(4) + payload + b"\0\0\0\x04"
-    assert _rtp_body(packet) == payload
-    assert _rtp_body(bytes(header)) is None
-    assert _rtp_body(packet[:-1] + b"\0") is None
-    assert _rtp_body(packet[:12] + bytes(4) + b"\xbe\xde\xff\xff") is None
+def test_records_are_passed_on_as_sent_and_a_malformed_tail_keeps_earlier_ones():
+    # Working clients do not inspect a record's contents, and stop at a bad length.
+    odd = b"\x09no-start-code"
+    assert _video_records(envelope(odd, IDR), b"") == [odd, IDR]
+    body = len(IDR).to_bytes(4, "little") + IDR
+    for tail in (b"\x09\0\0\0x", bytes(4), b"\x01"):
+        payload = b"w1" + (len(body) + len(tail) + 4).to_bytes(4, "little") + bytes(4) + body + tail
+        assert _video_records(payload, b"") == [IDR]
 
 
-async def test_fragments_duplicates_unknown_metadata_and_old_replays():
-    receiver = TendRtp()
+def test_candidate_reply_must_be_the_110_byte_form():
+    assert _candidates(candidates(CAMERA, PUBLIC)) == [CAMERA, PUBLIC]
+    assert _candidates(candidates(CAMERA)[:-1]) == []
+    assert _candidates(candidates(("0.0.0.0", 4000), ("192.168.1.9", 0))) == []
+
+
+def test_fragments_join_in_arrival_order_and_complete_on_the_next_packet():
+    receiver, records, _ = prepared_receiver(key=b"", confirmed=True)
     packet = rtp(envelope(SPS, IDR))
     pieces = [packet[:9], packet[9:22], packet[22:]]
-    for index in (0, 1, 2, 2, 0):
-        receiver._fragment(fragment(70, 0xA1000000 + index, pieces[index]))
-    assert len(receiver._parts) == 3
-    assert receiver._part_bytes == len(packet)
-    receiver._fragment(fragment(71, 0, rtp(envelope(IDR), sequence=2)))
-    assert await receiver.recv() == SPS
-    assert await receiver.recv() == IDR
-    receiver._fragment(fragment(70, 0, pieces[0]))
-    assert receiver._group == 71
-    receiver._fragment(fragment(72, 0, b"next"))
-    assert await receiver.recv() == IDR
-    await receiver.close()
+    for index, piece in enumerate(pieces):
+        receiver._receive(receiver._ports[0], fragment(70, 0xA1000000 + index, piece), CAMERA)
+    assert records == []
+    receiver._receive(receiver._ports[0], fragment(71, 0, rtp(envelope(IDR), sequence=2)), CAMERA)
+    assert records == [SPS, IDR]
+    # Packet numbers are only compared with the one before: a repeat is a new packet.
+    receiver._receive(receiver._ports[0], fragment(70, 0, rtp(envelope(SPS), sequence=3)), CAMERA)
+    receiver._receive(receiver._ports[0], fragment(72, 0, b"next"), CAMERA)
+    assert records == [SPS, IDR, IDR, SPS]
+    assert (receiver.packets, receiver.unreadable) == (3, 0)
 
 
-async def test_duplicate_flood_missing_fragments_and_oversize_groups_are_bounded(monkeypatch):
-    receiver = TendRtp()
+def test_the_rtp_header_is_a_fixed_twelve_bytes_whatever_its_flag_bits_say():
+    receiver, records, _ = prepared_receiver(key=b"")
+    # Extension, padding and CSRC bits set: clients that work ignore all three.
+    receiver._fragment(fragment(1, 0, rtp(envelope(IDR), first=0xB1)))
+    receiver._fragment(fragment(2, 0, b"next-one"))
+    assert records == [IDR]
+
+
+def test_damaged_short_and_oversize_packets_are_dropped_and_counted(monkeypatch):
+    receiver, records, _ = prepared_receiver(key=b"")
     packet = rtp(envelope(IDR))
-    first = fragment(1, 0, packet[:12])
-    for _ in range(1000):
-        receiver._fragment(first)
-    assert receiver._part_bytes == 12
-    receiver._fragment(fragment(1, 2, packet[13:]))
-    receiver._fragment(fragment(2, 0, packet[:12]))
-    assert receiver._queue.empty()  # A missing byte invalidated the media envelope.
-    monkeypatch.setattr(tend_rtp, "MAX_PACKET", 20)
+    receiver._fragment(fragment(1, 0, packet[:12]))
+    receiver._fragment(fragment(1, 2, packet[13:]))  # A datagram went missing.
+    receiver._fragment(fragment(2, 0, b"\x00" * 20))  # Not RTP version 2.
+    receiver._fragment(b"short")
+    monkeypatch.setattr(tend_rtp, "MAX_PACKET", 40)
     receiver._fragment(fragment(3, 0, packet))
-    assert receiver._part_bytes == 0
-    monkeypatch.setattr(tend_rtp, "MAX_FRAGMENTS", 1)
-    receiver._fragment(fragment(4, 0, b"first"))
-    receiver._fragment(fragment(4, 1, b"second"))
-    assert receiver._part_bytes == 0
-    await receiver.close()
+    receiver._fragment(fragment(3, 1, packet[:8]))
+    assert receiver._parts == [] and receiver._oversize
+    monkeypatch.setattr(tend_rtp, "MAX_PACKET", 2 * 1024 * 1024)
+    receiver._fragment(fragment(4, 0, packet))
+    receiver._fragment(fragment(5, 0, b"x" * 9))
+    assert records == [IDR]
+    assert (receiver.packets, receiver.unreadable) == (2, 1)
 
 
-async def test_candidates_require_exact_relay_and_peer_is_pinned():
-    receiver = prepared_receiver()
-    port = receiver._ports[0]
-    first = ("192.0.2.10", 6000)
-    second = ("192.0.2.10", 6002)
-    reply = candidates(first, second)
-    receiver._receive(port, reply, (receiver._relay[0], receiver._relay[1] + 1))
-    assert not port.candidates
-    receiver._receive(port, reply[:-1], receiver._relay)
-    assert not port.candidates
-    receiver._receive(port, reply, receiver._relay)
-    assert port.candidates == (first, second)
-    receiver._receive(port, setup(5, b"\x01"), ("192.0.2.99", 6000))
-    assert not port.ready
-    receiver._receive(port, setup(4, b"\x01"), first)
-    assert port.peer == first
-    receiver._receive(port, setup(5, b"\x01"), second)
-    assert not port.ready
-    receiver._receive(port, setup(5, b"\x01"), first)
-    assert port.ready
-    assert not receiver._ready.is_set()  # Both channels are required.
-    receiver._receive(port, fragment(1, 0, rtp(envelope(IDR))), second)
-    assert not receiver._parts
-    receiver._receive(port, fragment(1, 0, rtp(envelope(IDR))), first)
-    receiver._receive(port, fragment(2, 0, b"next"), first)
-    assert await receiver.recv() == IDR
-    await receiver.close()
+def test_relay_reply_selects_the_cameras_own_address_then_private_then_last():
+    receiver, _, _ = prepared_receiver()
+    media = receiver._ports[0]
+    receiver._receive(media, candidates(PUBLIC, CAMERA), RELAY)
+    assert media.peer == CAMERA
+    # The relay is told the choice was made, on the port that made it.
+    assert sent(media)[-1] == (setup(100, b"\x01\x00V" + receiver._identity * 2), RELAY)
+
+    receiver, _, _ = prepared_receiver(camera_ip="")
+    receiver._receive(
+        receiver._ports[1], candidates(PUBLIC, ("192.168.1.5", 9), ("10.0.0.8", 4001)), RELAY
+    )
+    assert receiver._ports[1].peer == ("10.0.0.8", 4001)  # Never this host's own address.
+
+    receiver, _, _ = prepared_receiver(camera_ip="")
+    receiver._receive(receiver._ports[0], candidates(("1.1.1.1", 1), PUBLIC), RELAY)
+    assert receiver._ports[0].peer == PUBLIC
 
 
-async def test_close_unblocks_pending_reader_and_clears_keys():
-    receiver = prepared_receiver()
-    read = asyncio.create_task(receiver.recv())
-    await asyncio.sleep(0)
-    await receiver.close()
-    with pytest.raises(CannotConnect, match="closed"):
-        await read
-    await receiver.close()
-    await receiver.wait_closed()
-    assert not receiver._identity and not receiver._key
-    assert all(port.transport.close.called for port in receiver._ports)
+def test_only_the_relay_and_announced_camera_addresses_are_heard():
+    receiver, records, _ = prepared_receiver(camera_ip="", key=b"")
+    media = receiver._ports[0]
+    stranger = ("8.8.4.4", 4000)
+    receiver._receive(media, candidates(CAMERA), stranger)  # Not the relay.
+    receiver._receive(media, setup(5, b"\x01"), stranger)
+    receiver._receive(media, fragment(1, 0, rtp(envelope(IDR))), CAMERA)  # Not yet announced.
+    assert media.peer is None and not media.ready and receiver._parts == []
+    receiver._receive(media, candidates(CAMERA), (RELAY[0], 6000))  # Any relay port.
+    assert media.peer == CAMERA
+    # Announced, but the camera has not confirmed the port: still nothing is taken.
+    receiver._receive(media, fragment(1, 0, rtp(envelope(IDR))), CAMERA)
+    receiver._receive(media, fragment(2, 0, b"next-one"), CAMERA)
+    assert records == [] and receiver._parts == []
+    receiver._receive(media, setup(5, b"\x01"), CAMERA)
+    assert media.ready
+    receiver._receive(media, fragment(3, 0, rtp(envelope(IDR))), CAMERA)
+    receiver._receive(media, fragment(4, 0, b"next-one"), CAMERA)
+    assert records == [IDR]
 
 
-async def test_receiver_timeout_and_queue_limits(monkeypatch):
-    monkeypatch.setattr(tend_rtp, "FRAME_TIMEOUT", 0.01)
-    receiver = TendRtp()
-    with pytest.raises(CannotConnect, match="stopped sending"):
-        await receiver.recv()
-    with pytest.raises(CannotConnect, match="stopped sending"):
-        await receiver.wait_closed()
-    await receiver.close()
+def test_camera_may_answer_from_another_port_and_handshake_replies_follow_it():
+    receiver, _, _ = prepared_receiver()
+    media, control = receiver._ports
+    for port in (media, control):
+        receiver._receive(port, candidates(CAMERA), RELAY)
+    moved = (CAMERA[0], 4555)
+    receiver._receive(media, setup(3, b"\x01\x00"), moved)
+    assert media.peer == moved
+    assert sent(media)[-3:] == [
+        (setup(3, bytes([1, sequence]) + receiver._identity * 2), moved) for sequence in range(3)
+    ]
+    receiver._receive(media, setup(4, b"\x07"), moved)
+    assert sent(media)[-1] == (setup(5, b"\x07"), moved)
+    receiver._receive(media, setup(4, b""), moved)  # An empty probe still gets an answer.
+    assert sent(media)[-1] == (setup(5, b"\x01"), moved)
+    receiver._receive(media, setup(5, b"\x01"), moved)
+    assert media.ready and not receiver._ready.is_set()
+    assert receiver.path is not None
+    receiver._receive(control, setup(5, b"\x01"), CAMERA)
+    assert receiver._ready.is_set() and receiver.path == "local"
 
-    monkeypatch.setattr(tend_rtp, "MAX_QUEUED_BYTES", len(IDR) - 1)
-    receiver = TendRtp()
-    receiver._fragment(fragment(1, 0, rtp(envelope(IDR))))
-    receiver._fragment(fragment(2, 0, b"next"))
-    with pytest.raises(CannotConnect, match="not keeping up"):
-        await receiver.recv()
-    await receiver.close()
+
+def test_relay_reply_after_the_camera_confirmed_a_port_does_not_move_it():
+    receiver, _, _ = prepared_receiver()
+    control = receiver._ports[1]
+    receiver._receive(control, candidates(CAMERA, PUBLIC), RELAY)
+    assert control.peer == CAMERA
+    # The camera answers from its public address instead, and confirms the port.
+    receiver._receive(control, setup(5, b"\x01"), PUBLIC)
+    assert control.peer == PUBLIC and control.ready
+    # A repeated relay reply (one per registration sent) arrives late.
+    receiver._receive(control, candidates(CAMERA, PUBLIC), RELAY)
+    # Receiver reports and the closing goodbye go to this address.
+    assert control.peer == PUBLIC and control.ready
+
+
+def test_media_may_arrive_through_the_relay():
+    receiver, records, _ = prepared_receiver(key=b"")
+    for port in receiver._ports:
+        receiver._receive(port, candidates(CAMERA), RELAY)
+        receiver._receive(port, setup(5, b"\x01"), RELAY)
+    assert receiver._ready.is_set() and receiver.path == "relay"
+    receiver._receive(receiver._ports[0], fragment(1, 0, rtp(envelope(IDR))), RELAY)
+    receiver._receive(receiver._ports[0], fragment(2, 0, b"next-one"), RELAY)
+    assert records == [IDR]
 
 
 async def test_receiver_report_sequence_wrap_loss_and_sender_report():
-    receiver = TendRtp()
-    receiver._observe(rtp(b"", sequence=65535, timestamp=0))
-    receiver._observe(rtp(b"", sequence=1, timestamp=6000))
-    sender_report = struct.pack("!BBHIIIIII", 128, 200, 6, 42, 0x12345678, 0x9ABCDEF0, 6000, 2, 200)
-    receiver._rtcp(sender_report)
+    receiver, _, _ = prepared_receiver(key=b"", confirmed=True)
+    control = receiver._ports[1]
+    control.peer = CAMERA
+    assert receiver._report() is None
+    for group, sequence in enumerate((65534, 65535, 1), start=1):
+        receiver._fragment(fragment(group, 0, rtp(envelope(IDR), sequence=sequence)))
+    receiver._fragment(fragment(9, 0, b"flush-it"))
+    sender_report = struct.pack("!BBHIIIIII", 0x80, 200, 6, 42, 0x11223344, 0x55667788, 0, 0, 0)
+    receiver._receive(control, sender_report, CAMERA)
     report = receiver._report()
     assert report is not None and len(report) == 32
-    assert report[:4] == b"\x81\xc9\0\x07"
-    assert report[12] == 85
-    assert int.from_bytes(report[13:16], "big") == 1
-    assert int.from_bytes(report[16:20], "big") == 65537
-    assert int.from_bytes(report[24:28], "big") == 0x56789ABC
+    version, kind, words, own, source = struct.unpack_from("!BBHII", report)
+    assert (version, kind, words, own, source) == (0x81, 201, 7, receiver._ssrc, 42)
+    assert int.from_bytes(report[13:16], "big") == 1  # 65534, 65535, (0 lost), 1
+    assert struct.unpack_from("!I", report, 16)[0] == 65537
+    assert struct.unpack_from("!I", report, 24)[0] == 0x33445566
     await receiver.close()
+    assert sent(control)[-1] == (struct.pack("!BBHI", 0x81, 203, 1, receiver._ssrc), CAMERA)
 
 
-class CameraPeer(asyncio.DatagramProtocol):
-    def __init__(self):
-        self.transport = None
-        self.viewer = None
-        self.bye = asyncio.Event()
+async def test_silence_ends_the_receiver_and_reports_why(monkeypatch):
+    receiver, records, ended = prepared_receiver(confirmed=True)
+    monkeypatch.setattr(tend_rtp, "FRAME_TIMEOUT", 0)
+    original = asyncio.sleep
+    monkeypatch.setattr(tend_rtp.asyncio, "sleep", lambda _: original(0))
+    receiver._last_video_at = -1.0
+    await receiver._maintain()
+    assert len(ended) == 1 and isinstance(ended[0], CannotConnect)
+    assert "stopped sending video" in str(ended[0])
+    assert receiver._key == b"" and receiver._identity == b""
+    receiver._fragment(fragment(1, 0, rtp(envelope(IDR))))
+    receiver._receive(receiver._ports[0], fragment(2, 0, b"late-one"), CAMERA)
+    assert records == []
+    await receiver.close()
+    assert len(ended) == 1  # A deliberate close is not reported as a failure.
 
-    def connection_made(self, transport):
-        self.transport = transport
 
-    def datagram_received(self, data, addr):
-        if data.startswith(b"SDNK") and data[7] == 4:
-            self.viewer = addr
-            self.transport.sendto(setup(5, b"\x01"), addr)
-        elif len(data) >= 8 and data[1] == 203:
-            self.bye.set()
-
-
-class RelayPeer(asyncio.DatagramProtocol):
-    def __init__(self, cameras):
-        self.cameras = cameras
-        self.transport = None
-        self.registrations = []
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        if data.startswith(b"SDNK") and data[7] == 1:
-            self.registrations.append(data)
-            index = data[23]
-            peer = self.cameras[index].transport.get_extra_info("sockname")
-            self.transport.sendto(candidates(peer), addr)
+@pytest.mark.parametrize(
+    ("relay", "alias", "key"),
+    [
+        (("192.0.2.1", 0), "owner", b""),
+        (("192.0.2.1", 5100), "", b""),
+        (("192.0.2.1", 5100), "owné", b""),
+        (("192.0.2.1", 5100), "owner", b"short"),
+    ],
+)
+async def test_invalid_registration_never_opens_sockets(relay, alias, key):
+    receiver = TendRtp(lambda record: None)
+    with pytest.raises(ProtocolError):
+        await receiver.start(relay, alias, "", key)
+    assert not receiver._ports
+    with pytest.raises(ProtocolError, match="cannot be reused"):
+        await receiver.start(("192.0.2.1", 5100), "owner", "", b"")
 
 
 async def test_real_loopback_handshake_encrypted_video_and_cleanup(socket_enabled):
     loop = asyncio.get_running_loop()
-    cameras = [CameraPeer(), CameraPeer()]
-    transports = []
-    receiver = TendRtp()
+    records: list[bytes] = []
+    got_video = asyncio.Event()
+
+    def on_record(record):
+        records.append(record)
+        got_video.set()
+
+    class Relay(asyncio.DatagramProtocol):
+        """Answers each registration with the camera's address for that port."""
+
+        def __init__(self):
+            self.registrations = []
+            self.selected = []
+
+        def connection_made(self, transport):
+            self.transport = transport
+
+        def datagram_received(self, data, addr):
+            if data[7] == 1:
+                index = data[23]
+                self.registrations.append(data)
+                self.transport.sendto(candidates(("127.0.0.1", cameras[index].port)), addr)
+            elif data[7] == 100:
+                self.selected.append(data[20:23])
+
+    class Camera(asyncio.DatagramProtocol):
+        def __init__(self):
+            self.viewer = None
+            self.received = []
+
+        def connection_made(self, transport):
+            self.transport = transport
+            self.port = transport.get_extra_info("sockname")[1]
+
+        def datagram_received(self, data, addr):
+            self.received.append(data)
+            if data[:4] != b"SDNK":
+                return
+            if data[7] == 3 and self.viewer is None:
+                self.viewer = addr
+                self.transport.sendto(setup(3, b"\x01\x00"), addr)
+                self.transport.sendto(setup(4, b"\x01"), addr)
+            elif data[7] == 4:
+                self.transport.sendto(setup(5, data[20:21]), addr)
+
+    cameras = []
+    for _ in range(2):
+        _, protocol = await loop.create_datagram_endpoint(Camera, local_addr=("127.0.0.1", 0))
+        cameras.append(protocol)
+    relay_transport, relay = await loop.create_datagram_endpoint(Relay, local_addr=("127.0.0.1", 0))
+    receiver = TendRtp(on_record)
     try:
-        for camera in cameras:
-            transport, _ = await loop.create_datagram_endpoint(
-                lambda camera=camera: camera, local_addr=("127.0.0.1", 0)
-            )
-            transports.append(transport)
-        relay = RelayPeer(cameras)
-        transport, _ = await loop.create_datagram_endpoint(
-            lambda: relay, local_addr=("127.0.0.1", 0)
+        await receiver.start(
+            ("127.0.0.1", relay_transport.get_extra_info("sockname")[1]), "owner", "127.0.0.1", KEY
         )
-        transports.append(transport)
-        await receiver.start(transport.get_extra_info("sockname"), "test-account", "127.0.0.1", KEY)
-        assert len(relay.registrations) == 2
-        for index, packet in enumerate(relay.registrations):
-            assert packet[:8] == b"SDNK\x01\0\0\x01"
-            assert packet[20:25] == bytes([1, 0, 0, index]) + b"V"
-            assert packet[-64:-32] == b"V_test-account".ljust(32, b"\0")
-            assert packet[-32:] == packet[-64:-32]
-        assert receiver._ports[1].number == receiver._ports[0].number + 1
-        assert receiver._ready.is_set()
+        assert receiver.path is not None
+        identity = b"V_owner".ljust(32, b"\0")
+        registration = relay.registrations[0]
+        assert registration[20:25] == b"\x01\x00\x00\x00V"
+        assert registration[25:29] == socket.inet_aton("127.0.0.1")
+        assert registration[-64:] == identity * 2
+        assert sorted(relay.selected) == [b"\x01\x00V", b"\x01\x01V"]
+        media = cameras[0]
         packet = rtp(envelope(SPS, IDR, key=KEY))
-        camera = cameras[0]
-        camera.transport.sendto(fragment(1, 0, packet[:23]), camera.viewer)
-        camera.transport.sendto(fragment(1, 1, packet[23:40]), camera.viewer)
-        camera.transport.sendto(fragment(1, 2, packet[40:]), camera.viewer)
-        camera.transport.sendto(fragment(2, 0, b"next frame"), camera.viewer)
-        async with asyncio.timeout(1):
-            assert await receiver.recv() == SPS
-            assert await receiver.recv() == IDR
-        await receiver.close()
-        async with asyncio.timeout(1):
-            await cameras[1].bye.wait()
-        assert receiver._maintenance is None
-        with pytest.raises(ProtocolError, match="cannot be reused"):
-            await receiver.start(("127.0.0.1", 5104), "account", "", KEY)
+        media.transport.sendto(fragment(1, 0, packet[:30]), media.viewer)
+        media.transport.sendto(fragment(1, 1, packet[30:]), media.viewer)
+        following = rtp(envelope(IDR, key=KEY), sequence=2)
+        media.transport.sendto(fragment(2, 0, following), media.viewer)
+        async with asyncio.timeout(2):
+            await got_video.wait()
+        assert records == [SPS, IDR]
     finally:
         await receiver.close()
-        for transport in transports:
-            transport.close()
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.05)
+        relay_transport.close()
+        for camera in cameras:
+            camera.transport.close()
+    # The control port says goodbye; both local sockets are closed.
+    assert struct.pack("!BBHI", 0x81, 203, 1, receiver._ssrc) in cameras[1].received
+    assert all(port.transport.is_closing() for port in receiver._ports)
 
 
-async def test_cancelled_setup_releases_sockets(socket_enabled, monkeypatch):
+async def test_no_camera_answer_times_out_and_releases_sockets(socket_enabled, monkeypatch):
+    monkeypatch.setattr(tend_rtp, "CONNECT_TIMEOUT", 0.3)
     loop = asyncio.get_running_loop()
-    transport, _ = await loop.create_datagram_endpoint(
+    silent, _ = await loop.create_datagram_endpoint(
         asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0)
     )
-    receiver = TendRtp()
-    bound = asyncio.Event()
-    original_bind = receiver._bind
+    receiver = TendRtp(lambda record: None)
+    try:
+        with pytest.raises(CannotConnect, match="UDP connection failed or timed out"):
+            await receiver.start(
+                ("127.0.0.1", silent.get_extra_info("sockname")[1]), "owner", "", b""
+            )
+    finally:
+        silent.close()
+    assert len(receiver._ports) == 2
+    assert all(port.transport.is_closing() for port in receiver._ports)
 
-    async def bind():
-        await original_bind()
-        bound.set()
 
-    monkeypatch.setattr(receiver, "_bind", bind)
+async def test_cancelled_setup_releases_sockets(socket_enabled):
+    loop = asyncio.get_running_loop()
+    silent, _ = await loop.create_datagram_endpoint(
+        asyncio.DatagramProtocol, local_addr=("127.0.0.1", 0)
+    )
+    receiver = TendRtp(lambda record: None)
     task = asyncio.create_task(
-        receiver.start(transport.get_extra_info("sockname"), "account", "", KEY)
+        receiver.start(("127.0.0.1", silent.get_extra_info("sockname")[1]), "owner", "", b"")
     )
     try:
-        async with asyncio.timeout(1):
-            await bound.wait()
+        await asyncio.sleep(0.15)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        assert all(port.transport.is_closing() for port in receiver._ports)
-        assert receiver._ended.is_set()
     finally:
-        task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
-        await receiver.close()
-        transport.close()
+        silent.close()
+    assert all(port.transport.is_closing() for port in receiver._ports)

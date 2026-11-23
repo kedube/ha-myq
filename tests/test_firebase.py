@@ -152,7 +152,7 @@ async def test_registered_exchange_cache_and_oauth_header_scope(http, registrati
     assert headers["Firebase-AppCheck-Token"] == token
     assert not any(k.startswith("X-Android-") for k in headers)
     assert "private-debug" not in str(native.request.call_args)
-    await manager.access_token(rejected_token="access")
+    await manager.access_token(rejected_token="access", force=True)
     assert "Firebase-AppCheck-Token" not in native.request.call_args.kwargs["headers"]
     assert "private-" not in repr(registration) + repr(provider) + repr(results)
     provider._proof = AppCheckProof(token, time.time() + 200)

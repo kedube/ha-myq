@@ -1,4 +1,4 @@
-"""Measured APK OkHttp/Android 17 profile; provenance and limits are in docs/research."""
+"""The TLS and HTTP/2 profile of the app's OkHttp client on Android 17."""
 
 ANDROID_JA3 = (
     "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,"

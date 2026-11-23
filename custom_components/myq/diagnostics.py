@@ -1,6 +1,7 @@
 """Allowlisted diagnostics exclude identifiers, tokens, media, and arbitrary payloads."""
 
 from .api.associations import wifi_gdo_pairs
+from .camera import _live_route
 
 
 async def async_get_config_entry_diagnostics(hass, entry):
@@ -9,6 +10,19 @@ async def async_get_config_entry_diagnostics(hass, entry):
     positions = {key: index for index, key in enumerate(devices)}
     pairs = wifi_gdo_pairs(devices)
     merged = getattr(coordinator, "gateway_openers", {})
+    monitor = getattr(coordinator, "status_monitor", None)
+
+    def live_video(device):
+        if not device.is_camera:
+            return {}
+        source = getattr(coordinator, "video_sources", {}).get(device.key)
+        return {
+            # "legacy": a TC camera served as a stream source; "kvs": MyQ WebRTC.
+            "live_video_route": _live_route(device, coordinator.data.cameras.get(device.key, {})),
+            "live_video_source": source.status() if source is not None else None,
+            "live_view_open": device.key in getattr(coordinator, "live_sessions", {})
+            or (source is not None and source.session is not None),
+        }
 
     def gateway_status(device):
         if device.device_type != "wifigdogateway":
@@ -25,6 +39,9 @@ async def async_get_config_entry_diagnostics(hass, entry):
     return {
         "last_update_success": coordinator.last_update_success,
         "account_access_error": coordinator.data.account_access_error,
+        # The idle Tend connection uses the same login as live video.
+        "camera_status_connected": getattr(monitor, "connected", None),
+        "camera_status_error": getattr(monitor, "last_error", None),
         "devices": [
             {
                 "device_type": device.device_type,
@@ -42,6 +59,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
                     if isinstance(value, str) and value
                 ],
                 **gateway_status(device),
+                **live_video(device),
                 "camera_details_available": device.key in coordinator.data.cameras,
                 "camera_error": coordinator.data.camera_errors.get(device.key),
                 "garage_settings_error": coordinator.data.garage_errors.get(device.key),

@@ -9,7 +9,14 @@ import aiohttp
 from .android_http import AndroidHttp
 from .backoff import ServiceBackoff
 from .const import ACCOUNTS, ACTIONS, DEVICES, LAMPS, NATIVE_API_BASES, NATIVE_HEADERS, PROFILES
-from .errors import CannotConnect, CommandRejected, CommandUncertain, ProtocolError, RateLimited
+from .errors import (
+    CannotConnect,
+    CommandRejected,
+    CommandUncertain,
+    ProtocolError,
+    RateLimited,
+    RequestUnauthorized,
+)
 from .exclusive import ExclusiveLocks
 from .http import HttpTransport, Response, check_status, renewable
 from .models import Account, Device, object_list
@@ -43,6 +50,9 @@ class Client:
 
     async def close(self) -> None:
         """Release owned native pools; injected transports and HA's session stay open."""
+        # A renewal already sent has used up the old refresh token: let its answer
+        # arrive and be saved before the connection it is on is closed.
+        await self.auth.drain()
         if isinstance(self.http, AndroidHttp):
             await self.http.close()
 
@@ -68,7 +78,12 @@ class Client:
         # ft0/c1 renews and sends once more, for any method: a 401 means MyQ did not
         # act on the request. A second 401 fails only this request (RequestUnauthorized).
         if renewable(response):
-            token = await self.auth.access_token(rejected_token=token)
+            try:
+                token = await self.auth.access_token(rejected_token=token)
+            except CannotConnect:
+                # The request itself was answered 401, so MyQ did not act on it. A
+                # renewal outage must not turn that into "outcome unknown".
+                raise RequestUnauthorized() from None
             response = await self._send(
                 method,
                 base,

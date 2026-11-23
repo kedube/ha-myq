@@ -1,12 +1,10 @@
 """Actual WebRTC media on loopback, without a MyQ account or physical camera."""
 
 import asyncio
-from fractions import Fraction
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import aiohttp
-import av
 import pytest
 from aiortc import (
     AudioStreamTrack,
@@ -17,7 +15,7 @@ from aiortc import (
 )
 
 from custom_components.myq.api import live
-from custom_components.myq.api.errors import CannotConnect, CommandRejected, ProtocolError
+from custom_components.myq.api.errors import CannotConnect, ProtocolError
 from custom_components.myq.api.kvs import KvsConfig
 
 
@@ -300,206 +298,69 @@ async def test_library_error_is_sanitized_and_closes_resources(video_service, mo
     await browser.close()
 
 
-@pytest.fixture
-def legacy_service(monkeypatch):
-    """Supply locally encoded Annex-B records at the native transport boundary."""
-    monkeypatch.setattr("aioice.ice.get_host_addresses", lambda **kwargs: ["127.0.0.1"])
-    codec = av.CodecContext.create("libx264", "w")
-    codec.width, codec.height = 64, 48
-    codec.pix_fmt = "yuv420p"
-    codec.time_base = Fraction(1, 15)
-    codec.framerate = Fraction(15)
-    codec.options = {"preset": "ultrafast", "tune": "zerolatency", "g": "1"}
-    frame = av.VideoFrame(64, 48, "yuv420p")
-    for plane in frame.planes:
-        plane.update(bytes([100]) * plane.buffer_size)
-    frame.pts = 0
-    record = b"".join(bytes(packet) for packet in codec.encode(frame))
-    assert record.startswith(b"\x00\x00\x00\x01")
-    instances = []
-
-    class Legacy:
-        def __init__(self):
-            self.ended = asyncio.Event()
-            self.start = AsyncMock(return_value={})
-            self.close = AsyncMock(side_effect=self.ended.set)
-            self.error = None
-            self.records = 0
-            self.twelve_records = asyncio.Event()
-            self.allow_frames = asyncio.Event()
-            self.allow_frames.set()
-            instances.append(self)
-
-        async def recv(self):
-            await self.allow_frames.wait()
-            await asyncio.sleep(1 / 30)
-            if self.error:
-                raise self.error
-            self.records += 1
-            if self.records == 12:
-                self.twelve_records.set()
-            return record
-
-        async def wait_closed(self):
-            await self.ended.wait()
-
-    monkeypatch.setattr(live, "LegacyTendSession", Legacy)
-    return instances
-
-
 @pytest.mark.usefixtures("socket_enabled")
-async def test_legacy_h264_is_shared_with_viewers_and_snapshots(legacy_service):
-    browsers = [await make_browser(), await make_browser()]
-    received = [asyncio.Queue(), asyncio.Queue()]
-    readers = []
+async def test_camera_frames_do_not_pile_up_before_a_viewer_connects(video_service):
+    """aiortc queues every decoded frame of a received track until something reads it.
 
-    def watch(browser, queue):
-        @browser.on("track")
-        def track_added(track):
-            async def receive():
-                queue.put_nowait(await track.recv())
-
-            readers.append(asyncio.create_task(receive()))
-
-    for browser, queue in zip(browsers, received, strict=True):
-        watch(browser, queue)
-    errors = AsyncMock()
+    A browser that never completes its connection used to leave them all queued.
+    """
+    browser = await make_browser()
     async with aiohttp.ClientSession() as http:
-        stream = live.LiveSession(http, errors, legacy=True, allow_talkback=True)
+        stream = live.LiveSession(http, AsyncMock())
         try:
             async with asyncio.timeout(15):
-                answer = await stream.start(
-                    "camera-alias", "private-token", browsers[0].localDescription.sdp
-                )
-                await browsers[0].setRemoteDescription(RTCSessionDescription(answer, "answer"))
-                first = await received[0].get()
-                answer2 = await stream.join(browsers[1].localDescription.sdp, "second")
-                await browsers[1].setRemoteDescription(RTCSessionDescription(answer2, "answer"))
-                second = await received[1].get()
-                jpeg = await stream.snapshot()
-            assert (first.width, first.height) == (second.width, second.height) == (64, 48)
-            assert jpeg.startswith(b"\xff\xd8\xff")
-            assert stream.ready and stream.viewers == 2
-            assert stream._camera is None and stream._kvs is None
-            assert "private-token" not in answer + answer2
-            with pytest.raises(CommandRejected, match="Talkback is unavailable"):
-                stream.set_talkback(True)
-            assert len(legacy_service) == 1
-            tend = legacy_service[0]
-            tend.start.assert_awaited_once_with("camera-alias", "private-token")
-            await stream.leave("primary")
-            assert stream.ready and stream.viewers == 1
-            tend.close.assert_not_awaited()
-            await stream.leave("second")
-            assert not stream.ready
-            assert stream._legacy_video.readyState == "ended"
-            assert stream._legacy_video._task.done()
-            tend.close.assert_awaited_once()
-            errors.assert_not_awaited()
-        finally:
-            await stream.close()
-            await asyncio.gather(*(browser.close() for browser in browsers))
-            for task in readers:
-                task.cancel()
-            await asyncio.gather(*readers, return_exceptions=True)
-
-
-@pytest.mark.usefixtures("socket_enabled")
-async def test_legacy_receive_failure_closes_decoder_and_viewers_without_deadlock(legacy_service):
-    browser = await make_browser()
-    ended = asyncio.Event()
-    errors = AsyncMock(side_effect=lambda error: ended.set())
-    async with aiohttp.ClientSession() as http:
-        stream = live.LiveSession(http, errors, legacy=True)
-        try:
-            await stream.start("alias", "token", browser.localDescription.sdp)
-            legacy_service[0].error = CannotConnect("The camera stopped sending video")
-            async with asyncio.timeout(5):
-                await ended.wait()
-            assert stream._browser.connectionState == "closed"
-            assert stream._legacy_video.readyState == "ended"
-            assert stream._legacy_video._task.done()
-            legacy_service[0].close.assert_awaited_once()
-            errors.assert_awaited_once()
+                await stream.start("camera-alias", "private-token", browser.localDescription.sdp)
+            # The browser never applies the answer, so its peer never connects.
+            deadline = asyncio.get_running_loop().time() + 3
+            received = 0
+            while asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.25)
+                queued = stream._sources["video"]._queue.qsize()
+                assert queued < 10
+                received = max(received, queued)
+            assert stream.ready
         finally:
             await stream.close()
             await browser.close()
+            if len(video_service) > 1:
+                await asyncio.gather(*video_service[1].audio_tasks, return_exceptions=True)
 
 
-@pytest.mark.usefixtures("socket_enabled")
-async def test_cancelling_legacy_start_before_first_frame_cleans_up(legacy_service, monkeypatch):
-    receiving = asyncio.Event()
-
-    class WaitingLegacy(live.LegacyTendSession):
-        async def recv(self):
-            receiving.set()
-            await asyncio.Event().wait()
-
-    monkeypatch.setattr(live, "LegacyTendSession", WaitingLegacy)
-    browser = await make_browser()
-    async with aiohttp.ClientSession() as http:
-        stream = live.LiveSession(http, AsyncMock(), legacy=True)
-        task = asyncio.create_task(stream.start("alias", "token", browser.localDescription.sdp))
-        try:
-            async with asyncio.timeout(5):
-                await receiving.wait()
-                task.cancel()
-                with pytest.raises(asyncio.CancelledError):
-                    await task
-            assert stream._browser.connectionState == "closed"
-            assert stream._legacy_video._task.done()
-            assert stream._legacy_video.readyState == "ended"
-            legacy_service[0].close.assert_awaited_once()
-        finally:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-            await stream.close()
-            await browser.close()
+async def test_owner_is_told_when_the_session_ends_after_dropping_a_viewer():
+    """A dropped viewer may still be listed by the owner, which must hear of the end."""
+    errors = AsyncMock()
+    stream = live.LiveSession(None, errors)
+    stream._started = stream._ready = True
+    stream._viewers = {
+        name: SimpleNamespace(close=AsyncMock(), closed=False, microphone=None) for name in "ab"
+    }
+    await stream.leave("a", error=CannotConnect("The viewer connection ended"))
+    errors.assert_not_awaited()
+    await stream.leave("b")
+    assert stream._closed
+    errors.assert_awaited_once()
+    assert str(errors.await_args.args[0]) == "The live view ended"
 
 
-async def test_legacy_decoder_bounds_frames_and_preserves_monotonic_timestamps(legacy_service):
-    source = live.LegacyTendSession()
-    errors = []
-    track = live._LegacyVideoTrack(source, errors.append)
-    try:
-        async with asyncio.timeout(5):
-            await track.wait_ready()
-            first = await track.recv()
-            await source.twelve_records.wait()
-            assert track._frames.qsize() == 2
-            latest = await track.recv()
-        assert latest.pts > first.pts
-        assert first.time_base == latest.time_base == Fraction(1, 90000)
-        assert not errors
-    finally:
-        await track.close()
-    assert track._task.done()
+async def test_viewer_close_finishes_even_if_the_task_closing_it_is_cancelled():
+    viewer = live._Viewer([])
+    started, finish = asyncio.Event(), asyncio.Event()
+    closes = 0
 
+    async def slow_close():
+        nonlocal closes
+        closes += 1
+        started.set()
+        await finish.wait()
 
-@pytest.mark.parametrize("record", [b"", "not bytes", b"x" * (live.MAX_H264_RECORD + 1)])
-async def test_legacy_decoder_rejects_invalid_records(record):
-    errors = []
-    source = SimpleNamespace(recv=AsyncMock(return_value=record))
-    track = live._LegacyVideoTrack(source, errors.append)
-    try:
-        with pytest.raises(ProtocolError, match="Invalid camera video record"):
-            await track.wait_ready()
-        assert len(errors) == 1
-    finally:
-        await track.close()
-
-
-async def test_legacy_decoder_times_out_when_no_frames_arrive(monkeypatch):
-    monkeypatch.setattr(live, "LEGACY_FRAME_TIMEOUT", 0.02)
-
-    async def no_records():
-        await asyncio.Event().wait()
-
-    errors = []
-    track = live._LegacyVideoTrack(SimpleNamespace(recv=no_records), errors.append)
-    try:
-        with pytest.raises(CannotConnect, match="Unable to decode"):
-            await track.wait_ready()
-        assert len(errors) == 1
-    finally:
-        await track.close()
+    viewer.peer.close = slow_close
+    first = asyncio.create_task(viewer.close())
+    await started.wait()
+    first.cancel()
+    await asyncio.gather(first, return_exceptions=True)
+    second = asyncio.create_task(viewer.close())
+    await asyncio.sleep(0)
+    finish.set()
+    async with asyncio.timeout(1):
+        await second
+    assert closes == 1 and viewer.closed

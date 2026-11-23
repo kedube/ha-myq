@@ -119,7 +119,8 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(
     base = f"http://127.0.0.1:{runner.addresses[0][1]}"
     try:
         async with CurlHttp(profile) as http:
-            for session in (http.session, http.native_session):
+            # Every pool, so that nothing in this test can leave the machine.
+            for session in (http.session, http.native_session, http.native_single_send):
                 original_request = session.request
 
                 async def loopback(method, url, _request=original_request, **kwargs):
@@ -136,7 +137,7 @@ async def test_real_curl_cookies_password_mfa_exchange_and_refresh(
             tokens = await login.respond("123456")
             assert tokens.access_token == "synthetic-access"
             assert (
-                await client.auth.access_token(rejected_token=tokens.access_token)
+                await client.auth.access_token(rejected_token=tokens.access_token, force=True)
                 == "rotated-access"
             )
             assert client.auth.tokens.refresh_token == "rotated-refresh"
@@ -230,3 +231,38 @@ async def test_failures_hide_secrets_and_do_not_replay_posts(monkeypatch, code, 
         )
         request.assert_awaited_once()
         assert request.call_args.kwargs["allow_redirects"] is False
+
+
+async def test_a_pool_that_was_never_used_is_not_started_just_to_be_closed():
+    http = CurlHttp()
+    assert not http._pools
+    await http.close()
+    assert not http._pools
+    with pytest.raises(CannotConnect, match="closed"):
+        await http.request("GET", IDENTITY + "/")
+
+
+async def test_writes_use_a_connection_of_their_own_and_reads_share_one(monkeypatch):
+    from curl_cffi import CurlOpt
+
+    from custom_components.myq.api.const import NATIVE_HEADERS
+
+    async with CurlHttp() as http:
+        used = []
+        for name in ("native", "native_single_send"):
+            pool = http._pool(name)
+            monkeypatch.setattr(
+                pool,
+                "request",
+                AsyncMock(
+                    side_effect=lambda *args, _name=name, **kwargs: (
+                        used.append(_name) or SimpleNamespace(status_code=200, headers={})
+                    )
+                ),
+            )
+        for method in ("GET", "PUT", "POST", "DELETE", "get"):
+            await http.request(method, IDENTITY + "/", headers=dict(NATIVE_HEADERS))
+        assert used == ["native", *["native_single_send"] * 3, "native"]
+        options = http.native_single_send.curl_options
+        assert options[CurlOpt.FRESH_CONNECT] == 1 and options[CurlOpt.FORBID_REUSE] == 1
+        assert CurlOpt.FORBID_REUSE not in http.native_session.curl_options

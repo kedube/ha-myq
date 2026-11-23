@@ -104,7 +104,7 @@ def value(details: dict, key: str) -> Any:
     if key not in paths:
         return None
     raw = nested(details, "settings", *paths[key])
-    if key == "chime_type":
+    if key == "chime_type" and isinstance(raw, str):
         raw = CHIME_ALIASES.get(raw, raw)
     if key in {"rotation", "night_vision", "power_saver", "chime_type"}:
         return next((name for name, item in choices(details, key).items() if item == raw), None)

@@ -1,4 +1,4 @@
-"""Wire constants observed in Android 5.324.0.1132442; see docs/api/services.md."""
+"""Wire constants of MyQ Android 5.324.0.1132442; see docs/api.md."""
 
 IDENTITY = "https://partner-identity.myq-cloud.com"
 ACCOUNTS = "https://accounts.myq-cloud.com"
@@ -20,8 +20,7 @@ USER_AGENT = f"ha-myq/{VERSION}"
 ANDROID_PACKAGE = "com.chamberlain.android.liftmaster.myq"
 APP_VERSION = "5.324.0.1132442"
 BRAND_ID = "1"
-# Actual Build values, not the AVD's display name. See the runtime evidence in
-# docs/research/android-request-profile.md. These labels are not attestation.
+# Actual Build values, not the AVD's display name. These labels are not attestation.
 ANDROID_MODEL = "sdk_gphone64_arm64"
 ANDROID_RELEASE = "17"
 ANDROID_BUILD = "CE2A.260420.051.A2"

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs
 
@@ -14,6 +15,7 @@ from custom_components.myq.api.errors import (
     AuthenticationError,
     CannotConnect,
     ProtocolError,
+    RequestUnauthorized,
     SessionRenewalFailed,
 )
 from custom_components.myq.api.http import Response
@@ -51,7 +53,7 @@ async def test_app_check_is_used_only_for_code_exchange_and_is_not_persisted(htt
     assert "private-app-check-token" not in json.dumps(manager.last_exchange)
     assert "private-app-check-token" not in json.dumps(manager.tokens.as_dict())
     assert not hasattr(manager, "app_check_token")
-    await manager.access_token(rejected_token="access")
+    await manager.access_token(rejected_token="access", force=True)
     # ft0/i0 also adds the stored access token to the refresh request.
     assert http.request.call_args.kwargs["headers"] == {
         **NATIVE_HEADERS,
@@ -322,3 +324,126 @@ async def test_revoke_without_renewal_still_sends_the_refresh_token(http):
     manager = TokenManager(http, Tokens("old", "r1", 0))
     assert await manager.revoke() is False
     assert "Authorization" not in http.request.call_args.kwargs["headers"]
+
+
+async def test_waiters_share_one_failed_renewal(http):
+    """Eight requests queued behind a renewal that fails do not each send their own."""
+    http.request.return_value = json_response({"error": "server_error"}, 503)
+    manager = TokenManager(http, Tokens("a", "r", time.time() - 1, 3600.0))
+    results = await asyncio.gather(
+        *(manager.access_token() for _ in range(8)), return_exceptions=True
+    )
+    assert all(isinstance(result, CannotConnect) for result in results)
+    assert http.request.await_count == 1
+
+
+async def test_failed_renewal_is_tried_again_after_a_pause(http, monkeypatch):
+    http.request.return_value = json_response({"error": "server_error"}, 503)
+    manager = TokenManager(http, Tokens("a", "r", time.time() - 1, 3600.0))
+    with pytest.raises(CannotConnect):
+        await manager.access_token()
+    monkeypatch.setattr("custom_components.myq.api.tokens.RENEWAL_RETRY_SECONDS", 0)
+    http.request.return_value = json_response(
+        {"access_token": "new", "refresh_token": "new-r", "expires_in": 3600}
+    )
+    assert await manager.access_token() == "new"
+    assert http.request.await_count == 2
+
+
+async def test_ended_session_is_never_asked_again_with_the_same_refresh_token(http, monkeypatch):
+    monkeypatch.setattr("custom_components.myq.api.tokens.RENEWAL_RETRY_SECONDS", 0)
+    http.request.return_value = json_response({"error": "invalid_grant"}, 400)
+    manager = TokenManager(http, Tokens("a", "r", time.time() - 1, 3600.0))
+    for _ in range(3):
+        with pytest.raises(AuthenticationError, match="ended this session"):
+            await manager.access_token()
+    assert http.request.await_count == 1
+    # A new sign-in replaces the tokens, and renewal works again.
+    manager.tokens = Tokens("b", "r2", time.time() - 1, 3600.0)
+    http.request.return_value = json_response(
+        {"access_token": "new", "refresh_token": "new-r", "expires_in": 3600}
+    )
+    assert await manager.access_token() == "new"
+
+
+async def test_endpoint_that_always_answers_401_does_not_rotate_the_session_every_poll(http):
+    rotations = 0
+
+    async def request(method, url, **kwargs):
+        nonlocal rotations
+        if url.startswith(IDENTITY):
+            rotations += 1
+            return json_response(
+                {
+                    "access_token": f"a{rotations}",
+                    "refresh_token": f"r{rotations}",
+                    "expires_in": 3600,
+                }
+            )
+        return Response(401, {}, b"")
+
+    http.request.side_effect = request
+    saved = []
+
+    async def save(tokens):
+        saved.append(tokens.refresh_token)
+
+    client = Client(transport=http, tokens=Tokens("a0", "r0", time.time() + 3600, 3600.0))
+    client.auth.on_update = save
+    for _ in range(5):
+        with pytest.raises(RequestUnauthorized):
+            await client.request("GET", PROFILES, "/api/v6.0/optional")
+    # One renewal answers the first 401. MyQ only just issued that token, so the
+    # following 401s are about the request and nothing is rotated or saved again.
+    assert rotations == 1 and saved == ["r1"]
+    # An explicit session check still renews.
+    assert await client.auth.access_token(rejected_token="a1", force=True) == "a2"
+
+
+async def test_renewal_outage_after_a_401_is_not_an_unknown_command_outcome(http, door):
+    """The command was answered 401, so MyQ did not act on it."""
+    http.request.side_effect = [Response(401, {}, b""), CannotConnect("identity down")]
+    client = Client(transport=http, tokens=Tokens("a", "r", time.time() + 3600, 3600.0))
+    with pytest.raises(RequestUnauthorized):
+        await client.command(door, "open")
+
+
+async def test_close_waits_for_a_renewal_already_sent(http):
+    """The old refresh token is spent once sent; only the answer carries the new one."""
+    saved = []
+    answer = asyncio.Event()
+
+    async def request(method, url, **kwargs):
+        await answer.wait()
+        return json_response({"access_token": "new", "refresh_token": "new-r", "expires_in": 3600})
+
+    async def save(tokens):
+        saved.append(tokens.refresh_token)
+
+    http.request.side_effect = request
+    client = Client(transport=http, tokens=Tokens("old", "old-r", time.time() - 1, 3600.0))
+    client.auth.on_update = save
+    caller = asyncio.create_task(client.auth.access_token())
+    await asyncio.sleep(0.01)
+    caller.cancel()  # Unload cancels whatever was waiting for the token.
+    await asyncio.gather(caller, return_exceptions=True)
+    closing = asyncio.create_task(client.close())
+    await asyncio.sleep(0.01)
+    assert not closing.done()
+    answer.set()
+    await closing
+    assert saved == ["new-r"]
+
+
+def test_numeric_and_oversized_token_answer_fields_are_read_like_api_answers():
+    assert exchange_diagnostics(json_response({"code": 400}, 400))["myq_code"] == "400"
+    # A session-ended code sent as a number still ends the session.
+    with pytest.raises(AuthenticationError):
+        TokenManager._reject("refresh", None, "400")
+    huge = b'{"access_token":"n","refresh_token":"nr","expires_in":1' + b"0" * 400 + b"}"
+    assert Tokens.from_response(json.loads(huge)).lifetime == 3600.0
+
+
+def test_deeply_nested_json_is_a_protocol_error():
+    with pytest.raises(ProtocolError, match="invalid JSON"):
+        Response(200, {}, b"[" * 100_000).json()

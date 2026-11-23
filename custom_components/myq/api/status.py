@@ -1,13 +1,22 @@
 """Owned read-only Tend status connection, paused while native live views exist."""
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 
 from .client import Client
-from .errors import AccessDenied, AuthenticationError, CannotConnect, MyQError, RateLimited
+from .errors import (
+    AccessDenied,
+    AuthenticationError,
+    CannotConnect,
+    MyQError,
+    ProtocolError,
+    RateLimited,
+)
 from .tend import TendStatusSession, _alias
 
+_LOGGER = logging.getLogger(__name__)
 MIN_RECONNECT_SECONDS = 60
 MAX_RECONNECT_SECONDS = 900
 
@@ -33,11 +42,15 @@ class CameraStatusMonitor:
         self._auth_failed = False
         self._changed = asyncio.Event()
         self._lifecycle = asyncio.Lock()
+        # This integration's own error text, for diagnostics.
+        self.last_error: str | None = None
+
+    @property
+    def connected(self) -> bool:
+        return self._session is not None and self._session.connected
 
     def update_aliases(self, aliases: set[str]) -> None:
         if len(aliases) > 4096:
-            from .errors import ProtocolError
-
             raise ProtocolError("Too many camera status aliases")
         validated = {_alias(alias) for alias in aliases}
         if validated != self._aliases:
@@ -108,6 +121,7 @@ class CameraStatusMonitor:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _report(self, error: MyQError) -> None:
+        self.last_error = str(error)
         # A consumer callback must not strand the owned socket or spawn retries.
         with suppress(Exception):
             await self._on_error(error)
@@ -129,6 +143,10 @@ class CameraStatusMonitor:
                         continue
                     session = self._session = TendStatusSession(self._aliases, self._status)
                     await session.subscribe(token)
+                    self.last_error = None
+                    # A login that worked ends the run of failures: the next drop
+                    # reconnects after the shortest pause, not the longest reached.
+                    delay = MIN_RECONNECT_SECONDS
                     await self._watch(session)
                 except asyncio.CancelledError:
                     raise
@@ -145,6 +163,8 @@ class CameraStatusMonitor:
                         retry_after = MAX_RECONNECT_SECONDS
                     await self._report(error)
                 except Exception:
+                    # A defect here would otherwise retry forever without a trace.
+                    _LOGGER.exception("Unexpected error in the camera status connection")
                     await self._report(CannotConnect("Tend camera status connection failed"))
                 finally:
                     if session is not None:

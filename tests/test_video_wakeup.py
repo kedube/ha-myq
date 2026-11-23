@@ -205,3 +205,11 @@ async def test_settings_wake_polls_every_two_seconds_then_writes_if_online(
     ] * 50
     # The app's handling of a failed wake did not decompile; an online camera is written.
     assert await Video(client).ready(camera_device) == asleep
+
+
+def test_absurd_sleep_interval_is_a_protocol_error():
+    from custom_components.myq.api.errors import ProtocolError
+    from custom_components.myq.api.video import _sleep_interval
+
+    with pytest.raises(ProtocolError, match="sleep interval"):
+        _sleep_interval({"sleepInterval": 10**400})

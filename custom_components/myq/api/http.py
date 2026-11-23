@@ -36,7 +36,7 @@ class Response:
     def json(self) -> Any:
         try:
             return json.loads(self.body)
-        except (ValueError, UnicodeError):
+        except (ValueError, UnicodeError, RecursionError):
             raise ProtocolError("MyQ returned invalid JSON") from None
 
     def header(self, name: str) -> str | None:

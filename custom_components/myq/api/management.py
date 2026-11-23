@@ -664,7 +664,9 @@ class Management:
         raise CommandRejected("Accessory is no longer paired with this opener")
 
     async def rename_accessory(self, device: Device, accessory_serial: str, name: str) -> None:
-        name = _name(name)
+        # Trimmed, as a device name is: "Remote " would pass the uniqueness check beside
+        # "Remote", and never read back as typed if MyQ trims it.
+        name = _name(name).strip()
         # s50/e1.m0 and c0: at most 24 characters, unique on the opener ignoring case.
         if len(name) > ACCESSORY_NAME_LENGTH:
             raise CommandRejected("An accessory name can have at most 24 characters")

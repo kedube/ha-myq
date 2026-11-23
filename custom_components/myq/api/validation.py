@@ -21,7 +21,7 @@ async def validate_session(
         raise AuthenticationError("MyQ session belongs to a different user; sign in again")
     if refresh:
         current = await client.auth.access_token()
-        await client.auth.access_token(rejected_token=current)
+        await client.auth.access_token(rejected_token=current, force=True)
         if (await client.profile())["user_id"] != identity:
             raise AuthenticationError("MyQ identity changed after session renewal")
     devices = await client.discover()
