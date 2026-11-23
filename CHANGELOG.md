@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.10] - 2026-11-23
+
 ### Fixed
 
 - Fix every connection to MyQ's video service failing, which left live video,
