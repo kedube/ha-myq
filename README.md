@@ -11,8 +11,7 @@ A Home Assistant integration for Chamberlain and LiftMaster **MyQ** garage door
 openers, gates, lamps, cameras, locks and linked thermostats. It is an
 independent client written from the MyQ Android app's protocol and MyQ's hosted
 sign-in pages; it uses no other MyQ client library and contains no decompiled
-app code. The sidebar panel, dashboard door card and door artwork are Katherine
-Dubé's UI, reused with her permission.
+app code. The sidebar panel, dashboard door card and door artwork are my own UI and used with permission for this integration.
 
 > **Unofficial.** Not affiliated with or endorsed by The Chamberlain Group, which
 > owns the MyQ, Chamberlain and LiftMaster brands. MyQ's API is private and can
