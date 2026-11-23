@@ -54,6 +54,11 @@ def _talks(device: Device, details: dict) -> bool:
     return _live_route(device, details) == "legacy" and can_talk(details)
 
 
+def has_speaker(device: Device, details: dict) -> bool:
+    """A camera gets a Speaker: TC talkback, or sounds stored on the camera."""
+    return _talks(device, details) or bool(stored_tracks(details))
+
+
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     if not entry.options.get(CONF_ENABLE_CAMERAS, True):
         return
@@ -63,7 +68,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
         if not device.is_camera:
             return
         details = coordinator.data.cameras.get(device.key, {})
-        if _talks(device, details) or stored_tracks(details):
+        if has_speaker(device, details):
             yield MyQCameraSpeaker(coordinator, device)
 
     discover_entities(coordinator, async_add_entities, speakers)

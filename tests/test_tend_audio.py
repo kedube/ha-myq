@@ -267,3 +267,35 @@ async def test_cancelled_talk_still_sends_stop(transports):
     sent = [call.args[0] for call in transports["rtp"][0].send.call_args_list]
     assert sent[0][5] == 7 and sent[-1][5] == 8 and 2 <= len(sent) < 100
     await talk.close()
+
+
+def test_speaker_summary_reports_capabilities_without_identifiers():
+    from custom_components.myq.api.tend_audio import speaker_summary
+
+    details = {
+        "cap": {
+            "spk": {
+                "talkback": True,
+                "fullDuplex": False,
+                "codecList": [" OPUS ", "g711U", "bad codec name", 5],
+                "playback": True,
+                "playbackTrackList": [{"id": "t1", "descr": "Rain"}, {"id": 3}],
+            }
+        }
+    }
+    assert speaker_summary(details) == {
+        "talkback": True,
+        "full_duplex": False,
+        "codecs": ["g711u", "opus"],
+        "talkback_codec": "opus",
+        "playback": True,
+        "stored_sounds": 1,
+    }
+    assert speaker_summary({"cap": {"spk": {"talkback": "yes", "codecList": "opus"}}}) == {
+        "talkback": None,
+        "full_duplex": None,
+        "codecs": None,
+        "talkback_codec": None,
+        "playback": None,
+        "stored_sounds": 0,
+    }

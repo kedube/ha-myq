@@ -262,6 +262,7 @@ def test_absurd_sleep_interval_is_a_protocol_error():
             {
                 "online": True,
                 "sleep_mode": "LOW_POWER_DEEP_SLEEP",
+                "sleep_mode_reported": None,
                 "sleep_interval": 30,
                 "battery_reported": False,
                 "hardware_model": "PMX-SAV524MT7686-STM-II",
@@ -274,6 +275,7 @@ def test_absurd_sleep_interval_is_a_protocol_error():
             {
                 "online": False,
                 "sleep_mode": None,
+                "sleep_mode_reported": None,
                 "sleep_interval": "invalid",
                 "battery_reported": True,
                 "hardware_model": None,
@@ -286,6 +288,7 @@ def test_absurd_sleep_interval_is_a_protocol_error():
             {
                 "online": False,
                 "sleep_mode": None,
+                "sleep_mode_reported": None,
                 "sleep_interval": None,
                 "battery_reported": False,
                 "hardware_model": "invalid",
@@ -407,3 +410,23 @@ async def test_wake_left_to_tend_sends_no_post(camera_device):
     assert await video.wake_best_effort(camera_device, asleep, post=False) is asleep
     client.request.assert_not_called()
     assert video.wakes[camera_device.key] == "left_to_tend"
+
+
+@pytest.mark.parametrize(
+    "raw,reported",
+    [
+        ("ALWAYS_ON", "ALWAYS_ON"),  # Not one of the three known codes: shown as sent.
+        ("full_power", None),  # Known (case-insensitive): nothing extra.
+        ("not a code!", "invalid"),
+        ("X" * 41, "invalid"),
+        (7, "invalid"),
+    ],
+)
+def test_unrecognised_sleep_mode_is_reported_as_sent(raw, reported):
+    from custom_components.myq.api.video import power_summary
+
+    info = details()
+    info["status"]["pwr"]["sleepMode"] = raw
+    summary = power_summary(info)
+    assert summary["sleep_mode_reported"] == reported
+    assert summary["sleep_mode"] == ("FULL_POWER" if reported is None else "UNKNOWN")

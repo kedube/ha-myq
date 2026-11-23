@@ -34,9 +34,11 @@ All notable changes to this project are documented here. The format follows
 - The integration reads the account's MyQ feature flags (`my/features`) to
   decide how live video wakes cameras and which modes to skip.
 - Diagnostics show each camera's power state (online, sleep mode and interval,
-  battery, hardware model), what the last live-video wake-up did, the account's
-  live-video feature flags, and the video modes a TC camera tried and used, so
-  a camera that does not stream can be diagnosed.
+  battery, hardware model, and a sleep mode the integration does not recognise
+  as the camera sent it), its speaker capabilities and whether it has a
+  Speaker, what the last live-video wake-up did, the account's live-video
+  feature flags, and the video modes a TC camera tried and used, so a camera
+  that does not stream can be diagnosed.
 
 ## [0.10] - 2026-11-23
 

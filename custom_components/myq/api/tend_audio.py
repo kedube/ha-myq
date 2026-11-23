@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import re
 import struct
 import time
 from collections.abc import Awaitable, Callable
@@ -72,6 +73,35 @@ def stored_tracks(details: dict) -> list[tuple[str, str]]:
             label = description if isinstance(description, str) and description.strip() else None
             found.append((track_id, (label or track_id)[:128]))
     return found
+
+
+def speaker_summary(details: dict) -> dict[str, Any]:
+    """The speaker capabilities that decide talkback and stored sounds; no identifiers."""
+
+    def flag(name: str) -> bool | None:
+        value = nested(details, "cap", "spk", name)
+        return value if type(value) is bool else None
+
+    codecs = nested(details, "cap", "spk", "codecList")
+    listed = (
+        sorted(
+            {
+                item.strip().lower()
+                for item in codecs
+                if isinstance(item, str) and re.fullmatch(r"\s*[A-Za-z0-9_.-]{1,24}\s*", item)
+            }
+        )[:8]
+        if isinstance(codecs, list)
+        else None
+    )
+    return {
+        "talkback": flag("talkback"),
+        "full_duplex": flag("fullDuplex"),
+        "codecs": listed,
+        "talkback_codec": talkback_codec(details),
+        "playback": flag("playback"),
+        "stored_sounds": len(stored_tracks(details)),
+    }
 
 
 async def play_track(client: Client, device: Device, track_id: str) -> None:

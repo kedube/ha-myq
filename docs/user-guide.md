@@ -355,8 +355,11 @@ installation and Bluetooth-only lock operations are done in the MyQ app.
 
 - **Diagnostics** (the device or integration's **Download diagnostics**) show
   device types, reported status, account roles, camera routes, each camera's
-  power state (online, sleep mode and interval, battery, hardware model), the
-  result of the last live-video wake-up, the account's live-video feature flags,
+  power state (online, sleep mode and interval, battery, hardware model; a sleep
+  mode the integration does not recognise is shown as the camera sent it), its
+  speaker capabilities (talkback, codecs, stored sounds, and whether it has a
+  Speaker), the result of the last live-video wake-up, the account's live-video
+  feature flags,
   which video modes a TC camera tried and which one it used, and the last
   live-video error. They leave out tokens, names, serial numbers, account IDs,
   addresses and camera payloads.

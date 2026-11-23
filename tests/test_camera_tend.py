@@ -409,6 +409,7 @@ async def test_diagnostics_name_the_route_without_identifiers(hass, tend_camera)
     assert set(row["camera_power"]) == {
         "online",
         "sleep_mode",
+        "sleep_mode_reported",
         "sleep_interval",
         "battery_reported",
         "hardware_model",
@@ -518,6 +519,15 @@ async def test_account_flags_hand_waking_and_failing_modes_to_tend(hass, tend_ca
         data = await async_get_config_entry_diagnostics(hass, tend_camera.entry)
         row = data["devices"][0]
         assert row["override_modes_path"] == "override_modes"
+        assert row["speaker"] == {
+            "talkback": None,
+            "full_duplex": None,
+            "codecs": None,
+            "talkback_codec": None,
+            "playback": None,
+            "stored_sounds": 0,
+            "entity": False,
+        }
         assert row["live_video_source"]["transport"] == session.transport
     finally:
         await camera._abandon(session)

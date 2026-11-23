@@ -1,8 +1,10 @@
 """Allowlisted diagnostics exclude identifiers, tokens, media, and arbitrary payloads."""
 
 from .api.associations import wifi_gdo_pairs
+from .api.tend_audio import speaker_summary
 from .api.video import override_modes, power_summary
 from .camera import _live_route
+from .media_player import has_speaker
 
 
 async def async_get_config_entry_diagnostics(hass, entry):
@@ -24,6 +26,12 @@ async def async_get_config_entry_diagnostics(hass, entry):
             "live_video_route": _live_route(device, details or {}),
             # What decides whether live video wakes the camera, and the last wake's result.
             "camera_power": power_summary(details) if details else None,
+            # Talkback and stored sounds, and whether the camera has a Speaker entity.
+            "speaker": (
+                {**speaker_summary(details), "entity": has_speaker(device, details)}
+                if details
+                else None
+            ),
             # Where the device document lists video modes that fail (key path only).
             "override_modes_path": override_modes(details)[1] if details else None,
             "last_wake": getattr(video, "wakes", {}).get(device.key),

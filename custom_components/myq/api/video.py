@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+import re
 import time
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -214,9 +215,17 @@ def power_summary(details: dict) -> dict[str, Any]:
         model = "invalid"
     if model is not None and (len(model) > 64 or not model.isprintable()):
         model = "invalid"
+    # The camera's own code when it is not one the integration knows: a short enum
+    # name, kept only when it looks like one.
+    reported = None
+    if sleep_mode(details) == "UNKNOWN":
+        raw = nested(details, "status", "pwr", "sleepMode")
+        valid = isinstance(raw, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,40}", raw)
+        reported = raw if valid else "invalid"
     return {
         "online": camera_online(details),
         "sleep_mode": sleep_mode(details),
+        "sleep_mode_reported": reported,
         "sleep_interval": interval,
         "battery_reported": battery_powered(details),
         "hardware_model": model,
