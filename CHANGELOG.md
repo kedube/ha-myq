@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.13] - 2026-11-23
+
 ### Changed
 
 - A Wi-Fi garage door opener and its built-in gateway have one
