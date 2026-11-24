@@ -499,7 +499,7 @@ class MyQCamera(MyQCameraBase):
 
 
 class MyQTendCamera(MyQCameraBase):
-    """A TC camera: Home Assistant's stream players read its H.264 from a local address.
+    """A TC camera: Home Assistant's stream players read its video and sound locally.
 
     The class does not implement WebRTC itself, so Home Assistant uses its own WebRTC
     provider and stream worker with ``stream_source``. Snapshots come from MyQ.
@@ -507,7 +507,8 @@ class MyQTendCamera(MyQCameraBase):
 
     def __init__(self, coordinator, device) -> None:
         super().__init__(coordinator, device)
-        # The source is bare H.264, which carries no timestamps of its own.
+        # The source's timestamps are arrival times; the stream worker reads them by its
+        # own clock, as it did when the source was bare H.264.
         self.stream_options = {"use_wallclock_as_timestamps": True}
         self._source = TendSource(self._open_video, self._video_closed)
         self._stopping: set[asyncio.Task] = set()
@@ -546,8 +547,12 @@ class MyQTendCamera(MyQCameraBase):
         }
         return {serial for serial in serials if isinstance(serial, str) and serial}
 
-    async def _open_video(self, on_video: Callable[[bytes], None]) -> LegacyTendSession:
-        """Open the camera session for the stream source's first reader."""
+    async def _open_video(
+        self,
+        on_video: Callable[[bytes], None],
+        on_audio: Callable[[int, bytes, int | None], None],
+    ) -> LegacyTendSession:
+        """Open the camera session, with its audio, for the stream source's first reader."""
         device = self.device
         session: LegacyTendSession | None = None
         try:
@@ -555,6 +560,7 @@ class MyQTendCamera(MyQCameraBase):
                 raise CommandRejected("This camera is unavailable for live video")
             session = LegacyTendSession(self._opener_serials(device))
             session.on_video, session.on_status = on_video, self._status_changed
+            session.on_audio, session.listen = on_audio, True
             await self.coordinator.async_acquire_live(session)
             # Never block the stream on the camera first reporting FULL_POWER: wake it
             # as the account's flags say (HTTP, or Tend's video service) and proceed.
@@ -597,6 +603,8 @@ class MyQTendCamera(MyQCameraBase):
             await self.coordinator.async_release_live(session)
 
     async def _video_closed(self, session: LegacyTendSession) -> None:
+        # Kept for diagnostics: the audio connection is opened after the video starts.
+        self._source.last_transport = session.transport
         await self.coordinator.async_release_live(session)
 
     @callback

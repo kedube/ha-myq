@@ -5,6 +5,30 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Live video from TC cameras had no sound, so the player's speaker button stayed
+  muted. As the MyQ app does, a live view now opens the camera's audio
+  connection with its video, and the stream carries the camera's sound for
+  WebRTC players: Opus as the camera sends it, or the camera's G.711 converted
+  to Opus. A new view waits up to five seconds for the sound before it starts.
+  Home Assistant's HLS player still has no sound from these cameras.
+- The **Speaker** failed with "The camera does not name a talkback codec" on
+  cameras that list no talkback codec in their details or their Tend login row.
+  It now talks in the codec of the camera's own sound, as the app does.
+
+### Changed
+
+- The TC camera stream source is an MPEG transport stream instead of bare
+  H.264. The video is still the camera's own, not re-encoded.
+- The **Speaker** talks over an open live view's audio connection rather than a
+  second one, as the app does.
+
+### Added
+
+- Diagnostics show the codec of the camera's sound, the Opus packets served and
+  frames dropped, and the mode and codecs of the camera's audio connection.
+
 ## [0.13] - 2026-11-23
 
 ### Changed

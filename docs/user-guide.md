@@ -164,12 +164,18 @@ reaches you depends on the camera.
 **TC cameras.** Cameras whose serial number starts with `TC`, including those
 built into garage door openers, are an ordinary Home Assistant stream source.
 The integration receives the camera's H.264 video and passes it to Home
-Assistant unchanged, and Home Assistant plays it with WebRTC (through its
-built-in go2rtc) or HLS. Nothing is re-encoded, so the load on the Home
-Assistant host is small.
+Assistant unchanged, with the camera's sound, and Home Assistant plays it with
+WebRTC (through its built-in go2rtc) or HLS. The video is not re-encoded, so
+the load on the Home Assistant host is small.
 
-- Video only: no camera audio or in-view pan/tilt and siren buttons. Talk
-  through the camera with its [speaker](#speaker) instead.
+- The camera's sound plays through WebRTC. The player starts muted; unmute it
+  with its speaker button. Home Assistant's HLS player carries no sound from
+  these cameras.
+- The sound arrives a moment after the picture: a new view waits up to five
+  seconds for it before it starts. A camera that sends G.711 sound has it
+  converted to Opus; one that sends Opus is passed on as it is.
+- No in-view pan/tilt or siren buttons. Talk through the camera with its
+  [speaker](#speaker).
 - Every viewer, and every Home Assistant feature reading the stream, shares one
   camera session. It closes about 15 seconds after the last one stops.
 - The video comes over UDP, straight from the camera or through MyQ's relay.
@@ -272,8 +278,12 @@ data:
 - The integration downloads the audio (up to 10 MB), encodes it for the camera
   and sends at most the first two minutes. MP3, WAV, Ogg, FLAC, AAC and M4A
   files work.
-- It uses the open live-video session when there is one, and otherwise signs
-  in to the camera for the duration of the message.
+- It talks over an open live view's audio connection, as the MyQ app does, so
+  viewers hear the message from the camera. Without a live view it signs in to
+  the camera for the duration of the message.
+- It encodes for the camera the way the MyQ app does: in the codec the camera
+  lists for its speaker, or, when it lists none, in the codec of the camera's
+  own sound.
 - Playing something new stops what is playing; **Stop** ends it early.
 - It needs an account role that can control devices.
 
@@ -368,8 +378,8 @@ installation and Bluetooth-only lock operations are done in the MyQ app.
   mode the integration does not recognise is shown as the camera sent it), its
   speaker capabilities (talkback, codecs, stored sounds, and whether it has a
   Speaker), the result of the last live-video wake-up, the account's live-video
-  feature flags,
-  which video modes a TC camera tried and which one it used, and the last
+  feature flags, which video and audio modes a TC camera tried and which ones it
+  used, the codec of its sound and how much of it was served, and the last
   live-video error. They leave out tokens, names, serial numbers, account IDs,
   addresses and camera payloads.
 - **Tokens** are stored in Home Assistant's configuration entry storage and are

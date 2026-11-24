@@ -8,7 +8,11 @@ import pytest
 
 from custom_components.myq.api import tend_source
 from custom_components.myq.api.errors import CannotConnect, CommandRejected
+from custom_components.myq.api.mpegts import PACKET_SIZE, opus_samples
 from custom_components.myq.api.tend_source import TendSource, _Reader, nal_units
+
+from .test_live_audio import opus_packets
+from .ts import AUDIO_PID, VIDEO_PID, parse, read_stream, read_until, read_video, video
 
 START = b"\x00\x00\x00\x01"
 SPS, PPS = b"\x67sps", b"\x68pps"
@@ -45,13 +49,14 @@ class Camera:
         self.error = None
         self.gate = None
         self.send = None
+        self.audio = None
 
-    async def open(self, on_video):
+    async def open(self, on_video, on_audio):
         if self.gate is not None:
             await self.gate.wait()
         if self.error is not None:
             raise self.error
-        self.send = on_video
+        self.send, self.audio = on_video, on_audio
         self.sessions.append(FakeSession())
         return self.sessions[-1]
 
@@ -95,10 +100,10 @@ async def test_reader_starts_at_a_keyframe_led_by_its_parameter_sets(source):
     url = await served.url()
     assert url == await served.url()
     parts = urlsplit(url)
-    assert parts.hostname == "127.0.0.1" and parts.path.endswith(".h264") and len(parts.path) > 30
+    assert parts.hostname == "127.0.0.1" and parts.path.endswith(".ts") and len(parts.path) > 30
     async with http.get(url) as response:
         assert response.status == 200
-        assert response.headers["Content-Type"] == "video/h264"
+        assert response.headers["Content-Type"] == "video/mp2t"
         # Mid-stream records are no use to a new reader. Parameter sets sent on their
         # own are held for the keyframe; every unit leaves with a 4-byte start code.
         camera.send(record(SLICE))
@@ -111,11 +116,11 @@ async def test_reader_starts_at_a_keyframe_led_by_its_parameter_sets(source):
         expected = (
             record(SPS, PPS, IDR) + record(IDR_NEXT_SLICE, code=b"\x00\x00\x01") + record(SLICE)
         )
-        assert await read(response, len(expected)) == expected
+        assert await read_video(response, len(expected)) == expected
         # A keyframe record that carries its own parameter sets leaves in the same form.
         camera.send(record(PPS, SPS, b"\x06sei", IDR))
         again = record(SPS, PPS, b"\x06sei", IDR)
-        assert await read(response, len(again)) == again
+        assert await read_video(response, len(again)) == again
     assert len(camera.sessions) == 1
     assert (served.records, served.keyframes, served.sessions) == (7, 2, 1)
 
@@ -129,7 +134,7 @@ async def test_keyframe_without_known_parameter_sets_is_not_a_start(source):
         camera.send(record(IDR))  # Still no PPS.
         assert served.keyframes == 0
         camera.send(record(PPS, IDR))
-        assert await read(response, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
+        assert await read_video(response, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
 
 
 async def test_readers_share_one_session_and_each_starts_at_a_keyframe(source):
@@ -137,14 +142,14 @@ async def test_readers_share_one_session_and_each_starts_at_a_keyframe(source):
     url = await served.url()
     async with http.get(url) as first:
         camera.send(record(SPS, PPS, IDR))
-        await read(first, len(record(SPS, PPS, IDR)))
+        await read_video(first, len(record(SPS, PPS, IDR)))
         async with http.get(url) as second:
             await until(lambda: served.readers == 2)
             camera.send(record(SLICE))
             camera.send(record(IDR))
             expected = record(SLICE) + record(SPS, PPS, IDR)
-            assert await read(first, len(expected)) == expected
-            assert await read(second, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
+            assert await read_video(first, len(expected)) == expected
+            assert await read_video(second, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
     assert len(camera.sessions) == 1
 
 
@@ -173,10 +178,10 @@ async def test_failed_start_is_refused_and_not_repeated_while_players_retry(sour
     attempts = 0
     original = camera.open
 
-    async def counted(on_video):
+    async def counted(on_video, on_audio):
         nonlocal attempts
         attempts += 1
-        return await original(on_video)
+        return await original(on_video, on_audio)
 
     served._open_session = counted
     for _ in range(3):
@@ -215,7 +220,7 @@ async def test_camera_session_ending_closes_every_reader_and_pauses_restarts(sou
     url = await served.url()
     async with http.get(url) as response:
         camera.send(record(SPS, PPS, IDR))
-        await read(response, 1)
+        await read(response, PACKET_SIZE)
         camera.sessions[0].ended.set_exception(CannotConnect("Tend camera stopped sending video"))
         async with asyncio.timeout(2):
             await response.content.read()  # Reads to the end of the stream.
@@ -232,14 +237,14 @@ async def test_stop_ends_video_but_keeps_the_address_and_close_removes_it(source
     url = await served.url()
     async with http.get(url) as response:
         camera.send(record(SPS, PPS, IDR))
-        await read(response, 1)
+        await read(response, PACKET_SIZE)
         await served.stop()
         async with asyncio.timeout(2):
             await response.content.read()
     assert camera.sessions[0].closed and camera.released == camera.sessions
     async with http.get(url):
         await until(lambda: len(camera.sessions) == 2)
-    async with http.get(url.replace(".h264", ".other")) as response:
+    async with http.get(url.replace(".ts", ".other")) as response:
         assert response.status == 404
     await asyncio.gather(served.close(), served.close())
     assert camera.sessions[1].closed and len(camera.released) == 2
@@ -314,7 +319,7 @@ async def test_defect_during_a_start_is_reported_once_and_not_retried_every_seco
     served, camera, http = source
     attempts = 0
 
-    async def broken(on_video):
+    async def broken(on_video, on_audio):
         nonlocal attempts
         attempts += 1
         raise ValueError("a defect, with details that stay in the log")
@@ -370,10 +375,10 @@ async def test_playable_session_is_not_ended_by_the_keyframe_deadline(source, mo
     monkeypatch.setattr(tend_source, "KEYFRAME_SECONDS", 0.05)
     async with http.get(await served.url()) as response:
         camera.send(record(SPS, PPS, IDR))
-        await read(response, len(record(SPS, PPS, IDR)))
+        await read_video(response, len(record(SPS, PPS, IDR)))
         await asyncio.sleep(0.2)  # Several deadlines pass with no further keyframe.
         camera.send(record(SLICE))
-        assert await read(response, len(record(SLICE))) == record(SLICE)
+        assert await read_video(response, len(record(SLICE))) == record(SLICE)
     assert not camera.sessions[0].closed and served.last_error is None
 
 
@@ -385,16 +390,17 @@ def test_every_parameter_set_in_use_leads_each_keyframe():
     sps = bytes.fromhex("6742001e95a8280f0044")  # seq_parameter_set_id 0
     first, second = bytes.fromhex("68ce3c80"), bytes.fromhex("6848e3c8")  # ids 0 and 1
     served._record(record(sps, first, second, IDR))
-    assert reader.queue.get_nowait() == record(sps, first, second, IDR)
+    assert video(reader.queue.get_nowait()) == record(sps, first, second, IDR)
     # A changed set replaces the one with the same id, and only that one.
     replaced = bytes.fromhex("6848e3c9")
     served._record(record(replaced))
     served._record(record(IDR))
-    assert reader.queue.get_nowait() == record(sps, first, replaced, IDR)
+    assert video(reader.queue.get_nowait()) == record(sps, first, replaced, IDR)
 
 
 def test_reader_backlog_is_limited_by_size_as_well_as_count(monkeypatch):
-    monkeypatch.setattr(tend_source, "MAX_PENDING_BYTES", 100)
+    # Tables and a keyframe take three packets, a small picture one.
+    monkeypatch.setattr(tend_source, "MAX_PENDING_BYTES", 4 * PACKET_SIZE + 50)
     served = TendSource(None, None)
     reader = _Reader()
     served._readers.add(reader)
@@ -483,7 +489,7 @@ async def test_reader_that_stops_reading_is_disconnected(source, monkeypatch):
     # A reader that keeps up is unaffected.
     async with http.get(await served.url()) as response:
         camera.send(record(SPS, PPS, IDR))
-        assert await read(response, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
+        assert await read_video(response, len(record(SPS, PPS, IDR))) == record(SPS, PPS, IDR)
     assert len(camera.sessions) == 1
 
 
@@ -501,7 +507,7 @@ def test_reader_that_falls_behind_restarts_at_the_next_keyframe(monkeypatch):
     served._record(record(SLICE))
     assert reader.queue.qsize() == 0
     served._record(record(IDR))
-    assert reader.started and reader.queue.get_nowait() == record(SPS, PPS, IDR)
+    assert reader.started and video(reader.queue.get_nowait()) == record(SPS, PPS, IDR)
     for _ in range(3):
         served._record(record(SLICE))
     served._record(record(IDR))  # A keyframe is itself a place to restart.
@@ -509,7 +515,8 @@ def test_reader_that_falls_behind_restarts_at_the_next_keyframe(monkeypatch):
     reader.end()
     reader.end()
     served._record(record(IDR))
-    assert [reader.queue.get_nowait() for _ in range(2)] == [record(SPS, PPS, IDR), b""]
+    first, last = (reader.queue.get_nowait() for _ in range(2))
+    assert video(first) == record(SPS, PPS, IDR) and last == b""
 
 
 async def test_status_reports_counts_and_no_addresses(source):
@@ -523,6 +530,9 @@ async def test_status_reports_counts_and_no_addresses(source):
         "records": 0,
         "unframed_records": 0,
         "keyframes": 0,
+        "audio_packets": 0,
+        "audio_codec": None,
+        "audio_dropped": 0,
         "media_path": None,
         "camera_packets": None,
         "unreadable_packets": None,
@@ -605,8 +615,9 @@ async def test_served_stream_is_decodable_h264(source):
 
 
 async def test_served_stream_meets_home_assistants_webrtc_player_rules(source):
-    """go2rtc (pkg/magic, pkg/magic/bitstream, annexb.IndexFrame) identifies and splits
-    a raw stream by these rules; a stream that breaks them plays in no browser."""
+    """go2rtc reads the stream as MPEG-TS (pkg/magic: sync byte 0x47; pkg/mpegts): the
+    PMT it reads first names the streams, and each video PES is one picture, sent to
+    the browser as one frame. A stream that breaks these rules plays in no browser."""
     served, camera, http = source
     pictures = encoded_pictures()
     async with http.get(await served.url()) as response:
@@ -616,31 +627,100 @@ async def test_served_stream_meets_home_assistants_webrtc_player_rules(source):
         async with asyncio.timeout(2):
             data = await response.content.read()
 
-    # magic.Open: the first four bytes are the 4-byte start code.
-    # bitstream.Open: the first unit is an SPS, with the PPS inside the first 256 bytes.
-    assert data[:5] == START + b"\x67"
-    assert 0 < data.find(START + b"\x68") < 256
-
-    # IndexFrame: a new picture begins at a 4-byte start code before an SPS (7) or a
-    # non-key slice (1); a keyframe slice (5) and a PPS (8) continue the current one.
-    # Units behind a 3-byte start code always stay with the picture before them.
-    frames, current = [], []
-    for segment in data.split(START)[1:]:
-        kinds = [unit[0] & 31 for unit in segment.split(b"\x00\x00\x01")]
-        if kinds[0] in (1, 7) and current:
-            frames.append(current)
-            current = []
-        current.extend(kinds)
-    frames.append(current)
+    # The PAT, then the PMT: H.264 only, as this camera sent no audio.
+    assert data[0] == 0x47 and data[1:3] == b"\x40\x00" and data[189:191] == b"\x50\x00"
+    stream = parse(data)
+    assert stream.streams == {VIDEO_PID: (0x1B, b"")}
+    pes = stream.pes[VIDEO_PID]
     # The encoder cut every picture into several slices. From the first keyframe on
-    # (picture 5), each picture must still come out as exactly one frame.
+    # (picture 5), each picture must still come out as exactly one PES.
     sliced = [len([u for u in nal_units(picture) if u[0] & 31 in (1, 5)]) for picture in pictures]
     assert max(sliced) > 1
-    assert len(frames) == len(pictures) - 5
-    for index, kinds in enumerate(frames):
+    assert len(pes) == len(pictures) - 5
+    times = [pts for pts, _ in pes]
+    assert times == sorted(times) and len(set(times)) == len(times)
+    for index, (_, picture) in enumerate(pes):
+        kinds = [unit[0] & 31 for unit in nal_units(picture)]
         slices = [kind for kind in kinds if kind in (1, 5)]
         assert len(slices) == sliced[index + 5]
         if index % 5 == 0:
-            assert kinds[:2] == [7, 8] and set(slices) == {5}
+            assert picture.startswith(START + b"\x67") and kinds[:2] == [7, 8]
+            assert set(slices) == {5}
         else:
             assert set(kinds) == {1}
+    # Each keyframe is marked as a place to start, behind the tables.
+    assert stream.random_access == len(pes[::5])
+    assert all(pcr < pts for pcr, (pts, _) in zip(stream.pcr, pes, strict=True))
+
+
+@pytest.mark.parametrize("codec", [4, 2])
+async def test_reader_waits_for_the_cameras_audio_then_carries_it(source, codec):
+    served, camera, http = source
+    async with http.get(await served.url()) as response:
+        await until(lambda: served.readers == 1)
+        camera.sessions[0].audio_pending = True
+        camera.send(record(SPS, PPS, IDR))  # Not yet a start: the audio is on its way.
+        frame = opus_packets(1)[0] if codec == 4 else b"\xff" * 160
+        camera.audio(codec, frame, 1)
+        camera.send(record(SPS, PPS, IDR))
+        camera.audio(codec, frame, 2)
+        stream = await read_until(response, lambda stream: stream.pes.get(AUDIO_PID))
+    assert stream.streams == {
+        VIDEO_PID: (0x1B, b""),
+        AUDIO_PID: (0x06, b"\x05\x04Opus\x7f\x02\x80\x01"),
+    }
+    assert stream.video == record(SPS, PPS, IDR)
+    [(pts, packet)] = stream.opus
+    if codec == 4:
+        assert packet == frame  # The camera's Opus, as it was sent.
+    assert opus_samples(packet) == 960 and pts > stream.pes[VIDEO_PID][0][0]
+    status = served.status()
+    assert status["audio_codec"] == ("opus" if codec == 4 else "g711")
+    assert status["audio_packets"] == 2 and status["audio_dropped"] == 0
+
+
+async def test_reader_starts_without_audio_once_the_wait_ends(source, monkeypatch):
+    monkeypatch.setattr(tend_source, "AUDIO_WAIT", 0.05)
+    served, camera, http = source
+    async with http.get(await served.url()) as response:
+        await until(lambda: served.readers == 1)
+        camera.sessions[0].audio_pending = True
+        camera.send(record(SPS, PPS, IDR))
+        await asyncio.sleep(0.1)
+        camera.send(record(SPS, PPS, IDR))
+        stream = await read_stream(response, 3)
+    assert stream.streams == {VIDEO_PID: (0x1B, b"")}
+    assert stream.video == record(SPS, PPS, IDR)
+
+
+async def test_served_stream_carries_decodable_sound(source):
+    """FFmpeg, which Home Assistant's stream worker uses, finds and decodes the audio."""
+    import av
+
+    served, camera, http = source
+    pictures = encoded_pictures()
+    sounds = opus_packets(40)
+    url = await served.url()
+
+    def decode():
+        with av.open(url, timeout=5) as container:
+            names = sorted(stream.codec_context.name for stream in container.streams)
+            audio = container.streams.audio[0]
+            samples = 0
+            for frame in container.decode(audio):
+                samples += frame.samples
+                if samples >= 10 * 960:
+                    break
+            return names, audio.codec_context.channels, samples
+
+    reading = asyncio.get_running_loop().run_in_executor(None, decode)
+    await until(lambda: served.readers == 1)
+    camera.sessions[0].audio_pending = True
+    for index, picture in enumerate(pictures):
+        send_as_camera(camera, picture)
+        camera.audio(4, sounds[index], index)
+        await asyncio.sleep(0.02)
+    await served.stop()
+    async with asyncio.timeout(10):
+        names, channels, samples = await reading
+    assert names == ["h264", "opus"] and channels == 1 and samples >= 10 * 960

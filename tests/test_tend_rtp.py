@@ -11,7 +11,13 @@ from cryptography.hazmat.primitives.padding import PKCS7
 
 from custom_components.myq.api import tend_rtp
 from custom_components.myq.api.errors import CannotConnect, ProtocolError
-from custom_components.myq.api.tend_rtp import TendRtp, _candidates, _Port, _video_records
+from custom_components.myq.api.tend_rtp import (
+    TendRtp,
+    _candidates,
+    _Port,
+    _video_records,
+    audio_frame,
+)
 
 KEY = bytes(range(16))
 SPS = bytes.fromhex("000000016742001e95a8280f0044")
@@ -519,3 +525,75 @@ async def test_audio_connection_does_not_end_on_silence(monkeypatch):
     receiver._last_video_at = -1.0
     await receiver._maintain()
     assert ended == [] and len(calls) == 4
+
+
+def audio_envelope(audio, *, codec=4, key=None, tail=False):
+    """A camera audio envelope: "wa", length, flags (codec), a length, four bytes, audio."""
+    content = (len(audio) + 4).to_bytes(4, "little") + b"\x01\x02\x03\x04" + audio
+    if tail:
+        content = (len(audio)).to_bytes(4, "little") + b"\x01\x02\x03\x04" + audio
+    flags = bytes([codec]) + bytes(3)
+    if key is not None:
+        iv = bytes(range(16, 32))
+        padder = PKCS7(128).padder()
+        padded = padder.update(content) + padder.finalize()
+        encryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+        content = iv + encryptor.update(padded) + encryptor.finalize()
+        flags = bytes([0x20 | codec]) + bytes(3)
+    return b"wa" + (len(content) + 4).to_bytes(4, "little") + flags + content
+
+
+def test_audio_envelopes_name_their_codec_and_may_be_encrypted():
+    assert audio_frame(audio_envelope(b"opus!"), b"") == (4, b"opus!")
+    assert audio_frame(audio_envelope(b"\xff" * 160, codec=2, key=KEY), KEY) == (2, b"\xff" * 160)
+    # The inner length may count four bytes more or fewer (AudioConnectionManager).
+    assert audio_frame(audio_envelope(b"opus!", tail=True), b"") == (4, b"opus!")
+    assert audio_frame(audio_envelope(b"opus!", key=KEY), b"different-key-12") is None
+    assert audio_frame(audio_envelope(b"opus!", key=KEY), b"") is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"",
+        envelope(IDR),  # Video, not audio.
+        audio_envelope(b"opus!")[:-1],
+        b"wa" + (8).to_bytes(4, "little") + b"\x04\0\0\0" + (9).to_bytes(4, "little"),
+        b"wa" + (12).to_bytes(4, "little") + b"\x04\0\0\0" + (4).to_bytes(4, "little") + bytes(4),
+    ],
+)
+def test_malformed_audio_envelopes_are_discarded(payload):
+    assert audio_frame(payload, KEY) is None
+
+
+def audio_fragment(message, count, index, payload):
+    """The documented datagram header: message id, fragment count, fragment index."""
+    return struct.pack("<IHH", message, count, index) + payload
+
+
+def test_audio_connection_passes_on_each_frame_once_its_last_fragment_is_in():
+    heard = []
+    receiver, _, _ = prepared_receiver(confirmed=True)
+    receiver._kind, receiver._on_audio = b"A", lambda *frame: heard.append(frame)
+    # A whole packet in one datagram is passed on at once, with its RTP sequence.
+    receiver._fragment(audio_fragment(1, 1, 0, rtp(audio_envelope(b"one"), sequence=7)))
+    assert heard == [(4, b"one", 7)]
+    packet = rtp(audio_envelope(b"two" * 300), sequence=8)
+    receiver._fragment(audio_fragment(2, 2, 0, packet[:540]))
+    assert len(heard) == 1
+    receiver._fragment(audio_fragment(2, 2, 1, packet[540:]))
+    assert heard[1] == (4, b"two" * 300, 8)
+    # Without a matching count it waits for the next packet, as video does.
+    receiver._fragment(fragment(3, 0, rtp(audio_envelope(b"three"), sequence=9)))
+    assert len(heard) == 2
+    receiver._fragment(audio_fragment(4, 1, 0, rtp(envelope(IDR), sequence=10)))
+    assert heard[2] == (4, b"three", 9)
+    # Video on the audio connection is not audio.
+    assert receiver.unreadable == 1 and receiver.packets == 4
+
+
+def test_video_connection_does_not_read_audio():
+    receiver, records, _ = prepared_receiver(confirmed=True)
+    receiver._fragment(audio_fragment(1, 1, 0, rtp(audio_envelope(b"one"))))
+    receiver._fragment(fragment(2, 0, b"flush-it"))
+    assert records == [] and receiver.unreadable == 1

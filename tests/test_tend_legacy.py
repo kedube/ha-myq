@@ -1,6 +1,7 @@
 """Mode-9 negotiation over synthetic authenticated Tend signaling."""
 
 import asyncio
+import re
 import struct
 from unittest.mock import AsyncMock, MagicMock
 
@@ -32,9 +33,9 @@ async def legacy(monkeypatch):
     writer = MagicMock(drain=AsyncMock(), wait_closed=AsyncMock())
     receivers = []
 
-    def receiver(on_record, on_end):
-        media = MagicMock(start=AsyncMock(), close=AsyncMock())
-        media.on_record, media.on_end = on_record, on_end
+    def receiver(on_record, on_end=None, **options):
+        media = MagicMock(start=AsyncMock(), close=AsyncMock(), ended=False)
+        media.on_record, media.on_end, media.options = on_record, on_end, options
         receivers.append(media)
         return media
 
@@ -572,6 +573,10 @@ async def test_udp_failure_falls_back_through_the_relay_to_the_tls_channel(legac
             "video_channel_offered": True,
             "speaker_codecs_listed": [],
             "wakeup": None,
+            "audio_mode": None,
+            "audio_frames": 0,
+            "audio_codecs": [],
+            "audio_error": None,
         }
     finally:
         await legacy.session.close()
@@ -677,7 +682,7 @@ async def test_talkback_signaling_on_an_open_session(legacy):
                 legacy.feed(Frame(411, data=b"deny-audio-receive|owner:camera|busy|"))
 
         legacy.writer.write.side_effect = deny
-        with pytest.raises(AccessDenied, match="declined talkback"):
+        with pytest.raises(AccessDenied, match="declined its audio connection"):
             await legacy.session.request_audio(session_id, 9)
         # A talkback refusal leaves the session itself open.
         assert legacy.session.connected
@@ -691,5 +696,99 @@ async def test_login_row_lists_the_speaker_codecs(legacy):
     try:
         assert legacy.session.speaker_codecs == ["g711", "opus"]
         assert legacy.session.transport["speaker_codecs_listed"] == ["g711", "opus"]
+    finally:
+        await legacy.session.close()
+
+
+def audio_answers(legacy, *, deny=False):
+    """The camera accepts (or refuses) each audio request, naming a UDP relay."""
+
+    def write(data):
+        found = re.search(rb"require-audio-send\|owner\|([^|]+)\|9\|", data)
+        if found is None:
+            return
+        if deny:
+            legacy.feed(Frame(411, data=b"deny-audio-receive|owner:camera|busy|"))
+            return
+        legacy.feed(
+            Frame(
+                436,
+                options=b"url=rtp\\://audio.seedonk.com\\:6000\n",
+                data=b"accept-audio-receive|owner:camera|" + found.group(1) + b"|9|",
+            )
+        )
+
+    legacy.writer.write.side_effect = write
+
+
+async def test_live_view_opens_the_cameras_audio_and_talks_over_it(legacy):
+    legacy.login()
+    legacy.feed(accept())
+    audio_answers(legacy)
+    heard = []
+    session = legacy.session
+    session.listen, session.on_audio = True, lambda *frame: heard.append(frame)
+    await session.start("owner:camera", "token")
+    try:
+        assert session.audio_pending  # Asked for; nothing heard yet.
+        await asyncio.wait({session._audio_task})
+        video, audio = legacy.receivers
+        assert "kind" not in video.options
+        assert (audio.options["kind"], audio.options["watch_silence"]) == (b"A", False)
+        # The camera's key decrypts its audio, as it does its video.
+        audio.start.assert_awaited_once_with(
+            ("audio.seedonk.com", 6000), "owner", "192.168.1.20", b"1234567890abcdef"
+        )
+        audio.options["on_audio"](4, b"opus packet", 3)
+        assert heard == [(4, b"opus packet", 3)] and not session.audio_pending
+        transport = session.transport
+        assert (transport["audio_mode"], transport["audio_frames"]) == (9, 1)
+        assert (transport["audio_codecs"], transport["audio_error"]) == (["opus"], None)
+        # A talk goes over the live view's connection and leaves it open.
+        link, owned = await session.talk_link()
+        assert link is session._audio_link and not owned
+    finally:
+        await session.close()
+    audio.close.assert_awaited_once()
+    texts = [frame.data.decode() for frame in await commands(legacy)]
+    session_id = texts[3].split("|")[2]
+    assert session_id.startswith("owner:")
+    assert texts == [
+        "require-video-send|owner|9|",
+        "start-video-receive|owner|9|",
+        "modify-device|owner|QTY=3+FPS=20+SIZE=0+SAVE=0|",
+        f"require-audio-send|owner|{session_id}|9|",
+        f"start-audio-receive|owner|{session_id}|9|",
+        # Audio is stopped before video, as the session ends.
+        f"stop-audio-receive|owner|{session_id}|9|",
+        "stop-video-receive|owner|9|",
+    ]
+
+
+async def test_refused_audio_leaves_the_video_playing(legacy):
+    legacy.login()
+    legacy.feed(accept())
+    audio_answers(legacy, deny=True)
+    session = legacy.session
+    session.listen = True
+    await session.start("owner:camera", "token")
+    try:
+        await asyncio.wait({session._audio_task})
+        assert session.connected and not session.audio_pending
+        assert session.transport["audio_error"] == "The camera declined its audio connection"
+        assert len(legacy.receivers) == 1  # Video only.
+    finally:
+        await session.close()
+
+
+async def test_session_without_a_live_view_opens_a_connection_for_the_talk(legacy):
+    legacy.login()
+    audio_answers(legacy)
+    await legacy.session.connect("owner:camera", "token")
+    try:
+        assert not legacy.session.audio_pending
+        link, owned = await legacy.session.talk_link()
+        assert owned and link.is_open and link.mode == 9
+        await link.close()
     finally:
         await legacy.session.close()

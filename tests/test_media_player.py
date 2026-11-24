@@ -52,9 +52,10 @@ class FakeSession:
 class FakeTalk:
     instances: list["FakeTalk"] = []
     open_error: Exception | None = None
+    heard: str | None = None  # The codec of the camera's own sound on the connection.
 
-    def __init__(self, session, frames, codec):
-        self.session, self.frames, self.codec = session, frames, codec
+    def __init__(self, session):
+        self.session, self.frames, self.codec = session, None, None
         self.release = asyncio.Event()
         self.streaming = asyncio.Event()
         self.closed = self.cancelled = False
@@ -64,7 +65,11 @@ class FakeTalk:
         if FakeTalk.open_error is not None:
             raise FakeTalk.open_error
 
-    async def stream(self):
+    async def heard_codec(self):
+        return FakeTalk.heard
+
+    async def stream(self, frames, codec):
+        self.frames, self.codec = frames, codec
         self.streaming.set()
         try:
             await self.release.wait()
@@ -96,6 +101,7 @@ async def speaker(
     camera_details["alias"] = "owner:camera"
     speaker_caps(camera_details)
     FakeSession.instances, FakeTalk.instances, FakeTalk.open_error = [], [], None
+    FakeTalk.heard = None
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="test-speaker-user",
@@ -338,15 +344,18 @@ async def test_which_cameras_get_a_speaker(
 
 
 @pytest.mark.parametrize(
-    "listed,codec,encodes",
+    "listed,heard,codec,encodes",
     [
-        (["g711"], "g711", 2),  # Encoded as Opus first, then again for the camera's codec.
-        (["opus"], "opus", 1),
-        ([], None, 1),
+        (["g711"], None, "g711", 2),  # Encoded as Opus first, then for the camera's codec.
+        (["opus"], "g711", "opus", 1),  # A listed codec comes first.
+        # Nothing listed: the codec of the camera's own sound, as the app talks back.
+        ([], "g711", "g711", 2),
+        ([], "opus", "opus", 1),
+        ([], None, None, 1),
     ],
 )
 async def test_camera_without_a_codec_list_talks_in_its_login_rows_codec(
-    hass, speaker, aioclient_mock, monkeypatch, listed, codec, encodes
+    hass, speaker, aioclient_mock, monkeypatch, listed, heard, codec, encodes
 ):
     # Cameras built into openers list no codecs in their details (cap.spk.codecList).
     speaker.details["cap"]["spk"].pop("codecList")
@@ -368,10 +377,12 @@ async def test_camera_without_a_codec_list_talks_in_its_login_rows_codec(
         self.speaker_codecs = listed
 
     monkeypatch.setattr(FakeSession, "__init__", with_codecs)
+    FakeTalk.heard = heard
     if codec is None:
         with pytest.raises(HomeAssistantError, match="talkback codec"):
             await play(hass, speaker.entity_id, URL)
-        assert not FakeTalk.instances
+        [talk] = FakeTalk.instances
+        assert talk.closed and talk.frames is None  # Opened, nothing sent, closed.
     else:
         await play(hass, speaker.entity_id, URL)
         talk = FakeTalk.instances[0]

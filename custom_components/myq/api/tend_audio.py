@@ -1,11 +1,10 @@
 """Talk through a TC camera's speaker, and play the sounds stored on a camera.
 
-Talkback is its own media connection on the camera's Tend signaling
-(AudioConnectionManager): require-audio-send, then a UDP rendezvous like video's with
-kind "A" (or the login's TLS audio channel), then "SDNK" messages, START, DATA every
-20 ms and STOP, carried as the RTP payload (or written raw to the channel). Audio is
-Opus at 16 kHz or G.711 µ-law at 8 kHz, as the camera's codec list allows. No alias,
-address, key or session identifier is logged.
+Talkback goes over the camera's audio connection on its Tend signaling
+(AudioConnectionManager, see tend_legacy.AudioLink): "SDNK" messages, START, DATA
+every 20 ms and STOP, carried as the RTP payload (or written raw to the TLS
+channel). Audio is Opus at 16 kHz or G.711 µ-law at 8 kHz, as the camera's codec list
+allows. No alias, address, key or session identifier is logged.
 """
 
 from __future__ import annotations
@@ -21,19 +20,20 @@ from urllib.parse import quote
 
 import av
 
-from .errors import CannotConnect, CommandRejected, MyQError, ProtocolError
+from .errors import CannotConnect, CommandRejected, MyQError
+from .live_audio import CODEC_NAMES
 from .models import Device, nested
-from .tend_channel import JOIN_AUDIO, TendChannel
-from .tend_rtp import TendRtp
 
 if TYPE_CHECKING:
     from .client import Client
-    from .tend_legacy import LegacyTendSession
+    from .tend_legacy import AudioLink, LegacyTendSession
 
 VIDEO = "https://media.hubs.tend-us.tendplatform.com"
 FRAME_MS = 20
 MAX_SECONDS = 120  # The longest clip sent in one talk.
-CHANNEL_MODE = 0
+# How long a talk waits for the camera's own sound to learn its codec, when the camera
+# lists none.
+HEAR_SECONDS = 3.0
 _START, _STOP, _DATA = 7, 8, 9
 # Demuxers FFmpeg may use on downloaded audio. None of them opens other inputs, so a
 # playlist (HLS, concat) can never make it fetch anything.
@@ -216,89 +216,51 @@ def encode_audio(data: bytes, codec: str, max_seconds: float = MAX_SECONDS) -> l
 
 
 class Talkback:
-    """One talk: open the camera's audio connection, send the audio, close it."""
+    """One talk over the camera's audio connection: START, the audio, then STOP.
 
-    def __init__(self, session: LegacyTendSession, frames: list[bytes], codec: str) -> None:
+    A live view's audio connection is shared; otherwise the talk opens one of its own
+    and closes it afterwards.
+    """
+
+    def __init__(self, session: LegacyTendSession) -> None:
         self._session = session
-        self._frames = frames
-        self._codec = codec
-        self._mode: int | None = None
-        self._rtp: TendRtp | None = None
-        self._channel: TendChannel | None = None
-        started = int(time.time() * 1000)
-        self._sid = str(started).encode("ascii")
-        self._session_id = f"{session.account_alias}:{started}"
+        self._link: AudioLink | None = None
+        self._owned = False
+        self._sid = str(int(time.time() * 1000)).encode("ascii")
         self._dest = session._device_alias.encode("utf-8")
-        self._stopped = False
-
-    def _modes(self) -> list[int]:
-        # The same order as video: UDP to the camera, then the TLS audio channel.
-        modes = [9 if self._session._key else 8]
-        if self._session.audio_channel is not None:
-            modes.append(CHANNEL_MODE)
-        return modes
 
     async def open(self) -> None:
-        """Ask the camera for an audio connection, trying each mode in turn."""
-        failure: MyQError | None = None
-        for mode in self._modes():
-            try:
-                relay = await self._session.request_audio(self._session_id, mode)
-            except TimeoutError:
-                failure = CannotConnect("The camera did not answer the talkback request")
-                await self._stop_request(mode)
-                continue
-            self._mode = mode
-            try:
-                if mode == CHANNEL_MODE:
-                    # As for video, the camera is asked to start before the channel joins.
-                    await self._session.audio_command("start", self._session_id, mode)
-                    sender, recipient = self._session.channel_identity
-                    channel = self._channel = TendChannel(lambda record: None)
-                    assert self._session.audio_channel is not None
-                    await channel.start(
-                        self._session.audio_channel,
-                        sender,
-                        recipient,
-                        {self._session._device_alias},
-                        join=JOIN_AUDIO,
-                    )
-                else:
-                    if relay is None:
-                        raise ProtocolError("Tend did not provide a talkback relay")
-                    rtp = self._rtp = TendRtp(lambda record: None, kind=b"A", watch_silence=False)
-                    await rtp.start(
-                        relay, self._session.account_alias, self._session.camera_address, b""
-                    )
-                    await self._session.audio_command("start", self._session_id, mode)
-                return
-            except (CannotConnect, TimeoutError) as error:
-                failure = (
-                    error
-                    if isinstance(error, CannotConnect)
-                    else CannotConnect("Talkback timed out")
-                )
-                await self.close()
-                self._mode, self._stopped = None, False
-                continue
-        raise failure or CannotConnect("Talkback could not be opened")
+        """Take the session's audio connection, or open one for this talk."""
+        self._link, self._owned = await self._session.talk_link()
+
+    async def heard_codec(self, seconds: float = HEAR_SECONDS) -> str | None:
+        """The codec the camera's own sound arrives in on the connection, if any.
+
+        The app talks back in it when the camera lists no talkback codec
+        (AudioConnectionManager.talkbackCodec, getCodec).
+        """
+        if self._link is None:
+            return None
+        return CODEC_NAMES.get(await self._link.heard(seconds) or -1)
 
     async def _send(self, message: bytes) -> None:
-        if self._rtp is not None:
-            self._rtp.send(message)
-        elif self._channel is not None:
-            await self._channel.write(message)
-        else:
+        if self._link is None:
             raise CannotConnect("Talkback is not open")
+        await self._link.send(message)
 
-    async def stream(self, sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep) -> None:
+    async def stream(
+        self,
+        frames: list[bytes],
+        codec: str,
+        sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+    ) -> None:
         """START, a DATA message every 20 ms in real time, then STOP (even if cancelled)."""
         loop = asyncio.get_running_loop()
         try:
-            await self._send(start_message(self._dest, self._sid, self._codec))
+            await self._send(start_message(self._dest, self._sid, codec))
             await sleep(FRAME_MS / 1000)
             began = loop.time()
-            for sequence, frame in enumerate(self._frames):
+            for sequence, frame in enumerate(frames):
                 await self._send(data_message(self._dest, self._sid, sequence, frame))
                 await sleep(max(0.0, began + (sequence + 1) * FRAME_MS / 1000 - loop.time()))
         finally:
@@ -308,22 +270,8 @@ class Talkback:
             except (OSError, TimeoutError, MyQError):
                 pass
 
-    async def _stop_request(self, mode: int) -> None:
-        try:
-            await self._session.audio_command("stop", self._session_id, mode)
-        except (OSError, TimeoutError, MyQError):
-            pass
-
     async def close(self) -> None:
-        """stop-audio-receive and close the connection; safe to call more than once."""
-        rtp, self._rtp = self._rtp, None
-        channel, self._channel = self._channel, None
-        try:
-            if self._mode is not None and not self._stopped:
-                self._stopped = True
-                await self._stop_request(self._mode)
-        finally:
-            if rtp is not None:
-                await rtp.close()
-            if channel is not None:
-                await channel.close()
+        """Close a connection opened for this talk; a shared one stays open."""
+        link, self._link = self._link, None
+        if link is not None and self._owned:
+            await link.close()

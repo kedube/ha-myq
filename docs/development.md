@@ -133,17 +133,21 @@ The client in `api/`:
 | Management | `management.py`, `alerts.py`, `history.py` |
 | Cameras | `video.py` (REST, snapshots, wake-up), `camera_settings.py`, `camera_commands.py`, `recordings.py` |
 | Tend signaling | `tend.py` (Cxnet framing and the mode-12 session), `status.py` (idle status connection), `live_controls.py` |
-| TC live video | `tend_legacy.py` (video mode negotiation), `tend_rtp.py` (UDP receiver), `tend_channel.py` (TLS video channel), `tend_source.py` (loopback H.264 stream source), `tend_audio.py` (talkback and stored sounds) |
+| TC live video | `tend_legacy.py` (video mode negotiation and the camera's audio connection), `tend_rtp.py` (UDP receiver), `tend_channel.py` (TLS media channel), `tend_source.py` (loopback stream source), `mpegts.py` (transport stream writer), `live_audio.py` (camera sound as Opus), `tend_audio.py` (talkback and stored sounds) |
 | WebRTC live video | `kvs.py` (KVS signaling), `live.py` (aiortc relay to browsers) |
 
 Live video takes one of two paths in `camera.py`:
 
 - **TC cameras** (`MyQTendCamera`) are a Home Assistant stream source.
-  `TendSource` serves the camera's H.264 records on a random loopback HTTP path
-  as raw Annex B: every reader starts at a keyframe led by its SPS and PPS, and
-  start codes are written the way FFmpeg writes them, which go2rtc and the stream
-  worker both read. The source owns the camera session, shares it among readers,
-  and closes it 15 seconds after the last one leaves.
+  `TendSource` serves an MPEG transport stream on a random loopback HTTP path:
+  the camera's H.264 records, one picture to each PES, with start codes written
+  the way FFmpeg writes them, and the camera's sound as Opus (`LiveAudio`
+  re-encodes G.711). Every reader starts at a keyframe led by the PAT, PMT, SPS
+  and PPS; a new reader waits up to five seconds for the audio, so its PMT can
+  list it. go2rtc and the stream worker both read the stream. The source owns the
+  camera session, shares it among readers, and closes it 15 seconds after the
+  last one leaves. A live view's session also holds the camera's audio
+  connection, which the speaker's talkback shares.
 - **WebRTC cameras** (`MyQCamera`) answer Home Assistant's WebRTC offers
   themselves: `LiveSession` opens the KVS session with an aiortc peer and relays
   it to up to four browser peers.

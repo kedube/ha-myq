@@ -250,20 +250,25 @@ class MyQCameraSpeaker(MyQEntity, MediaPlayerEntity):
         async def run() -> None:
             try:
                 async with self._session(device) as session:
-                    # The details' codec list, failing that the camera's login row.
-                    codec = talkback_codec(self.camera_details) or pick_codec(
-                        session.speaker_codecs
-                    )
-                    if codec is None:
-                        raise CommandRejected("The camera does not name a talkback codec")
-                    audio = frames
-                    if codec != encoded:
-                        audio = await self.hass.async_add_executor_job(encode_audio, data, codec)
-                    talk = Talkback(session, audio, codec)
+                    talk = Talkback(session)
                     try:
                         await talk.open()
+                        # The details' codec list, failing that the camera's login row,
+                        # failing that the codec of the camera's own sound, as the app.
+                        codec = (
+                            talkback_codec(self.camera_details)
+                            or pick_codec(session.speaker_codecs)
+                            or await talk.heard_codec()
+                        )
+                        if codec is None:
+                            raise CommandRejected("The camera does not name a talkback codec")
+                        audio = frames
+                        if codec != encoded:
+                            audio = await self.hass.async_add_executor_job(
+                                encode_audio, data, codec
+                            )
                         opened.set_result(None)
-                        await talk.stream()
+                        await talk.stream(audio, codec)
                     finally:
                         await talk.close()
             except BaseException as err:

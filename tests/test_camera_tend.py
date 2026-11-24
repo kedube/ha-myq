@@ -24,6 +24,8 @@ from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
+from .ts import read_video
+
 START = b"\x00\x00\x00\x01"
 KEYFRAME = START + b"\x67sps" + START + b"\x68pps" + START + b"\x65\x88picture"
 
@@ -36,7 +38,8 @@ class FakeTendSession:
 
     def __init__(self, openers=()):
         self.openers = set(openers)
-        self.on_video = self.on_status = None
+        self.on_video = self.on_status = self.on_audio = None
+        self.listen = False
         self.media = None
         self.transport = {"video_mode": None, "modes_tried": []}
         self.ended = asyncio.get_running_loop().create_future()
@@ -126,7 +129,7 @@ async def test_tc_camera_is_a_stream_source_not_a_native_webrtc_camera(tend_came
     assert camera.camera_capabilities.frontend_stream_types == {StreamType.HLS}
     assert camera.stream_options == {"use_wallclock_as_timestamps": True}
     url = await camera.stream_source()
-    assert url.startswith("http://127.0.0.1:") and url.endswith(".h264")
+    assert url.startswith("http://127.0.0.1:") and url.endswith(".ts")
     assert url == await camera.stream_source()
     assert not tend_camera.sessions  # Nothing contacts the camera until a player reads.
 
@@ -152,13 +155,14 @@ async def test_reader_opens_the_camera_and_receives_its_video(hass, tend_camera,
             session = tend_camera.sessions[0]
             session.start.assert_awaited_once_with("owner:camera", "test-access")
             assert session.openers == {"OPENER-1"}
+            # The camera's audio is opened with its video and served with it.
+            assert session.listen and session.on_audio == camera._source._audio_frame
             wake.assert_awaited_once()
             # The idle status connection is paused while the camera session is open.
             assert camera.coordinator._live_owners == {session}
             assert camera._live_open
             session.on_video(KEYFRAME)
-            async with asyncio.timeout(2):
-                assert await response.content.readexactly(len(KEYFRAME)) == KEYFRAME
+            assert await read_video(response, len(KEYFRAME)) == KEYFRAME
             data = await async_get_config_entry_diagnostics(hass, tend_camera.entry)
             row = data["devices"][0]
             assert row["live_video_route"] == "legacy" and row["live_view_open"] is True
@@ -270,7 +274,7 @@ async def test_video_request_asks_tend_to_wake_a_camera_that_may_sleep(
     if platform is not None:
         details["hw"] = {"platform": platform}
     with patch.object(camera.coordinator.video, "wake_best_effort", return_value=details):
-        session = await camera._open_video(lambda record: None)
+        session = await camera._open_video(lambda record: None, lambda *frame: None)
     try:
         assert (session.wakeup, session.camera_asleep) == ((1 if expected else None), expected)
         session.start.assert_awaited_once_with("owner:camera", "test-access")
@@ -301,7 +305,7 @@ async def test_start_cancelled_twice_still_releases_the_status_feed(hass, tend_c
         patch.object(FakeTendSession, "_start", side_effect=start),
         patch.object(FakeTendSession, "close", close),
     ):
-        opening = asyncio.create_task(camera._open_video(lambda record: None))
+        opening = asyncio.create_task(camera._open_video(lambda record: None, lambda *frame: None))
         await starting.wait()
         opening.cancel()
         await closing.wait()
@@ -441,8 +445,7 @@ async def test_failed_poll_does_not_end_video_that_is_playing(hass, tend_camera,
             assert not camera.coordinator.last_update_success
             assert camera._live_open and not tend_camera.sessions[0].closed
             tend_camera.sessions[0].on_video(KEYFRAME)
-            async with asyncio.timeout(2):
-                assert await response.content.readexactly(len(KEYFRAME)) == KEYFRAME
+            assert await read_video(response, len(KEYFRAME)) == KEYFRAME
     assert len(tend_camera.sessions) == 1
 
 
@@ -510,7 +513,7 @@ async def test_account_flags_hand_waking_and_failing_modes_to_tend(hass, tend_ca
         patch.object(camera.coordinator.video, "wake_best_effort", wake),
     ):
         camera.coordinator.data.cameras[camera.device_key] = details
-        session = await camera._open_video(lambda record: None)
+        session = await camera._open_video(lambda record: None, lambda *frame: None)
     try:
         # enable_vmw_wakeup: no HTTP wake-up; the video request asks Tend to wake it.
         assert wake.await_args.kwargs == {"post": False}

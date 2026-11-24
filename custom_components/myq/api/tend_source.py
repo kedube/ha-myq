@@ -1,10 +1,12 @@
-"""Serve a TC camera's H.264 to Home Assistant as a local stream source.
+"""Serve a TC camera's video and sound to Home Assistant as a local stream source.
 
-Home Assistant's own players read the camera's encoded video from this address and
-repackage it for browsers (WebRTC or HLS). Nothing is decoded or re-encoded here, so
-the picture is the camera's own and the cost to the host is a memory copy.
+Home Assistant's own players read an MPEG transport stream from this address and
+repackage it for browsers (WebRTC or HLS): the camera's H.264 as it was sent, and its
+microphone as Opus (the camera's own, or its G.711 re-encoded). Video is never decoded
+or re-encoded, so the picture is the camera's own; timestamps are arrival times, as a
+player would give bare H.264.
 
-The server listens on loopback only, under an unguessable path, and carries video
+The server listens on loopback only, under an unguessable path, and carries media
 only: the MyQ token and Tend session material never leave the camera session. One
 camera session is shared by every reader and ends shortly after the last one leaves.
 """
@@ -21,6 +23,8 @@ from typing import Any, Protocol
 from aiohttp import web
 
 from .errors import CannotConnect, MyQError
+from .live_audio import CODEC_NAMES, LiveAudio
+from .mpegts import CLOCK, TsMuxer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,14 +42,25 @@ WRITE_TIMEOUT = 30
 # A session that has given its readers no keyframe after this long is ended and says
 # why. Shorter than the 30 seconds Home Assistant's stream worker waits for data.
 KEYFRAME_SECONDS = 25
-MAX_PENDING = 256  # Records one reader may fall behind before it restarts at a keyframe.
+# Chunks one reader may fall behind before it restarts at a keyframe: about 15 seconds
+# of pictures (20 a second) and sound (50 a second).
+MAX_PENDING = 1024
 MAX_PENDING_BYTES = 16 * 1024 * 1024  # The same limit by size: records vary widely.
+# A new reader's stream says at its start whether it carries audio, so its first
+# keyframe waits this long after the session opens for the camera's audio to begin
+# (or fail). Players read only the streams listed when they start.
+AUDIO_WAIT = 5.0
 _START = b"\x00\x00\x00\x01"
 _NEXT = b"\x00\x00\x01"
 
 
 class VideoSession(Protocol):
-    """What the source needs from a camera session; ``on_video`` is set before it starts."""
+    """What the source needs from a camera session.
+
+    Its owner hands it the source's video and audio callbacks before it starts. A
+    session that asks for the camera's audio says so with ``audio_pending`` until the
+    audio arrives or fails.
+    """
 
     async def wait_closed(self) -> None: ...
 
@@ -116,12 +131,15 @@ class _Reader:
             self.queue.put_nowait(b"")
 
 
+AudioCallback = Callable[[int, bytes, int | None], None]
+
+
 class TendSource:
-    """A loopback H.264 address backed by one shared camera session."""
+    """A loopback MPEG-TS address backed by one shared camera session."""
 
     def __init__(
         self,
-        open_session: Callable[[Callable[[bytes], None]], Awaitable[Any]],
+        open_session: Callable[[Callable[[bytes], None], AudioCallback], Awaitable[Any]],
         session_closed: Callable[[Any], Awaitable[None]],
     ) -> None:
         self._open_session = open_session
@@ -137,6 +155,14 @@ class TendSource:
         # Parameter sets by their own identifier: a camera may use more than one.
         self._sps: dict[int, bytes] = {}
         self._pps: dict[int, bytes] = {}
+        # The session's transport stream: one clock, one writer, the audio it carries.
+        self._origin = time.monotonic()
+        self._mux = TsMuxer()
+        self._audio = LiveAudio()
+        self._audio_ready = False
+        self._audio_deadline = 0.0
+        self._video_pts: int | None = None
+        self._picture_sliced = False  # The open picture already holds a slice.
         self._idle: asyncio.TimerHandle | None = None
         self._idle_task: asyncio.Task | None = None
         self._shutdown: asyncio.Task | None = None
@@ -147,6 +173,8 @@ class TendSource:
         self.records = 0
         self.unframed = 0
         self.keyframes = 0
+        self.audio_packets = 0
+        self.audio_codec: str | None = None
         self.last_error: str | None = None
         # How the latest session reached the camera (modes tried, flags), set by its owner.
         self.last_transport: dict[str, Any] | None = None
@@ -162,6 +190,7 @@ class TendSource:
     def status(self) -> dict[str, Any]:
         """Counts and this integration's own error text; no addresses or identifiers."""
         media = getattr(self._session, "media", None)
+        transport = getattr(self._session, "transport", None)
         return {
             "address_served": self._url is not None,
             "session_open": self._session is not None,
@@ -172,10 +201,14 @@ class TendSource:
             # Records that were not H.264 with start codes, so could not be served.
             "unframed_records": self.unframed,
             "keyframes": self.keyframes,
+            # Opus packets served, and the codec the camera's audio arrived in.
+            "audio_packets": self.audio_packets,
+            "audio_codec": self.audio_codec,
+            "audio_dropped": self._audio.dropped,
             "media_path": getattr(media, "path", None),
             "camera_packets": getattr(media, "packets", None),
             "unreadable_packets": getattr(media, "unreadable", None),
-            "transport": self.last_transport,
+            "transport": transport if isinstance(transport, dict) else self.last_transport,
             "last_error": self.last_error,
         }
 
@@ -185,7 +218,7 @@ class TendSource:
             if self._closed:
                 raise CannotConnect("The camera stream is closed")
             if self._url is None:
-                path = "/" + secrets.token_urlsafe(24) + ".h264"
+                path = "/" + secrets.token_urlsafe(24) + ".ts"
                 app = web.Application()
                 # GET only: a HEAD request must not open the camera.
                 app.router.add_get(path, self._serve, allow_head=False)
@@ -210,7 +243,7 @@ class TendSource:
         except MyQError as error:
             raise web.HTTPServiceUnavailable(text=str(error)) from None
         response = web.StreamResponse(
-            headers={"Content-Type": "video/h264", "Cache-Control": "no-store"}
+            headers={"Content-Type": "video/mp2t", "Cache-Control": "no-store"}
         )
         try:
             await response.prepare(request)
@@ -261,11 +294,15 @@ class TendSource:
         """Open the camera session and take ownership of it, or record why not."""
         try:
             async with self._session_lock:
+                # A new session's stream: its clock, continuity counters and audio.
+                self._origin = time.monotonic()
+                self._mux, self._audio, self._audio_ready = TsMuxer(), LiveAudio(), False
+                self._video_pts, self._picture_sliced = None, False
                 try:
                     async with asyncio.timeout(START_TIMEOUT):
                         # Awaited directly: a cancellation lands inside the opener,
                         # which then cleans up after itself; no result can be lost.
-                        session = await self._open_session(self._record)
+                        session = await self._open_session(self._record, self._audio_frame)
                 except TimeoutError:
                     message = "The camera did not start sending video in time"
                     self._failed(message)
@@ -283,6 +320,7 @@ class TendSource:
                 self.sessions += 1
                 self.last_error = None
                 self._session = session
+                self._audio_deadline = time.monotonic() + AUDIO_WAIT
                 self._watch = asyncio.create_task(self._watch_session(session))
                 if not self._readers:
                     # Whoever asked has left; keep it for their retry, briefly.
@@ -315,16 +353,42 @@ class TendSource:
             if not self._readers:
                 await self._close_session()
 
-    def _record(self, record: bytes) -> None:
-        """Hand one camera record to every reader in the layout stream players expect.
+    def _clock(self) -> int:
+        """The session's 90 kHz clock, from one second, so no time is ever negative."""
+        return int((time.monotonic() - self._origin) * CLOCK) + CLOCK
 
-        Home Assistant's WebRTC player (go2rtc) recognises the stream by an opening
-        "00 00 00 01 SPS" with the PPS close behind, and begins a new picture at every
-        4-byte start code that precedes an SPS or a non-key slice. So, as FFmpeg writes
-        raw H.264: each keyframe is led by the current SPS and PPS, a picture's first
-        slice and the parameter sets get 4-byte start codes, and any further slice of
-        the same picture gets a 3-byte one. Parameter sets the camera sends on their
-        own are held and sent with the keyframe they describe.
+    def _settled(self) -> bool:
+        """Whether a reader may start now: the audio it would carry is known."""
+        return (
+            self._audio_ready
+            or not getattr(self._session, "audio_pending", False)
+            or time.monotonic() >= self._audio_deadline
+        )
+
+    def _audio_frame(self, codec: int, data: bytes, sequence: int | None) -> None:
+        """Hand one camera audio frame to every reader, as Opus."""
+        placed = self._audio.packets(codec, data, sequence, self._clock())
+        if not placed:
+            return
+        self.audio_codec = CODEC_NAMES.get(codec)
+        self._audio_ready = True
+        self.audio_packets += len(placed)
+        chunk = b"".join(self._mux.audio(pts, packet) for pts, packet in placed)
+        for reader in self._readers:
+            reader.put(chunk, False)
+
+    def _record(self, record: bytes) -> None:
+        """Hand one camera record to every reader as a transport stream access unit.
+
+        As FFmpeg writes H.264: each keyframe is led by the current SPS and PPS, a
+        picture's first slice and the parameter sets get 4-byte start codes, and any
+        further slice of the same picture gets a 3-byte one. Parameter sets the camera
+        sends on their own are held and sent with the keyframe they describe.
+
+        A picture is one PES. A new one begins with each picture's first slice, or with
+        what leads it (an SEI, an access unit delimiter), once the open one holds a
+        slice; further slices join the open one. Each keyframe begins a PES of its own
+        behind the stream's tables, so a reader can begin there.
         """
         units = nal_units(record)
         if not units:
@@ -332,9 +396,10 @@ class TendSource:
             return
         self.records += 1
         body = []
-        keyframe = False
+        keyframe = sliced = False
         for unit in units:
             kind = unit[0] & 0x1F
+            sliced = sliced or kind in (1, 5)
             if kind == 7:
                 # After the NAL header: profile, constraint flags and level, then the id.
                 if (identifier := _first_ue(unit[4:])) < 32:
@@ -361,8 +426,21 @@ class TendSource:
                 *body,
             ]
         data = b"".join(body)
+        begins = body[0].startswith(_START) and self._picture_sliced
+        if keyframe or begins or self._video_pts is None:
+            # Arrival time, after the last picture's even when they arrive together.
+            last = self._video_pts
+            self._video_pts = self._clock() if last is None else max(self._clock(), last + 1)
+            chunk = self._mux.video(self._video_pts, data, keyframe)
+            self._picture_sliced = sliced
+        else:
+            chunk = self._mux.video_continued(data)  # More of the open picture.
+            self._picture_sliced = self._picture_sliced or sliced
+        if keyframe:
+            chunk = self._mux.tables(self._audio_ready, self._audio.channels) + chunk
+        start = keyframe and self._settled()
         for reader in self._readers:
-            reader.put(data, keyframe)
+            reader.put(chunk, start)
 
     async def _watch_session(self, session: VideoSession) -> None:
         """End every reader when the camera session ends, or never becomes playable."""

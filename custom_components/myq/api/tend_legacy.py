@@ -8,16 +8,22 @@ That material stays inside the session; none of it reaches entity data or logs.
 Video modes are tried in the app's order (MediaConnectionManager): UDP to the camera
 (mode 9 with its AES key, 8 without), UDP through Tend's relay (10, or 11 for a camera
 listing RTP11=1; only for a camera listing RTP=1), then Tend's TLS video channel (0).
+
+As in the app (VideoCallManager.connect), a live view opens the camera's audio
+connection alongside its video: the camera's microphone arrives on it, and talkback
+is sent over it.
 """
 
 import asyncio
 import ipaddress
 import re
+import time
 import uuid
 from collections.abc import Callable, Iterable
 from typing import Any
 
 from .errors import AccessDenied, CameraWakeFailed, CannotConnect, MyQError, ProtocolError
+from .live_audio import CODEC_NAMES
 from .tend import (
     HANDSHAKE_TIMEOUT,
     WAKEUP_ANSWER_TIMEOUT,
@@ -27,8 +33,12 @@ from .tend import (
     denial,
     parse_properties,
 )
-from .tend_channel import TendChannel, channel_address
+from .tend_channel import JOIN_AUDIO, TendChannel, channel_address
 from .tend_rtp import TendRtp
+
+# The camera's audio frames: Tend's codec number, the audio, and the RTP sequence
+# number (None over the TLS channel).
+AudioCallback = Callable[[int, bytes, int | None], None]
 
 OFFER_TIMEOUT = 15
 # Frames read while waiting for the login's answer; a broker may push others first.
@@ -185,6 +195,15 @@ class LegacyTendSession(TendSession):
         self._key = b""
         self._tried: list[int] = []
         self.on_video: Callable[[bytes], None] | None = None
+        self.on_audio: AudioCallback | None = None
+        # Open the camera's audio connection along with its video, as a live view does.
+        self.listen = False
+        self.audio_error: str | None = None
+        self._audio_link: AudioLink | None = None
+        self._audio_task: asyncio.Task | None = None
+        # One audio request at a time: the camera's answer names no request.
+        self._audio_lock = asyncio.Lock()
+        self._audio_heard: set[int] = set()
         # Modes MyQ lists as failing for this camera (enable_connection_mode_override).
         self.skip_modes: frozenset[int] = frozenset()
 
@@ -202,7 +221,8 @@ class LegacyTendSession(TendSession):
 
     @property
     def transport(self) -> dict[str, Any]:
-        """How video was reached, for diagnostics: modes and flags, no addresses."""
+        """How video and audio were reached, for diagnostics: no addresses."""
+        link = self._audio_link
         return {
             "video_mode": self._video_mode if self._media is not None else None,
             "modes_tried": list(self._tried),
@@ -213,7 +233,16 @@ class LegacyTendSession(TendSession):
             "video_channel_offered": self._video_channel is not None,
             "speaker_codecs_listed": self.speaker_codecs if self._row else None,
             "wakeup": self.wakeup,
+            "audio_mode": link.mode if link is not None else None,
+            "audio_frames": link.frames if link is not None else 0,
+            "audio_codecs": sorted(CODEC_NAMES.get(code, str(code)) for code in self._audio_heard),
+            "audio_error": self.audio_error,
         }
+
+    @property
+    def audio_pending(self) -> bool:
+        """The camera's audio was asked for and has neither arrived nor failed."""
+        return self.listen and self.audio_error is None and not self._audio_heard
 
     def _client_properties(self, access_token: str) -> dict[str, str]:
         # The client profile TC cameras are known to answer for mode 9. The app's own
@@ -263,6 +292,12 @@ class LegacyTendSession(TendSession):
         if self.on_video is not None and not self._closing:
             self.on_video(record)
 
+    def _audio(self, codec: int, data: bytes, sequence: int | None) -> None:
+        if len(self._audio_heard) < 8:
+            self._audio_heard.add(codec)
+        if self.on_audio is not None and not self._closing:
+            self.on_audio(codec, data, sequence)
+
     def _fail(self, failure: MyQError) -> None:
         super()._fail(failure)
         for offer in (self._offer, self._audio_offer):
@@ -308,7 +343,7 @@ class LegacyTendSession(TendSession):
                     self._audio_offer.set_exception(
                         error
                         if isinstance(error, CameraWakeFailed)
-                        else AccessDenied("The camera declined talkback")
+                        else AccessDenied("The camera declined its audio connection")
                     )
                 return
             raise denial(reason)
@@ -478,6 +513,9 @@ class LegacyTendSession(TendSession):
         try:
             await self.connect(device_alias, access_token)
             await self._start_video()
+            if self.listen:
+                # Video does not wait for audio, nor end without it.
+                self._audio_task = asyncio.create_task(self._listen_audio())
             return {}
         except asyncio.CancelledError:
             await self.close()
@@ -489,11 +527,47 @@ class LegacyTendSession(TendSession):
             await self.close()
             raise
 
-    # Talkback uses its own media connection on the same signaling (AudioConnectionManager).
+    # Audio is a media connection of its own on the same signaling (AudioConnectionManager).
+
+    async def _listen_audio(self) -> None:
+        """Open the camera's audio connection for a live view."""
+        link = AudioLink(self, self._audio)
+        try:
+            async with self._audio_lock:
+                await link.open()
+        except asyncio.CancelledError:
+            await link.close()
+            raise
+        except (MyQError, OSError, TimeoutError) as error:
+            self.audio_error = str(error) or "The camera's audio connection failed"
+            await link.close()
+            return
+        self._audio_link = link
+
+    async def talk_link(self) -> tuple["AudioLink", bool]:
+        """The audio connection to talk over, and whether the caller must close it.
+
+        A live view's connection is shared, as the app talks over its own; without one,
+        a connection is opened for the talk.
+        """
+        if (task := self._audio_task) is not None and not task.done():
+            await asyncio.wait({task})
+        link = self._audio_link
+        if link is not None and link.is_open:
+            return link, False
+        link = AudioLink(self)
+        async with self._audio_lock:
+            await link.open()
+        return link, True
 
     @property
     def audio_channel(self) -> tuple[str, int] | None:
         return self._audio_channel
+
+    @property
+    def media_sources(self) -> set[str]:
+        """The aliases a TLS channel's messages may name as their source."""
+        return {self._device_alias, self._video_alias}
 
     @property
     def camera_address(self) -> str:
@@ -537,8 +611,143 @@ class LegacyTendSession(TendSession):
 
     async def _shutdown(self) -> None:
         try:
-            if self._media is not None:
-                await self._media.close()
+            task, self._audio_task = self._audio_task, None
+            if task is not None:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            link, self._audio_link = self._audio_link, None
+            try:
+                if link is not None:
+                    await link.close()
+            finally:
+                if self._media is not None:
+                    await self._media.close()
         finally:
             self._inventory = ""
             await super().close()
+
+
+class AudioLink:
+    """The camera's audio connection on a signaling session (AudioConnectionManager).
+
+    The camera's microphone arrives on it (``on_audio``), and talkback is sent over it.
+    Modes are tried in video's order: UDP to the camera (9, or 8 without a key), then
+    the TLS audio channel (0) when the login names one.
+    """
+
+    def __init__(self, session: LegacyTendSession, on_audio: AudioCallback | None = None) -> None:
+        self._session = session
+        self._on_audio = on_audio
+        self.session_id = f"{session.account_alias}:{int(time.time() * 1000)}"
+        self.mode: int | None = None
+        self.frames = 0  # Audio frames the camera sent.
+        self.codec: int | None = None  # The codec of the first of them.
+        self._heard = asyncio.Event()
+        self._rtp: TendRtp | None = None
+        self._channel: TendChannel | None = None
+        self._stopped = False
+
+    @property
+    def is_open(self) -> bool:
+        media = self._rtp or self._channel
+        return media is not None and not media.ended
+
+    def _modes(self) -> list[int]:
+        modes = [9 if self._session._key else 8]
+        if self._session.audio_channel is not None:
+            modes.append(CHANNEL_MODE)
+        return modes
+
+    def _frame(self, codec: int, data: bytes, sequence: int | None) -> None:
+        self.frames += 1
+        if self.codec is None:
+            self.codec = codec
+            self._heard.set()
+        if self._on_audio is not None:
+            self._on_audio(codec, data, sequence)
+
+    async def heard(self, seconds: float) -> int | None:
+        """The codec the camera sends in, waiting up to ``seconds`` for its first frame."""
+        try:
+            async with asyncio.timeout(seconds):
+                await self._heard.wait()
+        except TimeoutError:
+            pass
+        return self.codec
+
+    async def open(self) -> None:
+        """Ask the camera for its audio connection, trying each mode in turn."""
+        session = self._session
+        failure: MyQError | None = None
+        for mode in self._modes():
+            try:
+                relay = await session.request_audio(self.session_id, mode)
+            except TimeoutError:
+                failure = CannotConnect("The camera did not answer the audio request")
+                await self._stop_request(mode)
+                continue
+            self.mode = mode
+            try:
+                if mode == CHANNEL_MODE:
+                    # As for video, the camera is asked to start before the channel joins.
+                    await session.audio_command("start", self.session_id, mode)
+                    sender, recipient = session.channel_identity
+                    channel = self._channel = TendChannel(lambda record: None, on_audio=self._frame)
+                    assert session.audio_channel is not None
+                    await channel.start(
+                        session.audio_channel,
+                        sender,
+                        recipient,
+                        session.media_sources,
+                        join=JOIN_AUDIO,
+                    )
+                else:
+                    if relay is None:
+                        raise ProtocolError("Tend did not provide an audio relay")
+                    rtp = self._rtp = TendRtp(
+                        lambda record: None, kind=b"A", watch_silence=False, on_audio=self._frame
+                    )
+                    await rtp.start(
+                        relay, session.account_alias, session.camera_address, session._key
+                    )
+                    await session.audio_command("start", self.session_id, mode)
+                return
+            except (CannotConnect, TimeoutError) as error:
+                failure = (
+                    error
+                    if isinstance(error, CannotConnect)
+                    else CannotConnect("The camera's audio connection timed out")
+                )
+                await self.close()
+                self.mode, self._stopped = None, False
+                continue
+        raise failure or CannotConnect("The camera's audio connection could not be opened")
+
+    async def send(self, message: bytes) -> None:
+        """One talkback message to the camera."""
+        if self._rtp is not None:
+            self._rtp.send(message)
+        elif self._channel is not None:
+            await self._channel.write(message)
+        else:
+            raise CannotConnect("The camera's audio connection is not open")
+
+    async def _stop_request(self, mode: int) -> None:
+        try:
+            await self._session.audio_command("stop", self.session_id, mode)
+        except (OSError, TimeoutError, MyQError):
+            pass
+
+    async def close(self) -> None:
+        """stop-audio-receive and close the connection; safe to call more than once."""
+        rtp, self._rtp = self._rtp, None
+        channel, self._channel = self._channel, None
+        try:
+            if self.mode is not None and not self._stopped:
+                self._stopped = True
+                await self._stop_request(self.mode)
+        finally:
+            if rtp is not None:
+                await rtp.close()
+            if channel is not None:
+                await channel.close()

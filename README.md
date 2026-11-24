@@ -30,7 +30,7 @@ app code. The sidebar panel, dashboard door card and door artwork are my own UI 
 | Lamps | A `light` entity with on/off. |
 | Locks | A `lock` entity for Wi-Fi, partner and gateway-connected locks, with PIN lockout, door contact, auto-lock settings and firmware. |
 | Thermostats | A `climate` entity with the thermostat's modes, fan modes and setpoint limits. |
-| Cameras | Snapshots and live video. TC cameras (such as those built into openers) play through Home Assistant's own WebRTC or HLS without re-encoding. Cameras with MyQ's WebRTC capability are relayed to the browser, with two-way audio. A speaker media player sends text to speech and audio files to TC cameras with talkback. Pan/tilt/zoom, siren, saved positions and camera settings where the camera supports them. |
+| Cameras | Snapshots and live video. TC cameras (such as those built into openers) play through Home Assistant's own WebRTC or HLS without re-encoding the video, with the camera's sound over WebRTC. Cameras with MyQ's WebRTC capability are relayed to the browser, with two-way audio. A speaker media player sends text to speech and audio files to TC cameras with talkback. Pan/tilt/zoom, siren, saved positions and camera settings where the camera supports them. |
 | Recordings | Recorded clips in **Media → MyQ recordings**, with thumbnails, detection labels and a **Door events** folder. |
 | Device health | Connectivity, battery, Wi-Fi strength, fault codes, door cycles, backup battery and firmware updates, when MyQ reports them. |
 | Activity and alerts | Optional **Activity** event entities, a switch for each notification rule, and actions to read history and snooze alerts. |

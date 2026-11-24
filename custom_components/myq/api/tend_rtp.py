@@ -1,4 +1,4 @@
-"""Tend camera media over UDP: receive the mode-9 video stream, send talkback.
+"""Tend camera media over UDP: the mode-9 video stream, and the camera's audio connection.
 
 The broker supplies the media identity, a relay and an optional encryption key; none
 of those values are logged. What this receiver accepts follows clients known to work
@@ -6,9 +6,10 @@ with TC cameras, which are lenient: any setup or media datagram from the relay o
 a camera address the relay announced counts, and a media record is passed on as the
 camera sent it. Records are the camera's encoded H.264; nothing is decoded here.
 
-The same rendezvous carries the app's talkback connection, with kind "A" in place of
-"V" (seedonk_p2psession_start). Sent RTP packets are split into datagrams of at most
-540 bytes, each led by a little-endian message id, fragment count and fragment index.
+The same rendezvous carries the app's audio connection, with kind "A" in place of "V"
+(seedonk_p2psession_start): the camera's microphone arrives in "wa" envelopes, and
+talkback is sent on it. Sent RTP packets are split into datagrams of at most 540
+bytes, each led by a little-endian message id, fragment count and fragment index.
 """
 
 from __future__ import annotations
@@ -53,6 +54,47 @@ def _candidates(data: bytes) -> list[_PEER]:
     return peers
 
 
+def _body(payload: bytes, key: bytes) -> bytes | None:
+    """What follows an envelope's 10-byte header, decrypted when its flags say so.
+
+    The flags byte's top three bits are 001 for AES-128-CBC: a 16-byte IV, then the
+    ciphertext with PKCS#7 padding, under the camera's key.
+    """
+    body = payload[10:]
+    if payload[6] >> 5 != 1:
+        return body
+    if len(key) != 16 or len(body) < 32:
+        return None
+    try:
+        decoder = Cipher(algorithms.AES(key), modes.CBC(body[:16])).decryptor()
+        padded = decoder.update(body[16:]) + decoder.finalize()
+        unpad = PKCS7(128).unpadder()
+        return unpad.update(padded) + unpad.finalize()
+    except ValueError:
+        return None
+
+
+def audio_frame(payload: bytes, key: bytes) -> tuple[int, bytes] | None:
+    """The codec and audio of one camera audio envelope (AudioConnectionManager).
+
+    "wa", a little-endian u32 length of what follows the first 6 bytes, the flags byte
+    (low five bits the codec, top three the encryption), three bytes, then a
+    little-endian u32 length, four bytes, and the audio.
+    """
+    if len(payload) < 10 or payload[:2] != b"wa":
+        return None
+    size = int.from_bytes(payload[2:6], "little")
+    if size < 4 or size + 6 != len(payload):
+        return None
+    body = _body(payload, key)
+    if body is None or len(body) <= 8:
+        return None
+    length = int.from_bytes(body[:4], "little")
+    if length <= 4 or len(body) not in (length + 4, length + 8):
+        return None
+    return payload[6] & 0x1F, body[8:]
+
+
 def _video_records(payload: bytes, key: bytes) -> list[bytes]:
     """The records of one camera media envelope, decrypted when it is marked encrypted.
 
@@ -62,17 +104,9 @@ def _video_records(payload: bytes, key: bytes) -> list[bytes]:
         return []
     if int.from_bytes(payload[2:6], "little") + 6 != len(payload):
         return []
-    body = payload[10:]
-    if payload[6] >> 5 == 1:
-        if len(key) != 16 or len(body) < 32:
-            return []
-        try:
-            decoder = Cipher(algorithms.AES(key), modes.CBC(body[:16])).decryptor()
-            padded = decoder.update(body[16:]) + decoder.finalize()
-            unpad = PKCS7(128).unpadder()
-            body = unpad.update(padded) + unpad.finalize()
-        except ValueError:
-            return []
+    body = _body(payload, key)
+    if body is None:
+        return []
     records = []
     cursor = 0
     while cursor + 4 <= len(body):
@@ -121,12 +155,16 @@ class TendRtp:
         *,
         kind: bytes = b"V",
         watch_silence: bool = True,
+        on_audio: Callable[[int, bytes, int | None], None] | None = None,
     ) -> None:
         if kind not in (b"V", b"A"):
             raise ProtocolError("Invalid Tend media kind")
         self._on_record = on_record
         self._on_end = on_end
-        # "V" for video; "A" for the talkback connection, which receives no video.
+        # The camera's audio frames on an "A" connection: codec, audio, RTP sequence.
+        self._on_audio = on_audio
+        # "V" for video; "A" for the audio connection: the camera's microphone, and
+        # the client's talkback.
         self._kind = kind
         self._watch_silence = watch_silence
         self._ports: list[_Port] = []
@@ -164,6 +202,10 @@ class TendRtp:
         self._send_sequence = secrets.randbits(16)
         self._send_started: float | None = None
         self._message_id = 0
+
+    @property
+    def ended(self) -> bool:
+        return self._ended.is_set()
 
     @property
     def path(self) -> str | None:
@@ -363,6 +405,13 @@ class TendRtp:
             return
         self._parts.append(data[8:])
         self._part_bytes += len(data) - 8
+        if self._kind == b"A":
+            # Audio is passed on once its last fragment is in, rather than when the
+            # next packet begins: the header's fragment count and index say so.
+            count, index = struct.unpack_from("<HH", data, 4)
+            if index + 1 == count == len(self._parts):
+                self._complete_packet()
+                self._group = None
 
     def _complete_packet(self) -> None:
         if not self._parts:
@@ -374,6 +423,13 @@ class TendRtp:
             return
         self.packets += 1
         self._observe(packet)
+        if self._kind == b"A":
+            found = audio_frame(packet[12:], self._key)
+            if found is None:
+                self.unreadable += 1
+            elif self._on_audio is not None:
+                self._on_audio(*found, int.from_bytes(packet[2:4], "big"))
+            return
         records = _video_records(packet[12:], self._key)
         if not records:
             self.unreadable += 1

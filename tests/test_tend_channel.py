@@ -10,8 +10,10 @@ from custom_components.myq.api import tend_channel
 from custom_components.myq.api.errors import CannotConnect, ProtocolError
 from custom_components.myq.api.tend import HOST, Frame
 from custom_components.myq.api.tend_channel import (
+    JOIN_AUDIO,
     TendChannel,
     channel_address,
+    channel_audio,
     channel_records,
 )
 
@@ -179,3 +181,55 @@ async def test_channel_accepts_the_front_door_certificate_only_on_a_name_mismatc
     with pytest.raises(CannotConnect, match="certificate"):
         await TendChannel(lambda record: None)._open("vc.seedonk.com", 5101)
     assert names == ["vc.seedonk.com"]
+
+
+def audio_message(audio, *, codec=4, source=b"owner:camera", combined=None):
+    """0x0B, the source, then the codec byte and three, a length, four bytes, the audio."""
+    combined = len(audio) + 4 if combined is None else combined
+    data = bytes([codec, 0, 0, 0]) + struct.pack("<I", combined) + b"\x01\x02\x03\x04" + audio
+    return (
+        bytes([0x0B, 0])
+        + struct.pack(">I", len(source))
+        + source
+        + struct.pack(">I", len(data))
+        + data
+    )
+
+
+def test_channel_audio_follows_the_server_relay_layout():
+    sources = frozenset({"owner:camera"})
+    assert channel_audio(audio_message(b"opus!"), sources) == (4, b"opus!")
+    assert channel_audio(audio_message(b"\xff" * 160, codec=2), sources) == (2, b"\xff" * 160)
+    assert channel_audio(audio_message(b"opus!", combined=5), sources) == (4, b"opus!")
+    assert channel_audio(audio_message(b"opus!", source=b"OWNER:Camera"), sources)
+    for bad in (
+        audio_message(b"opus!", source=b"intruder"),
+        audio_message(b"opus!", combined=40),
+        audio_message(b"opus!")[:-1],
+        media([b"\x00\x00\x00\x01\x65idr"]),  # Video.
+        b"\x0b",
+    ):
+        assert channel_audio(bad, sources) is None
+
+
+async def test_audio_channel_passes_on_the_cameras_audio_and_never_goes_silent(
+    channel, monkeypatch
+):
+    receiver, reader, writer, records, ended, _opened = channel
+    heard = []
+    receiver._on_audio = lambda *frame: heard.append(frame)
+    monkeypatch.setattr(tend_channel, "FRAME_TIMEOUT", 0)
+    sleep = asyncio.sleep
+    monkeypatch.setattr(tend_channel.asyncio, "sleep", lambda _delay: sleep(0))
+    reader.feed_data(Frame(257).encode())
+    await receiver.start(("ac.seedonk.com", 5101), SENDER, 42, {"owner:camera"}, join=JOIN_AUDIO)
+    assert struct.unpack_from("<H", writer.write.call_args_list[0].args[0], 13)[0] == 509
+    reader.feed_data(Frame(413, data=audio_message(b"opus!")).encode())
+    reader.feed_data(Frame(414, data=media([b"\x00\x00\x00\x01\x65idr"])).encode())
+    await until(lambda: receiver.unreadable >= 1)
+    assert heard == [(4, b"opus!", None)] and records == []
+    for _ in range(20):  # The upkeep loop runs; an audio channel has no silence limit.
+        await sleep(0)
+    assert not ended and not receiver.ended
+    await receiver.close()
+    assert receiver.ended

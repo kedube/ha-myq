@@ -887,7 +887,8 @@ from 0. The joined packet is an RTP packet (12-byte header) whose payload is a
 An encrypted body is AES-128-CBC with PKCS#7 padding: a 16-byte IV, then the
 ciphertext, with the key from `device-info-list`. Each record is H.264 with
 Annex B start codes. Receiver reports go to the camera on the second port every
-two seconds. These modes carry video only.
+two seconds. These modes carry video only: the camera's sound comes over its
+audio connection (see **Audio on TC cameras**).
 
 **TLS video channel (mode 0).** The login answer names the channel as
 `video-channel-host` with `video-channel-port-tls`, or as lines
@@ -920,13 +921,13 @@ Each video frame's data, with big-endian lengths:
 
 The records are not encrypted: TLS is the only encryption.
 
-#### Talkback on TC cameras
+#### Audio on TC cameras
 
-Talkback is a media connection of its own on the camera's signaling session. It
-needs `cap.spk.talkback` and a codec: Opus when the camera lists `opus`,
-otherwise G.711 µ-law when it lists `g711`. The list is `cap.spk.codecList`
-when the details have one; cameras built into openers list their codecs only in
-their `device-info-list` row, as `SPKCDLIST=opus:g711`.
+A camera's audio is a media connection of its own on its signaling session. The
+camera's microphone arrives on it, and talkback is sent over it. The app opens
+it together with the video connection for every live view, and talks over that
+same connection; it mutes the sound by not playing it, and the camera keeps
+sending.
 
 1. `require-audio-send|<account alias>|<session id>|<mode>|` over action 411,
    where the session id is `<account alias>:<epoch milliseconds>`. The answer
@@ -939,19 +940,52 @@ their `device-info-list` row, as `SPKCDLIST=opus:g711`.
    `audio-host`, read as for video).
 3. `start-audio-receive|<account alias>|<session id>|<mode>|` once the
    connection is up (mode 0: as soon as the camera accepts, before the channel
-   is joined), then the talkback messages, then
+   is joined). The camera starts sending its sound. To end:
    `stop-audio-receive|<account alias>|<session id>|<mode>|`.
 
 **UDP.** The rendezvous is video's, with kind `A` in place of `V` in the
 registration and kind-100 packets, and the identity `A_<account alias>`. Each
-talkback message is the payload of one RTP packet: version 2, payload type 8, a
-timestamp counting 8 kHz from the first packet, marker clear. The packet is
-split into datagrams as camera packets are (see **Media**). Nothing is
-encrypted.
+camera packet is an RTP packet split into datagrams as video's are (see
+**Media**), and its payload is a `wa` envelope:
+
+| Bytes | Content |
+| --- | --- |
+| 0–1 | `wa` |
+| 2–5 | Length of what follows the first 6 bytes, little-endian |
+| 6 | Flags: the low five bits are the codec; the top three bits `001` mean encrypted (as video) |
+| 10– | A little-endian length *L*, four bytes, then the audio; the body is *L* + 4 or *L* + 8 bytes long |
+
+The RTP sequence number counts the frames, so lost ones show as gaps.
 
 **TLS audio channel.** Joined as the video channel is, with action 509 in place
-of 508. The talkback messages are written to the channel as they are, without
-frames; action 526 every 60 seconds keeps it open.
+of 508; action 526 every 60 seconds keeps it open, and it is not ended for going
+quiet. The camera's sound arrives as action 413 (and 414) frames laid out as
+video's, with `0x0B` in place of `0x05`; after the length of the rest come the
+codec byte (low five bits) and three more, a little-endian length, four bytes,
+and the audio. Nothing but TLS encrypts it.
+
+**Codecs.** Each frame names its own:
+
+| Number | Codec |
+| --- | --- |
+| 2 | G.711 µ-law, 8 kHz mono |
+| 4 | Opus, 16 kHz mono, 20 ms frames |
+| 1 | 16-bit PCM at 8 kHz, for very old products |
+| 0 | Speex, which the app no longer plays |
+
+The login answer's `device-info-list` row may list the microphone's codecs as
+`MICCDLIST=opus:g711`.
+
+**Talkback** needs `cap.spk.talkback` and a codec: Opus when the camera lists
+`opus`, otherwise G.711 µ-law when it lists `g711`. The list is
+`cap.spk.codecList` when the details have one; cameras built into openers may list
+their codecs only in their `device-info-list` row, as `SPKCDLIST=opus:g711`.
+When neither lists one, the app talks in the codec of the camera's own sound on
+the same connection.
+Over UDP, each talkback message is the payload of one RTP packet: version 2,
+payload type 8, a timestamp counting 8 kHz from the first packet, marker clear,
+split into datagrams as camera packets are, and not encrypted. Over the TLS audio
+channel the messages are written as they are, without frames.
 
 **Messages.** All integers are little-endian. The destination is the camera's
 alias; the stream id is the decimal epoch milliseconds at the start of the talk.

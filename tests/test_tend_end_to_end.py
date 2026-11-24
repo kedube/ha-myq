@@ -2,8 +2,9 @@
 
 A TLS front door and broker, a UDP relay and a camera stand in for Tend's service and
 the device. Everything between them and the player is the integration's own code: the
-signaling session, the UDP rendezvous and media receiver, the loopback address, the
-camera entity, and Home Assistant's stream worker reading that address.
+signaling session, the UDP rendezvous and media receivers (video and the camera's
+audio), the loopback address, the camera entity, and Home Assistant's stream worker
+reading that address.
 
 Nothing here contacts MyQ, Tend or a real camera.
 """
@@ -32,7 +33,16 @@ from custom_components.myq.api.tend_source import TendSource, nal_units
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
-from .test_tend_rtp import candidates, envelope, fragment, rtp, setup
+from .test_live_audio import opus_packets
+from .test_tend_rtp import (
+    audio_envelope,
+    audio_fragment,
+    candidates,
+    envelope,
+    fragment,
+    rtp,
+    setup,
+)
 from .test_tend_source import encoded_pictures
 
 BROKER = "b159.broker.tend-us.tendplatform.com"
@@ -92,17 +102,22 @@ class CameraPort(asyncio.DatagramProtocol):
 
 
 class Relay(asyncio.DatagramProtocol):
-    """Tend's relay: tells each of the viewer's ports where the camera's is."""
+    """Tend's relay: tells each of the viewer's ports where the camera's is.
 
-    def __init__(self, cameras):
-        self.cameras = cameras
+    A registration names its port's index and its connection's kind: video ("V") or
+    the camera's audio ("A").
+    """
+
+    def __init__(self, cameras, microphone):
+        self.ports = {b"V": cameras, b"A": microphone}
 
     def connection_made(self, transport):
         self.transport = transport
 
     def datagram_received(self, data, addr):
         if data[:4] == b"SDNK" and data[7] == 1:
-            self.transport.sendto(candidates(("127.0.0.1", self.cameras[data[23]].port)), addr)
+            port = self.ports[data[24:25]][data[23]]
+            self.transport.sendto(candidates(("127.0.0.1", port.port)), addr)
 
 
 class Service:
@@ -114,24 +129,30 @@ class Service:
         self.commands = []
         self.logouts = 0
         self.cameras = []
+        self.microphone = []
         self.sending = asyncio.Event()
+        self.speaking = asyncio.Event()
         self.pictures = encoded_pictures(100)
+        self.sounds = opus_packets(50)
         self.sent = 0
+        self.spoken = 0
         self._servers = []
         self._transports = []
         self._video = None
+        self._audio = None
         self._clients = set()
 
     async def start(self, folder, monkeypatch, *, broker_name=tend.HOST):
         loop = asyncio.get_running_loop()
-        for _ in range(2):
-            transport, port = await loop.create_datagram_endpoint(
-                CameraPort, local_addr=("127.0.0.1", 0)
-            )
-            self._transports.append(transport)
-            self.cameras.append(port)
+        for ports in (self.cameras, self.microphone):
+            for _ in range(2):
+                transport, port = await loop.create_datagram_endpoint(
+                    CameraPort, local_addr=("127.0.0.1", 0)
+                )
+                self._transports.append(transport)
+                ports.append(port)
         transport, _ = await loop.create_datagram_endpoint(
-            lambda: Relay(self.cameras), local_addr=("127.0.0.1", 0)
+            lambda: Relay(self.cameras, self.microphone), local_addr=("127.0.0.1", 0)
         )
         self._transports.append(transport)
         self.relay_port = transport.get_extra_info("sockname")[1]
@@ -169,6 +190,7 @@ class Service:
 
         monkeypatch.setattr(asyncio, "open_connection", local)
         self._video = asyncio.create_task(self._send_video())
+        self._audio = asyncio.create_task(self._send_audio())
 
     async def _signaling(self, reader, writer, broker):
         try:
@@ -206,6 +228,20 @@ class Service:
                         self.sending.set()
                     elif command.startswith("stop-video-receive|"):
                         self.sending.clear()
+                    elif command.startswith("require-audio-send|"):
+                        session_id = command.split("|")[2]
+                        relay = f"url=rtp\\://localhost\\:{self.relay_port}\n".encode()
+                        writer.write(
+                            Frame(
+                                436,
+                                options=relay,
+                                data=f"accept-audio-receive|owner:camera|{session_id}|9|".encode(),
+                            ).encode()
+                        )
+                    elif command.startswith("start-audio-receive|"):
+                        self.speaking.set()
+                    elif command.startswith("stop-audio-receive|"):
+                        self.speaking.clear()
                 elif frame.action == 408:
                     self.logouts += 1
                     return
@@ -235,8 +271,19 @@ class Service:
             self.sent += 1
             await asyncio.sleep(1 / PICTURES_PER_SECOND)
 
+    async def _send_audio(self):
+        """The camera's microphone: one encrypted Opus frame in each datagram, every 20 ms."""
+        port = self.microphone[0]
+        while True:
+            await self.speaking.wait()
+            sound = self.sounds[self.spoken % len(self.sounds)]
+            packet = rtp(audio_envelope(sound, key=KEY), sequence=self.spoken & 0xFFFF)
+            port.transport.sendto(audio_fragment(self.spoken, 1, 0, packet), port.viewer)
+            self.spoken += 1
+            await asyncio.sleep(0.02)
+
     async def stop(self):
-        tasks = [self._video, *self._clients]
+        tasks = [self._video, self._audio, *self._clients]
         for task in tasks:
             if task is not None:
                 task.cancel()
@@ -262,14 +309,14 @@ async def until(condition, seconds=5):
             await asyncio.sleep(0.01)
 
 
-async def test_camera_video_reaches_a_local_reader_unchanged(service):
+async def test_camera_video_and_sound_reach_a_local_reader(service):
     import av
 
     released = []
 
-    async def open_session(on_video):
+    async def open_session(on_video, on_audio):
         session = LegacyTendSession({"OPENER-1"})
-        session.on_video = on_video
+        session.on_video, session.on_audio, session.listen = on_video, on_audio, True
         await session.start("owner:camera", "synthetic-token")
         return session
 
@@ -280,31 +327,49 @@ async def test_camera_video_reaches_a_local_reader_unchanged(service):
     url = await source.url()
 
     def decode():
-        with av.open(url, options={"use_wallclock_as_timestamps": "1"}, timeout=10) as container:
-            stream = container.streams.video[0]
-            sizes = []
-            for frame in container.decode(stream):
-                sizes.append((stream.codec_context.name, frame.width, frame.height))
-                if len(sizes) == 30:
+        with av.open(url, timeout=10) as container:
+            names = sorted(stream.codec_context.name for stream in container.streams)
+            video, audio = container.streams.video[0], container.streams.audio[0]
+            sizes, samples = [], 0
+            for packet in container.demux(video, audio):
+                for frame in packet.decode():
+                    if packet.stream is video:
+                        sizes.append((video.codec_context.name, frame.width, frame.height))
+                    else:
+                        samples += frame.samples
+                if len(sizes) >= 30 and samples >= 25 * 960:
                     break
-            return sizes
+            return names, sizes[:30], samples
 
     try:
         async with asyncio.timeout(20):
-            pictures = await asyncio.get_running_loop().run_in_executor(None, decode)
+            names, pictures, samples = await asyncio.get_running_loop().run_in_executor(
+                None, decode
+            )
+        assert names == ["h264", "opus"]
         assert pictures == [("h264", 320, 240)] * 30
+        assert samples >= 25 * 960  # Half a second of the camera's sound, at 48 kHz.
 
         # The front door, then the broker it named; both proved the front door's name.
         assert service.dialled == [(tend.HOST, 5104, tend.HOST), (BROKER, 5104, tend.HOST)]
         assert [login["CX_PASSWD"] for login in service.logins] == [
             "myQ.accessToken:synthetic-token"
         ] * 2
+        session_id = service.commands[3].split("|")[2]
+        assert session_id.startswith("owner:")
         assert service.commands == [
             "require-video-send|owner|9|",
             "start-video-receive|owner|9|",
             "modify-device|owner|QTY=3+FPS=20+SIZE=0+SAVE=0|",
+            f"require-audio-send|owner|{session_id}|9|",
+            f"start-audio-receive|owner|{session_id}|9|",
         ]
         status = source.status()
+        assert status["audio_codec"] == "opus" and status["audio_packets"] >= 25
+        assert status["audio_dropped"] == 0
+        transport = status["transport"]
+        assert (transport["audio_mode"], transport["audio_codecs"]) == (9, ["opus"])
+        assert transport["audio_frames"] >= 25 and transport["audio_error"] is None
         assert status["session_open"] and status["sessions_started"] == 1
         # The simulated relay and camera share one address, which reads as the relay.
         assert status["media_path"] == "relay"
@@ -315,9 +380,13 @@ async def test_camera_video_reaches_a_local_reader_unchanged(service):
     finally:
         await source.close()
 
-    assert service.commands[-1] == "stop-video-receive|owner|9|"
+    assert service.commands[-2:] == [
+        f"stop-audio-receive|owner|{session_id}|9|",
+        "stop-video-receive|owner|9|",
+    ]
     await until(lambda: service.logouts == 1)
-    assert not service.sending.is_set() and len(released) == 1
+    assert not service.sending.is_set() and not service.speaking.is_set()
+    assert len(released) == 1
     # The control port was told goodbye (RTCP BYE).
     await until(lambda: any(data[1:2] == b"\xcb" for data in service.cameras[1].received))
 
@@ -398,13 +467,18 @@ async def test_home_assistant_plays_the_camera_through_its_stream_worker(
     # to arrive, so the player neither stalls nor races.
     assert 5 < segment.duration < 8 and len(segment.parts) >= 5
     details = stream.get_diagnostics()
-    assert details["container_format"] == "h264" and details["video_codec"] == "h264"
+    assert details["container_format"] == "mpegts" and details["video_codec"] == "h264"
+    # Its HLS carries only AAC or MP3 sound; the camera's Opus is for WebRTC (go2rtc).
+    assert "audio_codec" not in details
     assert stream.available
 
     data = await async_get_config_entry_diagnostics(hass, home_camera.entry)
     video = data["devices"][0]["live_video_source"]
     assert video["session_open"] and video["readers"] == 1 and video["media_path"] == "relay"
     assert video["unreadable_packets"] == 0 and video["last_error"] is None
+    # The entity opened the camera's audio with its video.
+    assert video["audio_codec"] == "opus" and video["audio_packets"] > 0
+    assert video["transport"]["audio_mode"] == 9
     assert service.logins[-1]["CX_PASSWD"] == "myQ.accessToken:test-access"
 
     # Unloading ends the worker, the camera session and the camera's sending.

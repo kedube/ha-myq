@@ -104,6 +104,29 @@ def channel_records(data: bytes, sources: frozenset[str]) -> list[bytes] | None:
     return records
 
 
+def channel_audio(data: bytes, sources: frozenset[str]) -> tuple[int, bytes] | None:
+    """The codec and audio of one audio-channel message, or None when it is not audio.
+
+    0x0B, a byte, the source's alias (big-endian u32 length), then a big-endian u32
+    length of the rest: the codec byte (low five bits) and three more, a little-endian
+    u32 length, four bytes, and the audio
+    (AudioConnectionManager.handleServerRelayData).
+    """
+    if len(data) < 10 or data[0] != 0x0B:
+        return None
+    source_length = int.from_bytes(data[2:6], "big")
+    if 10 + source_length > len(data):
+        return None
+    source = data[6 : 6 + source_length].decode("utf-8", "replace").lower()
+    size = int.from_bytes(data[6 + source_length : 10 + source_length], "big")
+    if size <= 12 or 10 + source_length + size != len(data) or source not in sources:
+        return None
+    combined = int.from_bytes(data[14 + source_length : 18 + source_length], "little")
+    if combined <= 4 or size - 4 not in (combined + 4, combined + 8):
+        return None
+    return data[10 + source_length] & 0x1F, data[22 + source_length :]
+
+
 class TendChannel:
     """One TLS video (or audio) channel joined to a logged-in Tend session."""
 
@@ -111,9 +134,14 @@ class TendChannel:
         self,
         on_record: Callable[[bytes], None],
         on_end: Callable[[CannotConnect], None] | None = None,
+        *,
+        on_audio: Callable[[int, bytes, int | None], None] | None = None,
     ) -> None:
         self._on_record = on_record
         self._on_end = on_end
+        # The camera's audio frames on an audio channel: codec, audio, no sequence.
+        self._on_audio = on_audio
+        self._audio = False
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._sender = b"\0" * 16
@@ -128,6 +156,10 @@ class TendChannel:
         # Counters for diagnostics: video messages received, and those without video.
         self.packets = 0
         self.unreadable = 0
+
+    @property
+    def ended(self) -> bool:
+        return self._ended
 
     @property
     def path(self) -> str | None:
@@ -174,8 +206,10 @@ class TendChannel:
         if len(sender) != 16 or join not in (JOIN_VIDEO, JOIN_AUDIO):
             raise ProtocolError("Invalid Tend video channel registration")
         self._started = True
-        # An audio channel carries the client's talkback, not video: it never goes silent.
-        self._watch_silence = join == JOIN_VIDEO
+        # An audio channel carries the camera's microphone and the client's talkback,
+        # not video: it is not ended for going quiet.
+        self._audio = join == JOIN_AUDIO
+        self._watch_silence = not self._audio
         self._sender, self._recipient = sender, recipient
         self._sources = frozenset(source.lower() for source in sources if source)
         try:
@@ -214,6 +248,13 @@ class TendChannel:
                 if frame.action == _ACK or frame.action not in _MEDIA:
                     continue
                 self.packets += 1
+                if self._audio:
+                    found = channel_audio(frame.data, self._sources)
+                    if found is None:
+                        self.unreadable += 1
+                    elif self._on_audio is not None:
+                        self._on_audio(*found, None)
+                    continue
                 records = channel_records(frame.data, self._sources)
                 if not records:
                     self.unreadable += 1
