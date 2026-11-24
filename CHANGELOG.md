@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.14] - 2026-11-24
+
 ### Fixed
 
 - Live video from TC cameras had no sound, so the player's speaker button stayed
