@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.16] - 2026-11-25
+
 ### Fixed
 
 - The MyQ panel's camera live view had no sound, and its speaker button could
