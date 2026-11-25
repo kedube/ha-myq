@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.15] - 2026-11-25
+
 ### Fixed
 
 - TC camera live views could still have no sound, with the player's speaker
