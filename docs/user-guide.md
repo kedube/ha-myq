@@ -24,7 +24,7 @@ your current role first.
 
 | Device | Entities and controls | Not supported |
 | --- | --- | --- |
-| **Garage door openers** | Cover with open/close and door state. Owner settings: **Opener light timer**, **Time to close**, **Motion activated opener light** and **Disable remotes**. | Stop, position, switching the work light directly |
+| **Garage door openers** | Cover with open/close and door state. A door stopped partway is open, with its `door_state` attribute `stopped`. Owner settings: **Opener light timer**, **Time to close**, **Motion activated opener light** and **Disable remotes**. | Stop, position, switching the work light directly |
 | **Virtual (learned) doors** | Cover and door-sensor status. Monitor-only unless changed in the app. | Control while monitor-only |
 | **Gates and commercial doors** | Cover with open/close. | Stop, position, pedestrian or hold-open modes |
 | **Lamps** | Light with on/off. | Brightness or colour |

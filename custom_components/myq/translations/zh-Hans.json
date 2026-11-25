@@ -216,6 +216,22 @@
         "name": "摄像头"
       }
     },
+    "cover": {
+      "door": {
+        "state_attributes": {
+          "door_state": {
+            "name": "门状态",
+            "state": {
+              "open": "已打开",
+              "closed": "已关闭",
+              "opening": "正在打开",
+              "closing": "正在关闭",
+              "stopped": "已停止"
+            }
+          }
+        }
+      }
+    },
     "event": {
       "activity": {
         "name": "活动",

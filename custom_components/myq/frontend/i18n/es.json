@@ -45,6 +45,7 @@
     "confirm": "Toca para confirmar",
     "changed": "Cambió {time}",
     "open_for": "Abierta desde hace {duration}",
+    "partly_open": "Parcialmente abierta",
     "camera": "Mostrar cámara",
     "door_view": "Mostrar puerta",
     "customize": "Personalizar",

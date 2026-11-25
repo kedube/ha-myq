@@ -216,6 +216,22 @@
         "name": "カメラ"
       }
     },
+    "cover": {
+      "door": {
+        "state_attributes": {
+          "door_state": {
+            "name": "ドアの状態",
+            "state": {
+              "open": "開",
+              "closed": "閉",
+              "opening": "開いています",
+              "closing": "閉じています",
+              "stopped": "停止"
+            }
+          }
+        }
+      }
+    },
     "event": {
       "activity": {
         "name": "アクティビティ",

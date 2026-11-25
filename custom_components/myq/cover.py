@@ -19,6 +19,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
 
 class MyQCover(MyQEntity, CoverEntity):
     _attr_name = None
+    _attr_translation_key = "door"
 
     def __init__(self, coordinator, device) -> None:
         super().__init__(coordinator, device, "door")
@@ -50,6 +51,12 @@ class MyQCover(MyQEntity, CoverEntity):
     def is_closing(self) -> bool | None:
         state = self.device.door_state if self.device else None
         return None if state is None else state == "closing"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        # MyQ's own state: a door stopped partway is "open" to Home Assistant, "stopped" here.
+        state = self.device.door_state if self.device else None
+        return None if state is None else {"door_state": state}
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         await self.coordinator.execute(

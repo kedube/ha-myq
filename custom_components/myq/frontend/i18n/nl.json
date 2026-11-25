@@ -45,6 +45,7 @@
     "confirm": "Tik om te bevestigen",
     "changed": "Gewijzigd {time}",
     "open_for": "Al {duration} open",
+    "partly_open": "Gedeeltelijk open",
     "camera": "Camera tonen",
     "door_view": "Deur tonen",
     "customize": "Aanpassen",

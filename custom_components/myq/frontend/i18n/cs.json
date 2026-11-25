@@ -53,6 +53,7 @@
     "confirm": "Klepnutím potvrďte",
     "changed": "Změněno {time}",
     "open_for": "Otevřeno {duration}",
+    "partly_open": "Částečně otevřeno",
     "camera": "Zobrazit kameru",
     "door_view": "Zobrazit vrata",
     "customize": "Přizpůsobit",

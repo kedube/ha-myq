@@ -39,6 +39,11 @@ const OPEN_STATES = new Set(["open", "opening"]);
 const MOVING = new Set(["opening", "closing"]);
 const SETTLED = new Set(["open", "closed"]);
 
+/** Home Assistant shows a door MyQ reports stopped partway as open; the cover's door_state says so. */
+function stoppedPartway(cover) {
+  return cover?.state === "open" && cover.attributes?.door_state === "stopped";
+}
+
 /** Entity roles listed under Details, in display order, with an icon for each state. */
 /** @type {Array<[string, (stateObj: any) => string]>} */
 const DETAILS = [
@@ -440,7 +445,8 @@ export class DoorCard {
     const cover = states.cover;
     const state = cover?.state ?? "unavailable";
     const available = Boolean(cover) && state !== "unavailable";
-    const stateText = cover ? formatState(hass, cover) : unavailableText(hass);
+    const partway = stoppedPartway(cover);
+    const stateText = partway ? t("door.partly_open") : cover ? formatState(hass, cover) : unavailableText(hass);
     const isAdmin = Boolean(hass.user?.is_admin && this.panel.openCustomize);
     this.el.dataset.state = state;
     this.el.classList.toggle("unavailable", !available);
@@ -450,7 +456,7 @@ export class DoorCard {
     this.statusText.textContent = stateText;
     this.offline.hidden = available || this._cameraShown();
     this.offlineText.textContent = stateText;
-    this.scene.setState(state);
+    this.scene.setState(partway ? "stopped" : state);
     this.scene.setLight(states.work_light?.state === "on");
     this.scene.el.setAttribute("role", "img");
     this.scene.el.setAttribute("aria-label", `${this.door.name}: ${stateText}`);

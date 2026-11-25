@@ -5,6 +5,15 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- The MyQ panel and door card draw a door that MyQ reports stopped partway as
+  partly open, labeled **Partly open**, instead of fully open. MyQ does not
+  report how far a door is open, so it is drawn between open and closed.
+- Door entities have a `door_state` attribute with MyQ's own door state, so
+  automations can tell a door stopped partway (`stopped`) from one that is
+  fully open. Home Assistant still shows both as open.
+
 ## [0.16] - 2026-11-25
 
 ### Fixed

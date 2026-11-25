@@ -45,6 +45,7 @@
     "confirm": "Tryk for at bekræfte",
     "changed": "Ændret {time}",
     "open_for": "Åben i {duration}",
+    "partly_open": "Delvist åben",
     "camera": "Vis kamera",
     "door_view": "Vis port",
     "customize": "Tilpas",

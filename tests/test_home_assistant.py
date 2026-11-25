@@ -228,6 +228,9 @@ async def test_cover_reports_server_state_without_guessing(
     cover = hass.states.async_all("cover")[0]
     assert cover.state == expected
     assert cover.attributes["supported_features"] == 3  # OPEN | CLOSE; no STOP or position.
+    # MyQ's own state, so a door stopped partway can be told from one open all the way.
+    reported = value.lower() if isinstance(value, str) and expected != "unknown" else None
+    assert cover.attributes.get("door_state") == reported
     await hass.config_entries.async_unload(entry.entry_id)
 
 

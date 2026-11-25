@@ -102,7 +102,9 @@ Turn on **Show the garage panel in the sidebar** in the options. Doors and
 cameras are added automatically. Administrators can customize the door drawings
 (style, colour, windows, trim and hardware), arrange the doors, set the
 open-door warning time and require command confirmation. These preferences are
-shared with every viewer.
+shared with every viewer. A door is drawn closed, open, moving, or partly open
+when MyQ reports it stopped partway. MyQ does not report how far, so a partly
+open door is drawn between open and closed.
 
 The **MyQ garage door** dashboard card is available whether or not the sidebar
 is shown. Pick it in the card picker, or add it in YAML:

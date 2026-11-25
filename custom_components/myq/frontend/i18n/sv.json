@@ -45,6 +45,7 @@
     "confirm": "Tryck för att bekräfta",
     "changed": "Ändrad {time}",
     "open_for": "Öppen i {duration}",
+    "partly_open": "Delvis öppen",
     "camera": "Visa kamera",
     "door_view": "Visa port",
     "customize": "Anpassa",

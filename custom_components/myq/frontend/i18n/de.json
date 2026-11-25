@@ -45,6 +45,7 @@
     "confirm": "Zum Bestätigen tippen",
     "changed": "Geändert {time}",
     "open_for": "Seit {duration} offen",
+    "partly_open": "Teilweise offen",
     "camera": "Kamera anzeigen",
     "door_view": "Tor anzeigen",
     "customize": "Anpassen",

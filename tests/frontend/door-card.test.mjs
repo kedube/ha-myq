@@ -49,6 +49,22 @@ const activityRows = async () => {
   return card.shadowRoot.querySelectorAll(".activity-row").length;
 };
 
+test("a door MyQ reports stopped partway is drawn and labeled partly open", async () => {
+  const stopped = doorHass("open");
+  stopped.states["cover.door_a"].attributes.door_state = "stopped";
+  await mount(stopped);
+  const root = card.shadowRoot;
+  assert.equal(root.querySelector(".scene").dataset.state, "stopped");
+  assert.equal(root.querySelector(".pill").textContent, "Partly open");
+  assert.equal(root.querySelector(".pill").dataset.state, "open", "it keeps the open color");
+  assert.match(root.querySelector(".scene").getAttribute("aria-label"), /Partly open/);
+
+  await setState("closing");
+  assert.equal(root.querySelector(".scene").dataset.state, "closing");
+  await setState("open");
+  assert.equal(root.querySelector(".scene").dataset.state, "open", "open all the way without door_state");
+});
+
 test("fault chips display codes from this integration's structured fault attributes", async () => {
   const hass = doorHass("closed");
   hass.states["binary_sensor.door_faults"] = {

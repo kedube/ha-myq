@@ -216,6 +216,22 @@
         "name": "Kamera"
       }
     },
+    "cover": {
+      "door": {
+        "state_attributes": {
+          "door_state": {
+            "name": "Stan drzwi",
+            "state": {
+              "open": "Otwarte",
+              "closed": "Zamknięte",
+              "opening": "Otwieranie",
+              "closing": "Zamykanie",
+              "stopped": "Zatrzymane"
+            }
+          }
+        }
+      }
+    },
     "event": {
       "activity": {
         "name": "Aktywność",

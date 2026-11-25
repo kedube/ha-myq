@@ -45,6 +45,7 @@
     "confirm": "Tap to confirm",
     "changed": "Changed {time}",
     "open_for": "Open for {duration}",
+    "partly_open": "Partly open",
     "camera": "Show camera",
     "door_view": "Show door",
     "customize": "Customize",

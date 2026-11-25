@@ -53,6 +53,7 @@
     "confirm": "Dotknij, aby potwierdzić",
     "changed": "Zmieniono {time}",
     "open_for": "Otwarta od {duration}",
+    "partly_open": "Częściowo otwarta",
     "camera": "Pokaż kamerę",
     "door_view": "Pokaż bramę",
     "customize": "Dostosuj",

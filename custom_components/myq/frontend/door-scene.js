@@ -22,6 +22,13 @@ const TRAVEL_MS = 12000;
 const FINISH_MS = 2600;
 const HOLD_OPENING = 0.88;
 const HOLD_CLOSING = 0.12;
+/**
+ * MyQ reports a door stopped partway without saying where. It is shown half open, or, when it stops
+ * while moving, where the drawing has it, kept clearly between open and closed.
+ */
+const PARTLY_OPEN = 0.5;
+const PARTLY_MIN = 0.25;
+const PARTLY_MAX = 0.75;
 
 /** Fraction of the door that stays visible below the header when fully open. */
 const OPEN_REVEAL = 0.055;
@@ -993,7 +1000,10 @@ export class DoorScene {
     this.el.classList.toggle("lit", Boolean(on));
   }
 
-  /** Move the door to reflect a cover state; the first call places it without animation. */
+  /**
+   * Move the door to reflect a cover state, or "stopped" for a door MyQ reports stopped partway.
+   * The first call places it without animation.
+   */
   setState(state) {
     const previous = this._state;
     this._state = state;
@@ -1019,9 +1029,19 @@ export class DoorScene {
       case "closed":
         this._animate(0, Math.min(FINISH_MS, Math.max(450, p * FINISH_MS)));
         break;
+      case "stopped": {
+        const target = Math.min(PARTLY_MAX, Math.max(PARTLY_MIN, p));
+        this._animate(target, Math.min(FINISH_MS, Math.max(450, Math.abs(target - p) * FINISH_MS)));
+        break;
+      }
       default:
         this._stop();
     }
+  }
+
+  /** Where the door is drawn: 0 closed, 1 open. */
+  get position() {
+    return this._position;
   }
 
   destroy() {
@@ -1065,6 +1085,8 @@ function restingPosition(state, current) {
       return 0.55;
     case "closed":
       return 0;
+    case "stopped":
+      return PARTLY_OPEN;
     default:
       return current;
   }

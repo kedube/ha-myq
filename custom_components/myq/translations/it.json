@@ -216,6 +216,22 @@
         "name": "Telecamera"
       }
     },
+    "cover": {
+      "door": {
+        "state_attributes": {
+          "door_state": {
+            "name": "Stato della porta",
+            "state": {
+              "open": "Aperta",
+              "closed": "Chiusa",
+              "opening": "In apertura",
+              "closing": "In chiusura",
+              "stopped": "Ferma"
+            }
+          }
+        }
+      }
+    },
     "event": {
       "activity": {
         "name": "Attività",

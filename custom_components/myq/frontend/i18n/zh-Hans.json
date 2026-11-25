@@ -41,6 +41,7 @@
     "confirm": "点击确认",
     "changed": "上次变化：{time}",
     "open_for": "已打开 {duration}",
+    "partly_open": "部分打开",
     "camera": "显示摄像头",
     "door_view": "显示车库门",
     "customize": "自定义",
