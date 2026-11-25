@@ -184,11 +184,12 @@ export class CameraView {
     // Older frontends read hass directly; newer ones use context from the page.
     player.hass = this.hass;
     player.stateObj = this.stateObj;
-    player.muted = true;
+    // Not muted, as in HA's own camera dialog: HA's WebRTC player drops the audio track
+    // of a player created muted, leaving no sound to unmute. Live video starts from a click.
+    player.muted = false;
     player.controls = true;
     player.allowExoPlayer = true;
     player.fitMode = "contain";
-    player.setAttribute("muted", "");
     player.setAttribute("controls", "");
     player.setAttribute("allow-exoplayer", "");
     player.addEventListener("stream-type-changed", (event) => {

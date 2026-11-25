@@ -168,9 +168,10 @@ Assistant unchanged, with the camera's sound, and Home Assistant plays it with
 WebRTC (through its built-in go2rtc) or HLS. The video is not re-encoded, so
 the load on the Home Assistant host is small.
 
-- The camera's sound plays through WebRTC. The player starts muted; unmute it
-  with its speaker button. Home Assistant's HLS player carries no sound from
-  these cameras.
+- The camera's sound plays through WebRTC, in the camera's own dialog and in
+  the MyQ panel's live view; the player's speaker button mutes it. Home
+  Assistant's dashboard cards play live video muted, without sound, and its
+  HLS player carries no sound from these cameras.
 - The view starts with the picture. The sound joins a moment later, once the
   camera's audio connection is open; until then the sound is silent. A camera
   that sends G.711 sound has it converted to Opus; one that sends Opus is

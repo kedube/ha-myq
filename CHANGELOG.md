@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- The MyQ panel's camera live view had no sound, and its speaker button could
+  not unmute it. The panel started Home Assistant's player muted, and Home
+  Assistant's WebRTC player leaves the sound out of a stream it starts muted.
+  The panel now starts it unmuted, as the camera's own dialog does.
+
 ## [0.15] - 2026-11-25
 
 ### Fixed

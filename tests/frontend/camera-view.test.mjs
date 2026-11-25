@@ -47,6 +47,25 @@ test("snapshots resume after live video, an outage, and recovery", async () => {
   camera.destroy();
 });
 
+test("the live player is unmuted with controls, as in HA's camera dialog", async (test) => {
+  // HA's WebRTC player drops the audio track of a player created muted.
+  const host = document.createElement("div");
+  document.body.append(host);
+  const camera = new CameraView(host);
+  host.append(camera.el);
+  test.after(() => camera.destroy());
+  camera.setEntity("camera.garage");
+  camera.update(hass("idle"));
+  camera.activate();
+  await clock.advance(0);
+  await camera.toggleLive();
+  const player = camera.el.querySelector("ha-camera-stream");
+  assert.equal(player.muted, false);
+  assert.ok(!player.hasAttribute("muted"));
+  assert.equal(player.controls, true);
+  assert.ok(player.hasAttribute("controls"));
+});
+
 test("HA snapshot fallback exits live mode and resumes polling until an explicit retry", async (test) => {
   const host = document.createElement("div");
   document.body.append(host);
