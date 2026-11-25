@@ -6,6 +6,11 @@ microphone as Opus (the camera's own, or its G.711 re-encoded). Video is never d
 or re-encoded, so the picture is the camera's own; timestamps are arrival times, as a
 player would give bare H.264.
 
+A reader learns which streams there are from the tables it reads first, and go2rtc
+never reads them again. So while the camera's audio connection is still opening, the
+tables already list the audio, and the audio carries silence until the camera's sound
+begins; a reader never waits for it.
+
 The server listens on loopback only, under an unguessable path, and carries media
 only: the MyQ token and Tend session material never leave the camera session. One
 camera session is shared by every reader and ends shortly after the last one leaves.
@@ -46,10 +51,6 @@ KEYFRAME_SECONDS = 25
 # of pictures (20 a second) and sound (50 a second).
 MAX_PENDING = 1024
 MAX_PENDING_BYTES = 16 * 1024 * 1024  # The same limit by size: records vary widely.
-# A new reader's stream says at its start whether it carries audio, so its first
-# keyframe waits this long after the session opens for the camera's audio to begin
-# (or fail). Players read only the streams listed when they start.
-AUDIO_WAIT = 5.0
 _START = b"\x00\x00\x00\x01"
 _NEXT = b"\x00\x00\x01"
 
@@ -101,11 +102,13 @@ class _Reader:
         self.queue: asyncio.Queue[bytes] = asyncio.Queue()
         self.size = 0
         self.started = False
+        self.begun = False  # Its stream has begun, at least once.
         self.ended = False
 
-    def put(self, data: bytes, keyframe: bool) -> None:
+    def put(self, data: bytes, keyframe: bool) -> bool:
+        """Queue one chunk; True when it is the first of this reader's stream."""
         if self.ended:
-            return
+            return False
         if self.queue.qsize() >= MAX_PENDING or self.size + len(data) > MAX_PENDING_BYTES:
             # A reader this far behind restarts at a keyframe: skipping records would
             # hand its decoder a broken picture instead.
@@ -118,6 +121,9 @@ class _Reader:
         if self.started:
             self.queue.put_nowait(data)
             self.size += len(data)
+        first = self.started and not self.begun
+        self.begun = self.begun or self.started
+        return first
 
     async def get(self) -> bytes:
         data = await self.queue.get()
@@ -159,8 +165,7 @@ class TendSource:
         self._origin = time.monotonic()
         self._mux = TsMuxer()
         self._audio = LiveAudio()
-        self._audio_ready = False
-        self._audio_deadline = 0.0
+        self._opened = 0.0  # When the session opened, to time the start of its sound.
         self._video_pts: int | None = None
         self._picture_sliced = False  # The open picture already holds a slice.
         self._idle: asyncio.TimerHandle | None = None
@@ -175,6 +180,9 @@ class TendSource:
         self.keyframes = 0
         self.audio_packets = 0
         self.audio_codec: str | None = None
+        self.audio_started_after: float | None = None
+        self.readers_started = 0
+        self.readers_with_audio = 0
         self.last_error: str | None = None
         # How the latest session reached the camera (modes tried, flags), set by its owner.
         self.last_transport: dict[str, Any] | None = None
@@ -201,10 +209,15 @@ class TendSource:
             # Records that were not H.264 with start codes, so could not be served.
             "unframed_records": self.unframed,
             "keyframes": self.keyframes,
-            # Opus packets served, and the codec the camera's audio arrived in.
+            # Readers whose stream began, and those whose first tables listed audio.
+            "readers_started": self.readers_started,
+            "readers_with_audio": self.readers_with_audio,
+            # Opus packets of the camera's sound served, the codec it arrived in, and
+            # seconds from the latest session opening to its first sound.
             "audio_packets": self.audio_packets,
             "audio_codec": self.audio_codec,
             "audio_dropped": self._audio.dropped,
+            "audio_started_after": self.audio_started_after,
             "media_path": getattr(media, "path", None),
             "camera_packets": getattr(media, "packets", None),
             "unreadable_packets": getattr(media, "unreadable", None),
@@ -296,7 +309,7 @@ class TendSource:
             async with self._session_lock:
                 # A new session's stream: its clock, continuity counters and audio.
                 self._origin = time.monotonic()
-                self._mux, self._audio, self._audio_ready = TsMuxer(), LiveAudio(), False
+                self._mux, self._audio, self.audio_started_after = TsMuxer(), LiveAudio(), None
                 self._video_pts, self._picture_sliced = None, False
                 try:
                     async with asyncio.timeout(START_TIMEOUT):
@@ -320,7 +333,7 @@ class TendSource:
                 self.sessions += 1
                 self.last_error = None
                 self._session = session
-                self._audio_deadline = time.monotonic() + AUDIO_WAIT
+                self._opened = time.monotonic()
                 self._watch = asyncio.create_task(self._watch_session(session))
                 if not self._readers:
                     # Whoever asked has left; keep it for their retry, briefly.
@@ -357,21 +370,18 @@ class TendSource:
         """The session's 90 kHz clock, from one second, so no time is ever negative."""
         return int((time.monotonic() - self._origin) * CLOCK) + CLOCK
 
-    def _settled(self) -> bool:
-        """Whether a reader may start now: the audio it would carry is known."""
-        return (
-            self._audio_ready
-            or not getattr(self._session, "audio_pending", False)
-            or time.monotonic() >= self._audio_deadline
-        )
+    def _audio_pending(self) -> bool:
+        """The session asked for the camera's audio, which has neither begun nor failed."""
+        return bool(getattr(self._session, "audio_pending", False))
 
     def _audio_frame(self, codec: int, data: bytes, sequence: int | None) -> None:
         """Hand one camera audio frame to every reader, as Opus."""
         placed = self._audio.packets(codec, data, sequence, self._clock())
         if not placed:
             return
+        if self.audio_started_after is None:
+            self.audio_started_after = round(max(0.0, time.monotonic() - self._opened), 1)
         self.audio_codec = CODEC_NAMES.get(codec)
-        self._audio_ready = True
         self.audio_packets += len(placed)
         chunk = b"".join(self._mux.audio(pts, packet) for pts, packet in placed)
         for reader in self._readers:
@@ -389,6 +399,10 @@ class TendSource:
         what leads it (an SEI, an access unit delimiter), once the open one holds a
         slice; further slices join the open one. Each keyframe begins a PES of its own
         behind the stream's tables, so a reader can begin there.
+
+        The tables list the audio once the camera's sound is carried, or while it is
+        still on its way; until it arrives, each record brings the silence since the
+        last one.
         """
         units = nal_units(record)
         if not units:
@@ -436,11 +450,17 @@ class TendSource:
         else:
             chunk = self._mux.video_continued(data)  # More of the open picture.
             self._picture_sliced = self._picture_sliced or sliced
+        pending = self._audio_pending()
+        audio = bool(self._audio.frames) or pending
         if keyframe:
-            chunk = self._mux.tables(self._audio_ready, self._audio.channels) + chunk
-        start = keyframe and self._settled()
+            chunk = self._mux.tables(audio, self._audio.channels) + chunk
+        if pending:
+            silence = self._audio.silence(self._clock())
+            chunk += b"".join(self._mux.audio(pts, packet) for pts, packet in silence)
         for reader in self._readers:
-            reader.put(chunk, start)
+            if reader.put(chunk, keyframe):
+                self.readers_started += 1
+                self.readers_with_audio += audio
 
     async def _watch_session(self, session: VideoSession) -> None:
         """End every reader when the camera session ends, or never becomes playable."""

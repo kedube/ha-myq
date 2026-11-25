@@ -5,6 +5,9 @@ as the camera encoded it. µ-law is re-encoded as Opus, because the transport st
 players read no G.711 from it, and FFmpeg fails on the stream type go2rtc reads A-law
 under. Each packet's time follows from the one before it, so the audio plays without
 gaps, and is moved back to the arrival time when the two drift apart.
+
+Until the camera's sound begins, the timeline carries silence, so a reader that is
+told of the audio track at its start finds packets on it.
 """
 
 from __future__ import annotations
@@ -18,8 +21,11 @@ OPUS = 4
 CODEC_NAMES = {G711U: "g711", OPUS: "opus"}
 MAX_DRIFT = CLOCK // 4  # 250 ms between a packet's place on the timeline and its arrival.
 MAX_GAP = 50  # RTP sequence steps read as lost packets; a larger jump is a restart.
+# 20 ms of digital silence as libopus encodes it: CELT, fullband, mono, one frame.
+SILENCE = b"\xf8\xff\xfe"
 _RATE = 8000
 _FRAME = _RATE // 50  # 20 ms of µ-law
+_STEP = CLOCK // 50  # 20 ms on the 90 kHz timeline
 
 
 def _ulaw_to_linear(value: int) -> int:
@@ -123,7 +129,7 @@ class LiveAudio:
                 self.dropped += 1
                 return []
             duration = len(data) * CLOCK // _RATE
-            out = [(packet, CLOCK // 50) for packet in encoded]
+            out = [(packet, _STEP) for packet in encoded]
         self.frames += 1
         if self._next is not None:
             self._next += missing * duration  # Lost frames keep their place.
@@ -133,4 +139,19 @@ class LiveAudio:
                 self._next = now
             placed.append((self._next, packet))
             self._next += length
+        return placed
+
+    def silence(self, now: int) -> list[tuple[int, bytes]]:
+        """Silent 20 ms packets up to ``now``, until the camera's own sound is carried.
+
+        The camera's first frame then continues the same timeline.
+        """
+        if self.frames:
+            return []
+        if self._next is None or now - self._next > MAX_DRIFT:
+            self._next = now
+        placed = []
+        while self._next <= now:
+            placed.append((self._next, SILENCE))
+            self._next += _STEP
         return placed

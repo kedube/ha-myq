@@ -171,9 +171,10 @@ the load on the Home Assistant host is small.
 - The camera's sound plays through WebRTC. The player starts muted; unmute it
   with its speaker button. Home Assistant's HLS player carries no sound from
   these cameras.
-- The sound arrives a moment after the picture: a new view waits up to five
-  seconds for it before it starts. A camera that sends G.711 sound has it
-  converted to Opus; one that sends Opus is passed on as it is.
+- The view starts with the picture. The sound joins a moment later, once the
+  camera's audio connection is open; until then the sound is silent. A camera
+  that sends G.711 sound has it converted to Opus; one that sends Opus is
+  passed on as it is.
 - No in-view pan/tilt or siren buttons. Talk through the camera with its
   [speaker](#speaker).
 - Every viewer, and every Home Assistant feature reading the stream, shares one
@@ -379,8 +380,9 @@ installation and Bluetooth-only lock operations are done in the MyQ app.
   speaker capabilities (talkback, codecs, stored sounds, and whether it has a
   Speaker), the result of the last live-video wake-up, the account's live-video
   feature flags, which video and audio modes a TC camera tried and which ones it
-  used, the codec of its sound and how much of it was served, and the last
-  live-video error. They leave out tokens, names, serial numbers, account IDs,
+  used, the codec of its sound, how much of it was served and how long it took
+  to begin, how many players were told of the sound when they started, and the
+  last live-video error. They leave out tokens, names, serial numbers, account IDs,
   addresses and camera payloads.
 - **Tokens** are stored in Home Assistant's configuration entry storage and are
   included in backups. Passwords, debug tokens and verification codes are not

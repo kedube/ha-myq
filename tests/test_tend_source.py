@@ -8,6 +8,7 @@ import pytest
 
 from custom_components.myq.api import tend_source
 from custom_components.myq.api.errors import CannotConnect, CommandRejected
+from custom_components.myq.api.live_audio import SILENCE
 from custom_components.myq.api.mpegts import PACKET_SIZE, opus_samples
 from custom_components.myq.api.tend_source import TendSource, _Reader, nal_units
 
@@ -530,9 +531,12 @@ async def test_status_reports_counts_and_no_addresses(source):
         "records": 0,
         "unframed_records": 0,
         "keyframes": 0,
+        "readers_started": 0,
+        "readers_with_audio": 0,
         "audio_packets": 0,
         "audio_codec": None,
         "audio_dropped": 0,
+        "audio_started_after": None,
         "media_path": None,
         "camera_packets": None,
         "unreadable_packets": None,
@@ -654,43 +658,53 @@ async def test_served_stream_meets_home_assistants_webrtc_player_rules(source):
 
 
 @pytest.mark.parametrize("codec", [4, 2])
-async def test_reader_waits_for_the_cameras_audio_then_carries_it(source, codec):
+async def test_audio_is_listed_from_the_start_and_silent_until_the_camera_sound(source, codec):
+    """go2rtc reads the tables once, when it starts (pkg/mpegts reads the first PMT
+    only), then waits up to five seconds for a packet of each stream listed. So a reader
+    starts at the first keyframe with the audio listed while the camera's sound is still
+    on its way, and silence fills the audio until it arrives."""
     served, camera, http = source
     async with http.get(await served.url()) as response:
         await until(lambda: served.readers == 1)
         camera.sessions[0].audio_pending = True
-        camera.send(record(SPS, PPS, IDR))  # Not yet a start: the audio is on its way.
+        camera.send(record(SPS, PPS, IDR))  # A start at once: no waiting for the audio.
+        first = await read_until(response, lambda stream: stream.pes.get(AUDIO_PID))
         frame = opus_packets(1)[0] if codec == 4 else b"\xff" * 160
         camera.audio(codec, frame, 1)
-        camera.send(record(SPS, PPS, IDR))
-        camera.audio(codec, frame, 2)
-        stream = await read_until(response, lambda stream: stream.pes.get(AUDIO_PID))
-    assert stream.streams == {
+        camera.send(record(SLICE))  # The camera's sound is carried now: no more silence.
+        rest = await read_until(response, lambda stream: len(stream.pes.get(AUDIO_PID, [])))
+    assert first.streams == {
         VIDEO_PID: (0x1B, b""),
         AUDIO_PID: (0x06, b"\x05\x04Opus\x7f\x02\x80\x01"),
     }
-    assert stream.video == record(SPS, PPS, IDR)
-    [(pts, packet)] = stream.opus
+    assert first.video == record(SPS, PPS, IDR)
+    [(start, quiet)] = first.opus
+    assert quiet == SILENCE and start >= first.pes[VIDEO_PID][0][0]
+    [(pts, packet)] = rest.opus
     if codec == 4:
         assert packet == frame  # The camera's Opus, as it was sent.
-    assert opus_samples(packet) == 960 and pts > stream.pes[VIDEO_PID][0][0]
+    # The camera's sound continues the silence's timeline.
+    assert opus_samples(packet) == 960 and pts == start + 1800
     status = served.status()
     assert status["audio_codec"] == ("opus" if codec == 4 else "g711")
-    assert status["audio_packets"] == 2 and status["audio_dropped"] == 0
+    assert status["audio_packets"] == 1 and status["audio_dropped"] == 0
+    assert isinstance(status["audio_started_after"], float) and status["audio_started_after"] >= 0
+    assert (status["readers_started"], status["readers_with_audio"]) == (1, 1)
 
 
-async def test_reader_starts_without_audio_once_the_wait_ends(source, monkeypatch):
-    monkeypatch.setattr(tend_source, "AUDIO_WAIT", 0.05)
+async def test_no_audio_is_listed_once_the_camera_declines_it(source):
     served, camera, http = source
     async with http.get(await served.url()) as response:
         await until(lambda: served.readers == 1)
-        camera.sessions[0].audio_pending = True
+        camera.sessions[0].audio_pending = False  # Declined before the first keyframe.
         camera.send(record(SPS, PPS, IDR))
-        await asyncio.sleep(0.1)
-        camera.send(record(SPS, PPS, IDR))
-        stream = await read_stream(response, 3)
+        camera.send(record(SLICE))
+        stream = await read_stream(response, 4)  # Tables and two pictures: no silence.
     assert stream.streams == {VIDEO_PID: (0x1B, b"")}
-    assert stream.video == record(SPS, PPS, IDR)
+    assert AUDIO_PID not in stream.pes and stream.video == record(SPS, PPS, IDR, SLICE)
+    status = served.status()
+    assert (status["readers_started"], status["readers_with_audio"]) == (1, 0)
+    assert status["audio_started_after"] is None
 
 
 async def test_served_stream_carries_decodable_sound(source):

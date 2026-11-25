@@ -142,9 +142,11 @@ Live video takes one of two paths in `camera.py`:
   `TendSource` serves an MPEG transport stream on a random loopback HTTP path:
   the camera's H.264 records, one picture to each PES, with start codes written
   the way FFmpeg writes them, and the camera's sound as Opus (`LiveAudio`
-  re-encodes G.711). Every reader starts at a keyframe led by the PAT, PMT, SPS
-  and PPS; a new reader waits up to five seconds for the audio, so its PMT can
-  list it. go2rtc and the stream worker both read the stream. The source owns the
+  re-encodes G.711). Every reader starts at its first keyframe, led by the PAT,
+  PMT, SPS and PPS. go2rtc reads only the first PMT, so the PMT lists the audio
+  while the camera's audio connection is still opening, and the audio carries
+  20 ms Opus silence until the camera's sound continues its timeline. go2rtc and
+  the stream worker both read the stream. The source owns the
   camera session, shares it among readers, and closes it 15 seconds after the
   last one leaves. A live view's session also holds the camera's audio
   connection, which the speaker's talkback shares.

@@ -5,6 +5,20 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- TC camera live views could still have no sound, with the player's speaker
+  button unavailable. A view's stream listed an audio track only if the
+  camera's sound had begun within five seconds of the session opening;
+  otherwise it started without one, and go2rtc never looks for one later. The
+  stream now lists its audio from the start and carries silence until the
+  camera's sound arrives, so a view no longer waits for the sound to start.
+
+### Added
+
+- Diagnostics show how long the camera's sound took to begin, and how many
+  players were told of the sound when they started.
+
 ## [0.14] - 2026-11-24
 
 ### Fixed

@@ -12,6 +12,7 @@ from custom_components.myq.api.live_audio import (
     G711U,
     MAX_DRIFT,
     OPUS,
+    SILENCE,
     LiveAudio,
     ulaw_to_pcm,
 )
@@ -221,6 +222,39 @@ def test_ulaw_without_an_opus_encoder_is_dropped(monkeypatch):
     assert audio.packets(G711U, b"\xff" * 160, 1, CLOCK) == []
     assert audio.packets(G711U, b"\xff" * 160, 2, CLOCK + FRAME) == []
     assert audio.dropped == 2
+
+
+def test_silence_fills_the_timeline_until_the_camera_sound_continues_it():
+    audio = LiveAudio()
+    assert audio.silence(CLOCK) == [(CLOCK, SILENCE)]
+    assert audio.silence(CLOCK + 100) == []  # Already covered.
+    assert audio.silence(CLOCK + 2 * FRAME) == [
+        (CLOCK + FRAME, SILENCE),
+        (CLOCK + 2 * FRAME, SILENCE),
+    ]
+    packet = opus_packets(1)[0]
+    assert audio.packets(OPUS, packet, 7, CLOCK + 2 * FRAME + 500) == [(CLOCK + 3 * FRAME, packet)]
+    assert audio.silence(CLOCK + 10 * FRAME) == []  # The camera's sound is carried now.
+    assert audio.frames == 1 and audio.dropped == 0
+
+
+def test_silence_after_a_pause_resumes_at_the_current_time():
+    audio = LiveAudio()
+    audio.silence(CLOCK)
+    late = CLOCK + FRAME + MAX_DRIFT + 1
+    assert audio.silence(late) == [(late, SILENCE)]
+
+
+def test_silence_decodes_as_silence():
+    assert opus_samples(SILENCE) == 960
+    decoder = av.CodecContext.create("opus", "r")
+    frames = [
+        frame
+        for _ in range(5)
+        for frame in decoder.decode(av.Packet(SILENCE))  # type: ignore[attr-defined]
+    ]
+    assert sum(frame.samples for frame in frames) > 3 * 960
+    assert all(not frame.to_ndarray().any() for frame in frames)
 
 
 def test_every_packet_is_whole():
