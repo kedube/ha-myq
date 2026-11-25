@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.17] - 2026-11-25
+
 ### Added
 
 - The MyQ panel and door card draw a door that MyQ reports stopped partway as
