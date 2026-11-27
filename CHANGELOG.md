@@ -9,10 +9,14 @@ All notable changes to this project are documented here. The format follows
 
 - Sign-in now verifies the Firebase App Check debug token before sending a
   MyQ password or requesting a verification code. The proof is reused for
-  the code exchange, and refreshed if a long sign-in makes it stale.
+  the code exchange and for retries after a mistyped password, and refreshed
+  if a long sign-in makes it stale.
 - Firebase rate limits now retain their retry delay and show the rate-limit
   error. The cooldown survives retrying or restarting setup, rather than
-  allowing another request immediately.
+  allowing another request immediately. A MyQ sign-in cooldown also survives
+  restarting setup, for that account only.
+- Joining an opener and its separately registered Wi-Fi gateway no longer
+  fails on Home Assistant 2026.8, which stopped the integration from loading.
 
 ### Changed
 
@@ -21,8 +25,9 @@ All notable changes to this project are documented here. The format follows
   `pytest-homeassistant` fixtures in a separate environment.
 - Dependency checks cover x86-64 and ARM64. Native runners also install the
   integration's requirements in the minimum and current official Home
-  Assistant containers, import the platforms and camera libraries, and open
-  the setup form without an account.
+  Assistant containers, import the platforms and camera libraries, send a
+  loopback request through the native HTTP clients, and open the setup form
+  without an account.
 
 ## [0.17] - 2026-11-25
 

@@ -1,5 +1,6 @@
 """Use the HA helpers matching each isolated test environment."""
 
+from collections.abc import Mapping
 from importlib.util import find_spec
 
 from homeassistant.helpers import device_registry as dr
@@ -28,10 +29,6 @@ def registry_device(registry, entry_id, identifier):
 
 
 def registry_snapshot(registry):
-    """Snapshot all rows across the registry's mapping-to-iterable API change."""
-    devices = (
-        registry.devices
-        if hasattr(registry, "async_get_device_by_identifier")
-        else registry.devices.values()
-    )
-    return {device.id: device for device in devices}
+    """Snapshot all rows across HA 2026.9's change of `devices` from a mapping."""
+    rows = registry.devices
+    return {device.id: device for device in (rows.values() if isinstance(rows, Mapping) else rows)}

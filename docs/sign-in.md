@@ -69,7 +69,11 @@ The **Debug token** field accepts the token on its own, in quotes, as the
 field blank to use it; see [the registration file](#the-registration-file).
 
 If Firebase or MyQ limits requests, wait for its cooldown before trying again.
-Retrying or restarting setup does not reset that wait.
+Retrying or restarting setup does not reset that wait. A wait from MyQ applies to
+that account's sign-in; a wait from Firebase applies to every account. If MyQ
+limits requests while you enter a verification code, enter the same code again
+once the wait is over. Retrying after a mistyped password reuses the debug
+token's Firebase check rather than asking Firebase again.
 
 After signing in, Home Assistant reads your MyQ profile and devices before
 saving the integration. If that fails, for example because of a network error,

@@ -11,8 +11,9 @@
 
 The test environment uses Python 3.13 and Home Assistant 2026.2.3.
 `hacs.json` declares Home Assistant 2026.2.0 as the minimum supported release.
-The Validate workflow also runs the full suite on the current stable HA release
-with its required Python version and matching official test fixtures.
+The Validate workflow also runs the full suite on the current stable HA release,
+with the newest available patch of its required Python series and matching
+official test fixtures.
 
 ```sh
 python3.13 -m venv .venv
@@ -41,7 +42,10 @@ python3.14 -m venv .venv-current
 The `test-current` group uses the official `pytest-homeassistant` package;
 the baseline uses `pytest-homeassistant-custom-component`. Never install both
 fixture packages in one environment. Tests import their shared helpers through
-`tests/ha.py`. CI pins current HA and its fixtures to the same stable release.
+`tests/ha.py`. CI pins current HA and its fixtures to the same stable release:
+the newest one whose `pytest-homeassistant` release and container image are
+both published. When the latest release lacks either, CI tests the one before
+it and adds a notice to the run.
 
 ## Checks
 
@@ -71,7 +75,7 @@ Tend service and camera through Home Assistant's stream worker.
 
 On GitHub, the Validate workflow runs HACS, hassfest and the current-HA suite
 on every push, nightly and before a release. For the minimum version in
-`hacs.json` and the latest release, it also checks dependency resolution under
+`hacs.json` and that current release, it also checks dependency resolution under
 HA's package pins for x86-64 and ARM64 Alpine Linux. A conflict there makes
 adding the integration fail with a 500 error. Resolution needs network access
 and `uv`, and runs locally too:
@@ -84,8 +88,10 @@ and `uv`, and runs locally too:
 Resolution alone does not prove a native library will install or load. Separate
 x86-64 and ARM64 jobs run `scripts/check_runtime.py` inside each official HA
 container. That script uses HA's installer, imports every platform, loads the
-camera codecs and native clients, and opens the empty setup form. It makes no
-MyQ requests and mounts no registration file or existing HA configuration.
+camera codecs, sends a loopback request through each native HTTP client with
+the Android TLS and HTTP/2 options applied, and opens the empty setup form. It
+makes no MyQ requests and mounts no registration file or existing HA
+configuration.
 Run it only in a disposable environment: it can install dependencies.
 
 ## Packaging and releases

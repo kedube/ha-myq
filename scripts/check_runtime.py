@@ -10,6 +10,7 @@ import asyncio
 import importlib
 import json
 import platform
+import socket
 import sys
 import tempfile
 from importlib.metadata import version
@@ -18,6 +19,34 @@ from pathlib import Path
 # The checkout is mounted at /work in CI; scripts/ is not a package installation.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+
+async def check_native_http(curl_http: type) -> None:
+    """Send one loopback request through each native pool.
+
+    curl_cffi applies the Android ja3, HTTP/2 and extra fingerprint options to a
+    request, not when a session is created, so only a request shows this build
+    accepts them. The server listens on loopback only; nothing leaves the host.
+    """
+    from aiohttp import web
+
+    app = web.Application()
+    app.router.add_get("/", lambda _request: web.Response(text="ok"))
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    url = f"http://127.0.0.1:{sock.getsockname()[1]}/"
+    runner = web.AppRunner(app)
+    await runner.setup()
+    try:
+        await web.SockSite(runner, sock).start()
+        async with curl_http() as http:
+            for pool in (http.native_session, http.native_single_send):
+                response = await pool.get(url, timeout=10)
+                if response.status_code != 200 or response.text != "ok":
+                    raise RuntimeError("Native HTTP loopback request failed")
+    finally:
+        await runner.cleanup()
+        sock.close()
 
 
 async def check(config_dir: str) -> None:
@@ -45,8 +74,7 @@ async def check(config_dir: str) -> None:
             CodecContext.create(codec, "r")
         peer = RTCPeerConnection()
         await peer.close()
-        async with CurlHttp():
-            pass
+        await check_native_http(CurlHttp)
         flow = MyQFlow()
         flow.hass = hass
         flow.context = {"source": "user"}

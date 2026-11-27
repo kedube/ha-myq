@@ -1,6 +1,6 @@
 """Join an opener and its embedded Wi-Fi gateway without recreating entities."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import cast
 
 from homeassistant.config_entries import ConfigEntry
@@ -20,11 +20,24 @@ GATEWAY_SHARED = frozenset(
 
 def find_device(registry: dr.DeviceRegistry, entry_id: str, key: str) -> dr.DeviceEntry | None:
     """The registry device of one MyQ device, as registered by one config entry."""
-    # HA 2026.11 scopes identifiers to their config entry and deprecates the unscoped
-    # lookup; older versions have only that one.
+    # HA 2026.8 added a lookup scoped to the config entry, and 2026.9 deprecated the
+    # unscoped one; older versions have only that one.
     if finder := getattr(registry, "async_get_device_by_identifier", None):
         return finder((DOMAIN, key), entry_id)
     return registry.async_get_device(identifiers={(DOMAIN, key)})
+
+
+def registered_devices(registry: dr.DeviceRegistry) -> list[dr.DeviceEntry]:
+    """Every device row, whichever form this HA release gives `registry.devices`.
+
+    Before HA 2026.9 it is a mapping of device ID to row. From 2026.9 iterating it
+    gives the rows, and using it as a mapping logs a deprecation warning. Its type is
+    checked directly: 2026.8 already has the scoped lookup, but still the mapping.
+    """
+    rows = registry.devices
+    if isinstance(rows, Mapping):
+        return list(rows.values())
+    return list(cast(Iterable[dr.DeviceEntry], rows))
 
 
 def _owners(device: dr.DeviceEntry) -> set[str]:
@@ -123,13 +136,7 @@ def async_merge_opener_gateway(
                 )
             else:
                 entities.async_update_entity(entity.entity_id, device_id=canonical.id)
-        # HA 2026.11 changed this public collection from a mapping to an iterable.
-        registered_devices = (
-            list(cast(Iterable[dr.DeviceEntry], devices.devices))
-            if hasattr(devices, "async_get_device_by_identifier")
-            else list(devices.devices.values())
-        )
-        for child in registered_devices:
+        for child in registered_devices(devices):
             if child.via_device_id == gateway_entry.id:
                 devices.async_update_device(
                     child.id, via_device_id=None if child.id == canonical.id else canonical.id

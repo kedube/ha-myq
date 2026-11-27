@@ -19,6 +19,7 @@ from custom_components.myq.api.errors import (
     AuthenticationError,
     BrowserVerificationRequired,
     CannotConnect,
+    RateLimited,
 )
 from custom_components.myq.api.firebase import MAX_REGISTRATION_BYTES, FirebaseRegistration
 from custom_components.myq.api.http import Response
@@ -225,7 +226,164 @@ async def test_revoked_debug_token_stops_before_hosted_login(hass, status):
     start.assert_not_awaited()
     firebase.assert_awaited_once()
     flow = hass.config_entries.flow._progress[result["flow_id"]]
-    assert flow._client is None and flow._proof_session is None and flow._login is None
+    assert flow._client is None and flow._login is None
+    # The refused registration left no proof; ending the flow releases its provider.
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    assert flow._provider is None and flow._proof_session is None
+
+
+def mfa_cloud(registration, *, code_form, firebase=None):
+    """Offline hosted login with MFA: `code_form` answers each verification code post."""
+    proof = firebase_token(registration)
+    seen = {"states": [], "codes": [], "proofs": [], "exchanges": []}
+
+    async def request(_self, method, url, **kwargs):
+        if url.startswith("https://firebaseappcheck.googleapis.com/"):
+            seen["proofs"].append(url)
+            if firebase is not None and (response := firebase(len(seen["proofs"]))):
+                return response
+            return json_response({"token": proof, "ttl": "3600s"})
+        if method == "GET":
+            seen["states"].append(parse_qs(urlsplit(url).query)["state"][0])
+            return Response(200, {}, PASSWORD_PAGE)
+        if url == IDENTITY + "/connect/token":
+            seen["exchanges"].append(kwargs)
+            return json_response(
+                {"access_token": "session-access", "refresh_token": "session-refresh"}
+                | {"expires_in": 3600}
+            )
+        if "Password" in kwargs["data"]:
+            return Response(200, {}, MFA_PAGE)
+        seen["codes"].append(kwargs["data"])
+        return code_form(seen["states"][-1]) or Response(
+            302, {"Location": f"com.myqops://android?code=once&state={seen['states'][-1]}"}, b""
+        )
+
+    patches = (
+        patch("custom_components.myq.api.http.Http.request", request),
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch(
+            "custom_components.myq.api.firebase.FirebaseRegistration.read",
+            return_value=registration,
+        ),
+    )
+    return seen, proof, patches
+
+
+async def test_code_form_rate_limit_keeps_the_code_for_after_the_cooldown(
+    hass, cloud, registration, freezer
+):
+    limited = True
+    seen, _proof, patches = mfa_cloud(
+        registration,
+        code_form=lambda _state: Response(429, {"Retry-After": "120"}, b"") if limited else None,
+    )
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["step_id"] == "mfa"
+        for _ in range(2):
+            # The second submit is refused here, without another post to MyQ.
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], {"response": "123456"}
+            )
+            assert result["step_id"] == "mfa"
+            assert result["errors"] == {"base": "rate_limited"}
+        assert len(seen["codes"]) == 1
+        freezer.tick(121)
+        limited = False
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"response": "123456"}
+        )
+    assert result["type"] == "create_entry"
+    assert result["data"]["tokens"]["access_token"] == "session-access"
+    # The same code and login were used: no new sign-in page, password or proof.
+    assert len(seen["codes"]) == 2 and seen["codes"][0] == seen["codes"][1]
+    assert len(seen["states"]) == 1 and len(seen["proofs"]) == 1
+
+
+async def test_app_check_rate_limit_after_the_code_returns_to_credentials(hass, registration):
+    seen, proof, patches = mfa_cloud(
+        registration,
+        code_form=lambda _state: None,
+        firebase=lambda count: Response(429, {"Retry-After": "600"}, b"") if count > 1 else None,
+    )
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["step_id"] == "mfa"
+        flow = hass.config_entries.flow._progress[result["flow_id"]]
+        # Stale by the time MyQ returns the code, so the exchange asks Firebase again.
+        flow._provider._proof = AppCheckProof(proof, time.time() + 200)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"response": "123456"}
+        )
+        # MyQ accepted the code, so there is no challenge left to answer.
+        assert result["step_id"] == "user"
+        assert result["errors"] == {"base": "rate_limited"}
+        assert flow._login is None
+    assert len(seen["proofs"]) == 2 and not seen["exchanges"]
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_password_retries_reuse_the_firebase_proof(hass, firebase_exchange):
+    with patch(
+        "custom_components.myq.api.auth.Login.start",
+        AsyncMock(side_effect=AuthenticationError("synthetic wrong password")),
+    ) as start:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        for _ in range(3):
+            result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+            assert result["errors"] == {"base": "invalid_auth"}
+        assert start.await_count == 3
+        firebase_exchange.assert_awaited_once()
+        # Another registration needs its own proof.
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "debug_token": "private-other-debug"}
+        )
+        assert firebase_exchange.await_count == 2
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_sign_in_cooldown_skips_firebase_and_stays_with_its_account(hass, firebase_exchange):
+    other = "other@example.invalid"
+    calls = []
+
+    async def start(login, username, password):
+        calls.append(username)
+        if username == CREDENTIALS["username"]:
+            # As the transport does: record MyQ's 429 for the sign-in site, then raise it.
+            error = RateLimited(900, server_retry_after=True)
+            login.http.backoff.record(IDENTITY + "/connect/authorize", error)
+            raise error
+        raise AuthenticationError("synthetic refusal")
+
+    with patch("custom_components.myq.api.auth.Login.start", start):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["errors"] == {"base": "rate_limited"}
+        hass.config_entries.flow.async_abort(result["flow_id"])
+        # Restarting setup for that account waits out MyQ's cooldown without
+        # spending a Firebase exchange first.
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "username": CREDENTIALS["username"].upper()}
+        )
+        assert result["errors"] == {"base": "rate_limited"}
+        firebase_exchange.assert_awaited_once()
+        hass.config_entries.flow.async_abort(result["flow_id"])
+        # Another account's sign-in is not held up.
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {**CREDENTIALS, "username": other}
+        )
+        assert result["errors"] == {"base": "invalid_auth"}
+    assert calls == [CREDENTIALS["username"], other]
+    assert firebase_exchange.await_count == 2
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
 
 
 async def test_firebase_cooldown_survives_retries_and_restarting_setup(hass, registration, freezer):

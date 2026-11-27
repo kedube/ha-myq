@@ -62,10 +62,21 @@ async def test_new_pair_or_single_existing_row_retains_its_id(hass, entry, door,
     assert registry_device(devices, entry.entry_id, (DOMAIN, door.key)).id == opener_row.id
 
 
+@pytest.mark.parametrize("registry_form", ["installed", "2026.8"])
 async def test_existing_rows_move_entities_keep_preferences_and_reparent_camera(
-    hass, entry, door, gateway
+    hass, entry, door, gateway, registry_form, monkeypatch
 ):
     devices, entities = dr.async_get(hass), er.async_get(hass)
+    if registry_form == "2026.8":
+        # HA 2026.8 has the scoped identifier lookup, but `devices` is still a mapping.
+        monkeypatch.setattr(devices, "devices", getattr(devices, "_devices", devices.devices))
+        if not hasattr(devices, "async_get_device_by_identifier"):
+            monkeypatch.setattr(
+                devices,
+                "async_get_device_by_identifier",
+                lambda identifier, _entry_id: devices.async_get_device(identifiers={identifier}),
+                raising=False,
+            )
     garage = ar.async_get(hass).async_create("Garage")
     other_area = ar.async_get(hass).async_create("Utility")
     opener_row = registered(hass, entry, door)

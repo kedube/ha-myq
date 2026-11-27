@@ -15,6 +15,7 @@ from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, Tex
 from .api.auth import Challenge, Login
 from .api.backoff import ServiceBackoff
 from .api.client import Client
+from .api.const import IDENTITY
 from .api.errors import (
     AccessDenied,
     AppCheckError,
@@ -47,7 +48,9 @@ from .const import (
 from .panel_options import panel_options
 
 SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
-AUTH_BACKOFF = "auth_backoff"
+# Cooldowns that outlive a flow: origins and deadlines only, never credentials.
+AUTH_BACKOFF = "auth_backoff"  # Per account (casefolded email): MyQ's services.
+APP_CHECK_BACKOFF = "app_check_backoff"  # Shared: Firebase, for every account.
 
 
 def error_key(error: MyQError) -> str:
@@ -78,6 +81,10 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         self._proof_session: aiohttp.ClientSession | None = None
         self._client: Client | None = None
         self._login: Login | None = None
+        # Kept across sign-in attempts in this flow, so a mistyped password does not
+        # spend another Firebase exchange. Replaced when the registration changes.
+        self._provider: FirebaseDebugAppCheckProvider | None = None
+        self._provider_key: FirebaseRegistration | None = None
         self._email = ""
         self._cooldown_until = 0.0
 
@@ -87,9 +94,17 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     @property
     def _backoff(self) -> ServiceBackoff:
-        # Origins and deadlines only: keep Retry-After across clients and even a
-        # cancelled/restarted flow without retaining any sign-in credentials.
-        return self.hass.data.setdefault(DOMAIN, {}).setdefault(AUTH_BACKOFF, ServiceBackoff())
+        """This account's MyQ cooldowns, kept across clients and restarted flows.
+
+        A cooldown one account's sign-in earns does not hold up another account's.
+        """
+        accounts = self.hass.data.setdefault(DOMAIN, {}).setdefault(AUTH_BACKOFF, {})
+        return accounts.setdefault(self._email.casefold(), ServiceBackoff())
+
+    @property
+    def _app_check_backoff(self) -> ServiceBackoff:
+        """Firebase cooldowns, shared by every flow: one registration serves all accounts."""
+        return self.hass.data.setdefault(DOMAIN, {}).setdefault(APP_CHECK_BACKOFF, ServiceBackoff())
 
     def _signed_in(self) -> bool:
         """A session was issued; account checks can be retried without signing in again."""
@@ -102,41 +117,69 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         return error_key(error)
 
     @callback
-    def _close(self) -> None:
+    def _close_login(self) -> None:
+        """End one sign-in attempt, keeping the flow's App Check proof for the next."""
         if self._client is not None:
             self.hass.async_create_task(self._client.close())
             self._client = None
-        if self._proof_session is not None:
-            self._proof_session.detach()
-            self._proof_session = None
         if self._session is not None:
             # HA owns the shared connector; release this flow's cookie session.
             self._session.detach()
             self._session = None
-        if self._login is not None and self._login.app_check_provider is not None:
-            self._login.app_check_provider.invalidate()
         self._login = None
+
+    @callback
+    def _close(self) -> None:
+        """End the sign-in and drop the flow's App Check proof."""
+        self._close_login()
+        if self._provider is not None:
+            self._provider.invalidate()
+            self._provider = self._provider_key = None
+        if self._proof_session is not None:
+            self._proof_session.detach()
+            self._proof_session = None
 
     @callback
     def async_remove(self) -> None:
         self._close()
 
     async def _new_client(self) -> Client:
-        self._close()
+        self._close_login()
         self._session = async_create_clientsession(
             self.hass, auto_cleanup=False, cookie_jar=aiohttp.CookieJar()
         )
         self._client = Client(self._session, backoff=self._backoff)
         return self._client
 
-    async def _registration(self, debug_token: str) -> FirebaseRegistration | Path:
-        """Use the submitted credential, falling back to an existing private file."""
+    async def _registration(
+        self, debug_token: str
+    ) -> tuple[FirebaseRegistration, FirebaseRegistration | Path]:
+        """The registration to use, and the source the provider loads it from.
+
+        The submitted credential comes first, then the private file. The file is
+        validated here and reread by the provider whenever it needs a new proof.
+        """
         if debug_token:
-            return FirebaseRegistration.from_debug_token(debug_token)
+            registration = FirebaseRegistration.from_debug_token(debug_token)
+            return registration, registration
         path = Path(self.hass.config.path(REGISTRATION_FILE))
-        # Validate before sign-in, but let the provider reload file-based credentials.
-        await self.hass.async_add_executor_job(FirebaseRegistration.read, path)
-        return path
+        return await self.hass.async_add_executor_job(FirebaseRegistration.read, path), path
+
+    def _app_check(
+        self, key: FirebaseRegistration, source: FirebaseRegistration | Path
+    ) -> FirebaseDebugAppCheckProvider:
+        """The flow's provider for this registration, so a retry reuses its proof."""
+        if self._provider is None or self._provider_key != key:
+            self._close()
+            # Firebase never shares the hosted login's cookies or headers.
+            self._proof_session = async_create_clientsession(
+                self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
+            )
+            self._provider = FirebaseDebugAppCheckProvider(
+                Http(self._proof_session, self._app_check_backoff), source
+            )
+            self._provider_key = key
+        return self._provider
 
     def _finish_form(self, errors=None):
         return self.async_show_form(
@@ -165,10 +208,10 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "rate_limited"
         elif user_input is not None:
             self._email = user_input["username"].strip()
-            self._close()
+            self._close_login()
             debug_token = user_input.get("debug_token", "").strip()
             try:
-                registration = await self._registration(debug_token)
+                key, source = await self._registration(debug_token)
             except MyQError as err:
                 field = (
                     "debug_token"
@@ -177,17 +220,13 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 )
                 return self._credentials_form({field: self._error(err)})
             try:
+                provider = self._app_check(key, source)
                 client = await self._new_client()
-                # Firebase never shares the hosted login's cookies or headers.
-                self._proof_session = async_create_clientsession(
-                    self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
-                )
-                provider = FirebaseDebugAppCheckProvider(
-                    Http(self._proof_session, self._backoff), registration
-                )
                 self._login = Login(
                     client.http, client.auth, locale=self._locale, app_check_provider=provider
                 )
+                # A sign-in that is still cooling down fails before Firebase is asked.
+                self._backoff.check(IDENTITY)
                 # Fail before sending a password or requesting MFA. complete()
                 # reuses this proof, refreshing it if a long sign-in outlives it.
                 await provider.acquire()
@@ -199,7 +238,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
-                self._close()
+                self._close_login()
         return self._credentials_form(errors)
 
     def _credentials_form(self, errors=None):
@@ -233,14 +272,23 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
+                # App Check is only asked again once MyQ has accepted the code and
+                # returned to the app, so its 429 leaves no challenge to answer. A 429
+                # from the code form itself keeps the code for after the cooldown.
+                app_check_limited = (
+                    isinstance(err, RateLimited)
+                    and self._provider is not None
+                    and self._provider.last_status == "rate_limited"
+                )
                 if (
-                    isinstance(err, (AuthenticationError, AppCheckError, RateLimited))
+                    isinstance(err, (AuthenticationError, AppCheckError))
+                    or app_check_limited
                     or self._login.oauth.used
                 ):
-                    self._close()
+                    self._close_login()
         challenge = self._login.challenge if self._login else None
         if challenge is None:
-            self._close()
+            self._close_login()
             return self._credentials_form(errors or {"base": "unsupported_auth"})
         schema = vol.In(challenge.choices) if challenge.kind == "method" else SECRET
         return self.async_show_form(
