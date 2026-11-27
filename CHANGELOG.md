@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.18] - 2026-11-27
+
 ### Fixed
 
 - Sign-in now verifies the Firebase App Check debug token before sending a
