@@ -16,13 +16,14 @@ from homeassistant.core import Context
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq import async_remove_config_entry_device
 from custom_components.myq.api.errors import CannotConnect, CommandRejected
 from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.services import _read_pin
+
+from .ha import MockConfigEntry, registry_device
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
@@ -109,7 +110,7 @@ async def test_helper_entity_on_a_merged_opener_keeps_device_services_working(
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         coordinator = entry.runtime_data
-        device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, opener.key)})
+        device = registry_device(dr.async_get(hass), entry.entry_id, (DOMAIN, opener.key))
         assert device.identifiers == {(DOMAIN, opener.key), (DOMAIN, gateway.key)}
         # A template, threshold or derivative helper is linked to the opener's device.
         helper = MockConfigEntry(domain="template", title="helper")
@@ -200,7 +201,9 @@ async def test_read_only_service_drops_no_cache_and_forces_no_poll(
     hass, camera_setup, door, hass_admin_user
 ):
     coordinator, _, _, details, discover = camera_setup
-    device_id = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, door.key)}).id
+    device_id = registry_device(
+        dr.async_get(hass), coordinator.config_entry.entry_id, (DOMAIN, door.key)
+    ).id
     roles = coordinator.management.account_access
     before = (discover.await_count, details.await_count, roles.await_count)
     with patch.object(coordinator.management, "require_access", AsyncMock()):
@@ -222,7 +225,7 @@ async def test_device_removal_is_refused_while_the_entry_is_not_loaded(hass, tok
     with discovered({door.key: door}):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, door.key)})
+    device = registry_device(dr.async_get(hass), entry.entry_id, (DOMAIN, door.key))
     with patch(
         "custom_components.myq.api.client.Client.discover",
         AsyncMock(side_effect=CannotConnect("down")),

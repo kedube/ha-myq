@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.account_access import AccountAccess
 from custom_components.myq.api.backoff import ServiceBackoff
@@ -28,6 +27,7 @@ from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import MyQCoordinator
 
 from .conftest import json_response
+from .ha import MockConfigEntry
 from .test_http import chunks
 
 OWNER = {"test-account": AccountAccess("test-account", "owner", {"devices": frozenset({"All"})})}

@@ -14,6 +14,23 @@ permissions: {}
 # file. Each one starts its project's current validation image, so the checks themselves still
 # follow HACS and Home Assistant (which is what the nightly run is for).
 jobs:
+  versions:
+    name: Select supported Home Assistant releases
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+      current: ${{ steps.versions.outputs.current }}
+      python: ${{ steps.versions.outputs.python }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - id: versions
+        run: python scripts/check_requirements.py --github-output "$GITHUB_OUTPUT"
+
   hacs:
     name: HACS
     runs-on: ubuntu-latest
@@ -36,10 +53,15 @@ jobs:
 
   # Home Assistant installs the manifest's requirements under its own package pins before it
   # loads the config flow; a conflict there is a 500 error when adding the integration. The
-  # CI job tests against one pinned HA, so this checks the hacs.json minimum and the latest
-  # release (the nightly run picks up new releases).
+  # baseline CI job is pinned. Resolve both architectures and run the integration
+  # against current HA below; the nightly schedule picks up new releases.
   requirements:
-    name: Requirements install on Home Assistant
+    name: Resolve requirements / HA ${{ matrix.version }}
+    needs: versions
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -50,4 +72,63 @@ jobs:
           python-version: "3.13"
       # The uv that Home Assistant 2026.11 installs requirements with.
       - run: python -m pip install uv==0.13.6
-      - run: python scripts/check_requirements.py
+      - run: python scripts/check_requirements.py "$HA_VERSION"
+        env:
+          HA_VERSION: ${{ matrix.version }}
+
+  current-ha:
+    name: Full tests on current Home Assistant
+    needs: versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.versions.outputs.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install current HA and test fixtures
+        env:
+          HA_VERSION: ${{ needs.versions.outputs.current }}
+        run: |
+          python -m pip install uv==0.13.6
+          uv pip install --system --group test-current \
+            "homeassistant==$HA_VERSION" "pytest-homeassistant==$HA_VERSION"
+          python -c 'import importlib.metadata as m, os; assert m.version("homeassistant") == os.environ["HA_VERSION"]'
+          npm ci
+      - name: Run the full integration and frontend suites
+        run: |
+          pytest -q
+          npm test
+
+  runtime:
+    name: Install and import / HA ${{ matrix.version }} / ${{ matrix.runner }}
+    needs: versions
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Install requirements and open setup in the official HA image
+        env:
+          HA_VERSION: ${{ matrix.version }}
+        # Use each runner's native architecture and HA's actual Alpine libraries
+        # and package installer. No private registration or HA config is mounted.
+        run: |
+          docker run --rm --entrypoint python --workdir /work \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/custom_components,dst=/work/custom_components,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/scripts/check_runtime.py,dst=/work/scripts/check_runtime.py,readonly" \
+            "ghcr.io/home-assistant/home-assistant:$HA_VERSION" \
+            /work/scripts/check_runtime.py

@@ -9,13 +9,14 @@ import voluptuous as vol
 from homeassistant.core import Context
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import device_registry as dr
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.associations import associations
 from custom_components.myq.api.errors import CommandRejected
 from custom_components.myq.api.management import Accessory
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.services import SCHEMAS, _read_pin
+
+from .ha import MockConfigEntry, registry_device
 
 
 @pytest.fixture
@@ -28,7 +29,7 @@ async def integration(hass, enable_custom_integrations, tokens, door):
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
-        device_id = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, door.key)}).id
+        device_id = registry_device(dr.async_get(hass), entry.entry_id, (DOMAIN, door.key)).id
         yield entry, device_id
         if entry.state.value == "loaded":
             await hass.config_entries.async_unload(entry.entry_id)

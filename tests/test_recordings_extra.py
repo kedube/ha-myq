@@ -10,7 +10,6 @@ from aiohttp.test_utils import TestServer
 from homeassistant.components.media_source import MediaSourceItem, Unresolvable
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api import recordings as rec
 from custom_components.myq.api.account_access import AccountAccess
@@ -36,6 +35,7 @@ from custom_components.myq.media_source import (
 )
 
 from .conftest import json_response
+from .ha import MockConfigEntry
 
 JPEG = b"\xff\xd8\xffsynthetic-thumbnail"
 PLAYLIST = b"#EXTM3U\n#EXTINF:1,\nsegment.ts\n#EXT-X-ENDLIST\n"

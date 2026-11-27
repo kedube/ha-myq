@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.components.camera import async_get_image, get_camera_from_entity_id
 from homeassistant.exceptions import HomeAssistantError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.client import Client
 from custom_components.myq.api.errors import (
@@ -21,6 +20,8 @@ from custom_components.myq.api.http import Response
 from custom_components.myq.api.video import VIDEO, Video
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
+
+from .ha import MockConfigEntry
 
 JPEG = b"\xff\xd8\xffsynthetic-image\xff\xd9"
 

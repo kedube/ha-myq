@@ -6,6 +6,7 @@ __pycache__/
 htmlcov/
 .venv/
 .venv-tools/
+.venv-current/
 node_modules/
 dist/
 build/

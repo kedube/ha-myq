@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.myq.api import climate as climate_api
 from custom_components.myq.api.client import Client
@@ -22,6 +21,8 @@ from custom_components.myq.api.http import Response
 from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
+
+from .ha import MockConfigEntry, async_fire_time_changed
 
 
 @pytest.fixture

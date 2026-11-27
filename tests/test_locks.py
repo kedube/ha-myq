@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.client import Client
 from custom_components.myq.api.const import NATIVE_HEADERS
@@ -19,6 +18,8 @@ from custom_components.myq.api.locks import Locks, is_lock, lock_state
 from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
+
+from .ha import MockConfigEntry
 
 
 def make_lock(*, kind="lockitron", platform="", gateway="test-gateway", **state):

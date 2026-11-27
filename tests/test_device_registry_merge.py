@@ -6,10 +6,11 @@ import pytest
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.device_registry import async_merge_opener_gateway
+
+from .ha import MockConfigEntry, registry_device, registry_snapshot
 
 
 @pytest.fixture
@@ -48,8 +49,8 @@ async def test_new_pair_or_single_existing_row_retains_its_id(hass, entry, door,
         original = registered(hass, entry, door if existing == "opener" else gateway)
     assert async_merge_opener_gateway(hass, entry, door, gateway)
     devices = dr.async_get(hass)
-    opener_row = devices.async_get_device(identifiers={(DOMAIN, door.key)})
-    gateway_row = devices.async_get_device(identifiers={(DOMAIN, gateway.key)})
+    opener_row = registry_device(devices, entry.entry_id, (DOMAIN, door.key))
+    gateway_row = registry_device(devices, entry.entry_id, (DOMAIN, gateway.key))
     assert opener_row.id == gateway_row.id
     if original is not None:
         assert opener_row.id == original.id
@@ -58,7 +59,7 @@ async def test_new_pair_or_single_existing_row_retains_its_id(hass, entry, door,
     assert opener_row.sw_version == "synthetic-firmware"
     assert len(dr.async_entries_for_config_entry(devices, entry.entry_id)) == 1
     assert async_merge_opener_gateway(hass, entry, door, gateway)
-    assert devices.async_get_device(identifiers={(DOMAIN, door.key)}).id == opener_row.id
+    assert registry_device(devices, entry.entry_id, (DOMAIN, door.key)).id == opener_row.id
 
 
 async def test_existing_rows_move_entities_keep_preferences_and_reparent_camera(
@@ -82,8 +83,8 @@ async def test_existing_rows_move_entities_keep_preferences_and_reparent_camera(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, "synthetic-camera")},
         name="Camera",
-        via_device=(DOMAIN, gateway.key),
     )
+    devices.async_update_device(camera.id, via_device_id=gateway_row.id)
     original_entities = []
     for suffix, disabled in (("signal", None), ("model", er.RegistryEntryDisabler.USER)):
         entity = entities.async_get_or_create(
@@ -159,9 +160,18 @@ async def test_shared_gateway_is_left_untouched(hass, entry, door, gateway, conf
     other = MockConfigEntry(domain="unrelated")
     other.add_to_hass(hass)
     if conflict == "config_entry":
-        devices.async_get_or_create(
+        other_gateway = devices.async_get_or_create(
             config_entry_id=other.entry_id, identifiers={(DOMAIN, gateway.key)}
         )
+        if other_gateway.id != gateway_row.id:
+            # Current HA creates independent rows for different config entries.
+            # Merging our own pair must leave the other entry's row untouched.
+            assert async_merge_opener_gateway(hass, entry, door, gateway)
+            assert devices.async_get(other_gateway.id) == other_gateway
+            assert (
+                registry_device(devices, entry.entry_id, (DOMAIN, gateway.key)).id == opener_row.id
+            )
+            return
     elif conflict == "identifier":
         devices.async_update_device(
             gateway_row.id,
@@ -171,10 +181,10 @@ async def test_shared_gateway_is_left_untouched(hass, entry, door, gateway, conf
         entities.async_get_or_create(
             "sensor", "unrelated", "unrelated-sensor", config_entry=other, device_id=gateway_row.id
         )
-    before = dict(devices.devices)
+    before = registry_snapshot(devices)
     assert not async_merge_opener_gateway(hass, entry, door, gateway)
-    assert dict(devices.devices) == before
-    assert devices.async_get_device(identifiers={(DOMAIN, door.key)}).id == opener_row.id
+    assert registry_snapshot(devices) == before
+    assert registry_device(devices, entry.entry_id, (DOMAIN, door.key)).id == opener_row.id
 
 
 async def test_cross_account_pair_is_rejected(hass, entry, door, gateway):

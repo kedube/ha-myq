@@ -7,12 +7,13 @@ import pytest
 from homeassistant.core import Context
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.associations import associations, wifi_gdo_pairs
 from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.panel import DATA_PANEL
+
+from .ha import MockConfigEntry, registry_device
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
 
@@ -264,10 +265,10 @@ async def test_top_level_parent_pairs_merge_duplicate_names_and_keep_cameras_sep
     assert len(hass.states.async_all("cover")) == 2
     assert set(entry.runtime_data.data.devices) == set(devices)
     for opener, gateway, camera in pairs:
-        row = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
-        assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == row.id
+        row = registry_device(registry, entry.entry_id, (DOMAIN, opener.key))
+        assert registry_device(registry, entry.entry_id, (DOMAIN, gateway.key)).id == row.id
         assert row.sw_version == gateway.state["firmware_version"]
-        camera_row = registry.async_get_device(identifiers={(DOMAIN, camera.key)})
+        camera_row = registry_device(registry, entry.entry_id, (DOMAIN, camera.key))
         assert camera_row.id != row.id and camera_row.via_device_id == row.id
         if upgrade:
             assert row.id == old_devices[opener.key]
@@ -291,9 +292,9 @@ async def test_linked_pair_is_one_device_with_both_records_and_stable_entity_ids
     devices = inventory(gateway, opener) if gateway_first else inventory(opener, gateway)
     entry = await load(hass, tokens, devices)
     registry, entities = dr.async_get(hass), er.async_get(hass)
-    canonical = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    canonical = registry_device(registry, entry.entry_id, (DOMAIN, opener.key))
     assert canonical is not None
-    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == canonical.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, gateway.key)).id == canonical.id
     assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
     assert canonical.name == opener.name
     assert canonical.model == opener.model
@@ -345,7 +346,7 @@ async def test_linked_pair_is_one_device_with_both_records_and_stable_entity_ids
     with patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value=devices)):
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
-    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == canonical.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, opener.key)).id == canonical.id
     assert {
         key: entities.async_get_entity_id(domain, DOMAIN, key) for domain, key in unique_ids
     } == before
@@ -357,14 +358,14 @@ async def test_gateway_discovered_later_joins_existing_opener(hass, tokens):
     opener, gateway = pair()
     entry = await load(hass, tokens, inventory(opener))
     registry, entities = dr.async_get(hass), er.async_get(hass)
-    original = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    original = registry_device(registry, entry.entry_id, (DOMAIN, opener.key))
     cover_id = entities.async_get_entity_id("cover", DOMAIN, f"{opener.key}:door")
     with patch.object(
         entry.runtime_data.client, "discover", AsyncMock(return_value=inventory(opener, gateway))
     ):
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
-    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == original.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, gateway.key)).id == original.id
     assert registry.async_get(original.id).name == opener.name
     assert len(dr.async_entries_for_config_entry(registry, entry.entry_id)) == 1
     assert entities.async_get_entity_id("cover", DOMAIN, f"{opener.key}:door") == cover_id
@@ -468,8 +469,8 @@ async def test_upgrade_moves_existing_gateway_entities_without_recreating_them(h
         await hass.async_block_till_done()
 
     assert registry.async_get(gateway_row.id) is None
-    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == opener_row.id
-    assert registry.async_get_device(identifiers={(DOMAIN, gateway.key)}).id == opener_row.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, opener.key)).id == opener_row.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, gateway.key)).id == opener_row.id
     for original in originals:
         migrated = entities.async_get(original.entity_id)
         assert migrated is not None
@@ -493,7 +494,7 @@ async def test_partial_inventory_does_not_replace_opener_metadata_on_reload(hass
     opener, gateway = pair()
     entry = await load(hass, tokens, inventory(opener, gateway))
     registry = dr.async_get(hass)
-    original = registry.async_get_device(identifiers={(DOMAIN, opener.key)})
+    original = registry_device(registry, entry.entry_id, (DOMAIN, opener.key))
     with patch(
         "custom_components.myq.api.client.Client.discover",
         AsyncMock(return_value=inventory(gateway)),
@@ -502,7 +503,7 @@ async def test_partial_inventory_does_not_replace_opener_metadata_on_reload(hass
         await hass.async_block_till_done()
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
-    current = registry.async_get_device(identifiers={(DOMAIN, gateway.key)})
+    current = registry_device(registry, entry.entry_id, (DOMAIN, gateway.key))
     assert current.id == original.id
     assert current.name == opener.name
     assert current.model == opener.model
@@ -514,7 +515,7 @@ async def test_partial_inventory_does_not_replace_opener_metadata_on_reload(hass
     ):
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
-    assert registry.async_get_device(identifiers={(DOMAIN, opener.key)}).id == original.id
+    assert registry_device(registry, entry.entry_id, (DOMAIN, opener.key)).id == original.id
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -525,7 +526,7 @@ async def test_merged_device_uses_gateway_firmware_when_opener_has_none(hass, to
         state={key: value for key, value in opener.state.items() if key != "firmware_version"},
     )
     entry = await load(hass, tokens, inventory(opener, gateway))
-    registered = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, opener.key)})
+    registered = registry_device(dr.async_get(hass), entry.entry_id, (DOMAIN, opener.key))
     assert registered.name == opener.name
     assert registered.sw_version == "GW-FW"
     assert await hass.config_entries.async_unload(entry.entry_id)

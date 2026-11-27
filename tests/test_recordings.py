@@ -9,7 +9,6 @@ import pytest
 from homeassistant.components.media_source import MediaSourceError, MediaSourceItem, Unresolvable
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.account_access import AccountAccess
 from custom_components.myq.api.client import Client
@@ -32,6 +31,7 @@ from custom_components.myq.const import DOMAIN
 from custom_components.myq.media_source import async_get_media_source
 
 from .conftest import json_response
+from .ha import MockConfigEntry
 
 
 def event(event_id="event-1", **kwargs):

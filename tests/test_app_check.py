@@ -21,6 +21,7 @@ from custom_components.myq.api.errors import (
     AppCheckUnavailable,
     ApplicationVerificationError,
     AuthenticationError,
+    RateLimited,
 )
 from custom_components.myq.api.oauth import OAuthSession
 from custom_components.myq.api.tokens import TokenManager
@@ -101,6 +102,23 @@ async def test_timeout_exception_and_integrity_errors_do_not_leak():
     with pytest.raises(AppCheckIntegrityError) as error:
         await provider.acquire()
     assert error_key(error.value) == "app_check_integrity"
+
+
+async def test_rate_limit_survives_provider_and_oauth_without_consuming_code(http):
+    limited = RateLimited(600, server_retry_after=True)
+    provider = CachedAppCheckProvider(AsyncMock(side_effect=limited))
+    manager, oauth = TokenManager(http), OAuthSession()
+    with pytest.raises(RateLimited) as caught:
+        await oauth.complete(
+            f"com.myqops://android?code=one-use&state={oauth.state}",
+            manager,
+            app_check_provider=provider,
+        )
+    assert caught.value is limited
+    assert caught.value.retry_after == 600
+    assert provider.last_status == "rate_limited"
+    assert not oauth.used
+    http.request.assert_not_awaited()
 
 
 async def test_cancelled_acquisition_releases_lock_and_invalidating_inflight_discards_proof():
@@ -239,11 +257,12 @@ async def test_cancel_before_proof_is_ready_preserves_transaction(http):
 
 
 async def test_cancel_after_request_starts_never_replays(http):
-    entered = asyncio.Event()
+    entered, release = asyncio.Event(), asyncio.Event()
 
     async def send(*args, **kwargs):
         entered.set()
-        await asyncio.Event().wait()
+        await release.wait()
+        return json_response({"access_token": "new-access", "refresh_token": "new-refresh"})
 
     http.request.side_effect = send
     manager, oauth = TokenManager(http), OAuthSession()
@@ -256,3 +275,6 @@ async def test_cancel_after_request_starts_never_replays(http):
     with pytest.raises(AuthenticationError):
         await oauth.complete(url, manager)
     http.request.assert_awaited_once()
+    release.set()
+    await manager.drain()
+    assert manager.tokens.refresh_token == "new-refresh"

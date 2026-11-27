@@ -33,6 +33,18 @@ def app_check_registration_file(hass, tmp_path, registration):
     return path
 
 
+@pytest.fixture
+def firebase_exchange(monkeypatch, registration):
+    """A successful preflight for tests that replace the hosted MyQ login."""
+    from .test_firebase import firebase_token
+
+    exchange = AsyncMock(
+        return_value=json_response({"token": firebase_token(registration), "ttl": "3600s"})
+    )
+    monkeypatch.setattr("custom_components.myq.api.http.Http.request", exchange)
+    return exchange
+
+
 @pytest.fixture(autouse=True)
 def block_curl_cloud_access(request, monkeypatch):
     """pytest-socket cannot intercept C-level sockets; opt in only for local peers."""

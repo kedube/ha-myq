@@ -11,6 +11,8 @@
 
 The test environment uses Python 3.13 and Home Assistant 2026.2.3.
 `hacs.json` declares Home Assistant 2026.2.0 as the minimum supported release.
+The Validate workflow also runs the full suite on the current stable HA release
+with its required Python version and matching official test fixtures.
 
 ```sh
 python3.13 -m venv .venv
@@ -25,6 +27,21 @@ Home Assistant, pytest, ruff, mypy and the runtime dependencies; add
 itself: the tests import the integration from the checkout, and an editable
 install gives `custom_components` a path entry that Home Assistant's loader
 cannot read.
+
+For current Home Assistant, use a separate environment with its required Python
+(3.14 for HA 2026.11):
+
+```sh
+python3.14 -m venv .venv-current
+.venv-current/bin/python -m pip install uv==0.13.6
+.venv-current/bin/python -m uv pip install --python .venv-current/bin/python --group test-current
+.venv-current/bin/python -m pytest -q
+```
+
+The `test-current` group uses the official `pytest-homeassistant` package;
+the baseline uses `pytest-homeassistant-custom-component`. Never install both
+fixture packages in one environment. Tests import their shared helpers through
+`tests/ha.py`. CI pins current HA and its fixtures to the same stable release.
 
 ## Checks
 
@@ -52,17 +69,24 @@ Tests use synthetic MyQ responses and local HTTP, TLS, UDP and WebRTC peers.
 `tests/test_tend_end_to_end.py` runs a TC camera's live video from a simulated
 Tend service and camera through Home Assistant's stream worker.
 
-On GitHub, the Validate workflow also runs HACS and hassfest on every push,
-nightly and before a release. It also checks that Home Assistant can install
-the manifest's requirements under its own package pins, for the minimum version
-in `hacs.json` and the latest release; a conflict there makes adding the
-integration fail with a 500 error. That check needs network access and `uv`,
-and runs locally too:
+On GitHub, the Validate workflow runs HACS, hassfest and the current-HA suite
+on every push, nightly and before a release. For the minimum version in
+`hacs.json` and the latest release, it also checks dependency resolution under
+HA's package pins for x86-64 and ARM64 Alpine Linux. A conflict there makes
+adding the integration fail with a 500 error. Resolution needs network access
+and `uv`, and runs locally too:
 
 ```sh
 .venv/bin/python scripts/check_requirements.py            # minimum and latest
 .venv/bin/python scripts/check_requirements.py 2026.10.4  # specific versions
 ```
+
+Resolution alone does not prove a native library will install or load. Separate
+x86-64 and ARM64 jobs run `scripts/check_runtime.py` inside each official HA
+container. That script uses HA's installer, imports every platform, loads the
+camera codecs and native clients, and opens the empty setup form. It makes no
+MyQ requests and mounts no registration file or existing HA configuration.
+Run it only in a disposable environment: it can install dependencies.
 
 ## Packaging and releases
 

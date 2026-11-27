@@ -122,5 +122,16 @@ def test_dependency_pins_agree():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     runtime = set(manifest["requirements"])
     assert runtime <= set(pyproject["project"]["dependencies"])
-    assert runtime <= set(pyproject["dependency-groups"]["test"])
+
+    def group_requirements(name):
+        requirements = set()
+        for item in pyproject["dependency-groups"][name]:
+            if isinstance(item, str):
+                requirements.add(item)
+            else:
+                requirements.update(group_requirements(item["include-group"]))
+        return requirements
+
+    for group in ("test", "test-current"):
+        assert runtime <= group_requirements(group)
     assert "test" not in pyproject["project"]["optional-dependencies"]

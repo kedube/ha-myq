@@ -21,6 +21,7 @@ from .errors import (
     ApplicationVerificationError,
     AuthenticationError,
     ProtocolError,
+    RateLimited,
 )
 from .tokens import TokenManager, Tokens
 
@@ -146,7 +147,7 @@ class OAuthSession:
                         proof = await app_check_provider.acquire()
                     if not isinstance(proof, AppCheckProof):
                         raise AppCheckInvalid()
-                except AppCheckError:
+                except (AppCheckError, RateLimited):
                     raise
                 except Exception:
                     raise AppCheckUnavailable() from None

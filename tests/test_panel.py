@@ -7,11 +7,11 @@ from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryDisabler
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.panel import DATA_PANEL, STORAGE_KEY, MyQPanel
 
+from .ha import MockConfigEntry, registry_device
 from .test_home_assistant import setup
 
 pytestmark = pytest.mark.usefixtures("enable_custom_integrations")
@@ -81,9 +81,9 @@ async def test_inventory_maps_current_entities_and_associated_camera(hass, inven
 
 
 async def test_separate_camera_and_read_permissions(hass, inventory):
-    _, _, camera = inventory
+    entry, _, camera = inventory
     panel = hass.data[DATA_PANEL]
-    camera_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, camera.key)})
+    camera_device = registry_device(dr.async_get(hass), entry.entry_id, (DOMAIN, camera.key))
     dr.async_get(hass).async_update_device(camera_device.id, via_device_id=None)
     payload = panel.async_payload(is_admin=False)
     assert payload["cameras"][0]["device_id"] == camera_device.id

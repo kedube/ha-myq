@@ -13,7 +13,6 @@ from homeassistant.components.camera import (
     get_camera_from_entity_id,
 )
 from homeassistant.exceptions import HomeAssistantError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 from webrtc_models import RTCIceCandidateInit
 
 from custom_components.myq.api.errors import (
@@ -23,6 +22,8 @@ from custom_components.myq.api.errors import (
 )
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
+
+from .ha import MockConfigEntry
 
 
 class FakeLiveSession:

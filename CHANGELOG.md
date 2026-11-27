@@ -5,6 +5,25 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- Sign-in now verifies the Firebase App Check debug token before sending a
+  MyQ password or requesting a verification code. The proof is reused for
+  the code exchange, and refreshed if a long sign-in makes it stale.
+- Firebase rate limits now retain their retry delay and show the rate-limit
+  error. The cooldown survives retrying or restarting setup, rather than
+  allowing another request immediately.
+
+### Changed
+
+- Compatibility checks now run the full test suite on current Home Assistant
+  as well as the existing 2026.2.3 baseline. Current HA uses its official
+  `pytest-homeassistant` fixtures in a separate environment.
+- Dependency checks cover x86-64 and ARM64. Native runners also install the
+  integration's requirements in the minimum and current official Home
+  Assistant containers, import the platforms and camera libraries, and open
+  the setup form without an account.
+
 ## [0.17] - 2026-11-25
 
 ### Added

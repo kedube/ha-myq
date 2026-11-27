@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.account_access import parse_account_access
 from custom_components.myq.api.const import LAMPS
@@ -14,6 +13,7 @@ from custom_components.myq.api.models import Device
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import FAST_POLL_SECONDS, Snapshot
 
+from .ha import MockConfigEntry
 from .test_locks import make_lock
 from .test_management import access_payload, modern_lock
 

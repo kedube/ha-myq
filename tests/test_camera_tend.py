@@ -15,7 +15,6 @@ from homeassistant.components.camera import (
     get_camera_from_entity_id,
 )
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api import tend_source
 from custom_components.myq.api.errors import AuthenticationError, CannotConnect
@@ -24,6 +23,7 @@ from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
+from .ha import MockConfigEntry
 from .ts import read_video
 
 START = b"\x00\x00\x00\x01"

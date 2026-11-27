@@ -58,7 +58,8 @@ saved by the integration, and you need it again to reconnect.
 ## Connect your account
 
 1. Open **Settings → Devices & services → Add integration → MyQ**.
-2. Enter your MyQ email, password and debug token.
+2. Enter your MyQ email, password and debug token. The integration checks the
+   debug token with Firebase before sending your password to MyQ.
 3. Enter the verification code if MyQ asks for one. Email is chosen when MyQ
    offers it.
 
@@ -66,6 +67,9 @@ The **Debug token** field accepts the token on its own, in quotes, as the
 `"debug_token": "…"` line, or as the whole registration file. If
 `myq_app_check.json` is installed beside `configuration.yaml`, you can leave the
 field blank to use it; see [the registration file](#the-registration-file).
+
+If Firebase or MyQ limits requests, wait for its cooldown before trying again.
+Retrying or restarting setup does not reset that wait.
 
 After signing in, Home Assistant reads your MyQ profile and devices before
 saving the integration. If that fails, for example because of a network error,

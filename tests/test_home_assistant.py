@@ -8,7 +8,6 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_CLOSED, STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.account_access import AccountAccess
 from custom_components.myq.api.errors import (
@@ -26,6 +25,7 @@ from custom_components.myq.coordinator import Snapshot
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
 from .conftest import json_response
+from .ha import MockConfigEntry
 
 
 @pytest.fixture(autouse=True)
@@ -370,7 +370,7 @@ async def test_auth_failure_starts_reauth(hass, entry):
 
 
 async def test_config_flow_saves_only_tokens_and_verified_identity(
-    hass, tokens, app_check_registration_file
+    hass, tokens, app_check_registration_file, firebase_exchange
 ):
     with (
         patch("custom_components.myq.api.auth.Login.start", AsyncMock(return_value=tokens)),
@@ -490,7 +490,7 @@ async def test_config_flow_requires_mfa_before_creating_entry(
     ],
 )
 async def test_reauth_preserves_account_identity(
-    hass, entry, tokens, user_id, reason, app_check_registration_file
+    hass, entry, tokens, user_id, reason, app_check_registration_file, firebase_exchange
 ):
     async def start(login, username, password):
         login.token_manager.tokens = tokens
@@ -542,7 +542,9 @@ async def test_refresh_rotation_persists_without_reloading_but_options_reload(ha
     await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_flow_rate_limit_survives_another_login_attempt(hass, app_check_registration_file):
+async def test_flow_rate_limit_survives_another_login_attempt(
+    hass, app_check_registration_file, firebase_exchange
+):
     from custom_components.myq.api.errors import RateLimited
 
     with patch(

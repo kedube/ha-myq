@@ -23,7 +23,6 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from homeassistant.components.camera import get_camera_from_entity_id
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api import tend
 from custom_components.myq.api.errors import CannotConnect
@@ -33,6 +32,7 @@ from custom_components.myq.api.tend_source import TendSource, nal_units
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
+from .ha import MockConfigEntry
 from .test_live_audio import opus_packets
 from .test_tend_rtp import (
     audio_envelope,
@@ -484,6 +484,9 @@ async def test_home_assistant_plays_the_camera_through_its_stream_worker(
     # Unloading ends the worker, the camera session and the camera's sending.
     assert await hass.config_entries.async_unload(home_camera.entry.entry_id)
     await hass.async_block_till_done()
+    # This test creates a provider directly, without an HLS request owning its
+    # idle timer. HA's Stream.stop() drops outputs without clearing that timer.
+    output.cleanup()
     assert camera.stream is None
     await until(lambda: service.logouts == 1)
     assert service.commands[-1] == "stop-video-receive|owner|9|"

@@ -225,12 +225,24 @@ async def test_real_h264_media_reaches_viewer_and_all_peers_close(video_service)
 @pytest.mark.usefixtures("socket_enabled")
 async def test_signaling_loss_closes_media_and_reports_error(video_service):
     browser = await make_browser()
+    connected = asyncio.Event()
+
+    @browser.on("connectionstatechange")
+    def connection_changed():
+        if browser.connectionState == "connected":
+            connected.set()
+
     error_received = asyncio.Event()
     errors = AsyncMock(side_effect=lambda error: error_received.set())
     async with aiohttp.ClientSession() as http:
         stream = live.LiveSession(http, errors)
         try:
-            await stream.start("camera-alias", "private-token", browser.localDescription.sdp)
+            answer = await stream.start(
+                "camera-alias", "private-token", browser.localDescription.sdp
+            )
+            await browser.setRemoteDescription(RTCSessionDescription(answer, "answer"))
+            async with asyncio.timeout(5):
+                await connected.wait()
             tend, kvs = video_service
             tend.ended.set()
             async with asyncio.timeout(5):

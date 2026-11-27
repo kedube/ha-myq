@@ -17,21 +17,34 @@ curl = ["certifi>=2025.1.31", "curl_cffi==0.15.0"]
 # in particular) gives custom_components a path entry Home Assistant's loader cannot read.
 [dependency-groups]
 test = [
+    {include-group = "test-common"},
+    "homeassistant==2026.2.3",
+    "pytest-homeassistant-custom-component==0.13.316",
+    # Pinned: a new release can format differently or add checks and fail an unrelated push.
+    "mypy==2.4.1",
+    "ruff==0.17.6",
+]
+# Current HA publishes its own fixtures; keep those in a separate environment
+# from the older fixture package required by the minimum-version tests.
+test-current = [
+    {include-group = "test-common"},
+    "homeassistant",
+    "pytest-homeassistant",
+]
+test-common = [
     "aiortc==1.16.0",
     "certifi>=2025.1.31",
     "curl_cffi==0.15.0",
-    "homeassistant==2026.2.3",
-    # Pinned: a new release can format differently or add checks and fail an unrelated push.
-    "mypy==2.4.1",
     "pytest>=8",
     "pytest-asyncio>=1",
-    "pytest-homeassistant-custom-component==0.13.316",
     "PyTurboJPEG==1.8.0",
-    "ruff==0.17.6",
 ]
 browser = ["playwright>=1.50,<2"]
 
 [tool.pytest.ini_options]
+# HA must install its HTTP client aliases before the standalone respx plugin loads.
+addopts = "-p no:respx"
+pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"

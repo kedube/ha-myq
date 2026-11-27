@@ -18,7 +18,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from .errors import AppCheckError, AppCheckExpired, AppCheckInvalid, AppCheckUnavailable
+from .errors import (
+    AppCheckError,
+    AppCheckExpired,
+    AppCheckInvalid,
+    AppCheckUnavailable,
+    RateLimited,
+)
 
 MIN_VALIDITY = 300  # The inspected Firebase SDK refreshes inside this window.
 MAX_TOKEN_BYTES = 16384
@@ -122,6 +128,9 @@ class CachedAppCheckProvider:
                 self._proof = proof
                 self.last_status = "ready"
                 return proof
+        except RateLimited:
+            self.last_status = "rate_limited"
+            raise
         except AppCheckError as err:
             self.last_status = err.reason
             raise

@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq import async_remove_config_entry_device
 from custom_components.myq import coordinator as coordinator_module
@@ -28,6 +27,7 @@ from custom_components.myq.coordinator import (
     track_seconds,
 )
 
+from .ha import MockConfigEntry, registry_device
 from .test_home_assistant import setup
 from .test_management import access_payload
 
@@ -303,7 +303,7 @@ async def test_device_missing_for_several_polls_is_removed_and_can_return(
 ):
     coordinator = await setup(hass, entry, door)
     devices, entities = dr.async_get(hass), er.async_get(hass)
-    registered = devices.async_get_device(identifiers={(DOMAIN, door.key)})
+    registered = registry_device(devices, entry.entry_id, (DOMAIN, door.key))
     other = Device.parse("test-account", {**door_payload, "serial_number": "OTHER"})
     with patch.object(
         coordinator.client, "discover", AsyncMock(return_value={other.key: other})
@@ -329,7 +329,7 @@ async def test_empty_inventory_never_prunes_devices(hass, entry, door):
     with patch.object(coordinator.client, "discover", AsyncMock(return_value={})):
         for _ in range(MISSING_POLLS_BEFORE_REMOVAL + 1):
             await coordinator.async_refresh()
-    assert devices.async_get_device(identifiers={(DOMAIN, door.key)}) is not None
+    assert registry_device(devices, entry.entry_id, (DOMAIN, door.key)) is not None
     await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -338,7 +338,7 @@ async def test_manual_device_removal_only_for_devices_myq_no_longer_returns(
 ):
     coordinator = await setup(hass, entry, door)
     devices = dr.async_get(hass)
-    registered = devices.async_get_device(identifiers={(DOMAIN, door.key)})
+    registered = registry_device(devices, entry.entry_id, (DOMAIN, door.key))
     assert not await async_remove_config_entry_device(hass, entry, registered)
     other = Device.parse("test-account", {**door_payload, "serial_number": "OTHER"})
     with patch.object(coordinator.client, "discover", AsyncMock(return_value={other.key: other})):

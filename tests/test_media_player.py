@@ -12,11 +12,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.components.media_player import BrowseMedia, MediaPlayerEntityFeature
 from homeassistant.exceptions import HomeAssistantError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api.account_access import AccountAccess
 from custom_components.myq.api.errors import CannotConnect
 from custom_components.myq.const import DOMAIN
+
+from .ha import MockConfigEntry
 
 URL = "http://media.example.invalid/hello.wav"
 OWNER = AccountAccess(

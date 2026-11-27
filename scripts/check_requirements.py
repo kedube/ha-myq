@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that Home Assistant can install the manifest's requirements.
+"""Check dependency resolution under Home Assistant's package constraints.
 
 Home Assistant installs an integration's requirements with uv, held to the versions in its
 own `package_constraints.txt`, before it loads the config flow. A requirement that conflicts
@@ -9,8 +9,8 @@ PyAV below 17, while Home Assistant 2026.7 and later pin PyAV 17 and then 19.
 
 The test environment pins one Home Assistant version and ignores those constraints, so it
 cannot see this. This script resolves the requirements the way Home Assistant does, against
-each version's constraints and minimum Python, for the Alpine (musl) Linux that Home
-Assistant OS and the container image run:
+each version's constraints and minimum Python, for x86-64 and ARM64 Alpine (musl)
+Linux. The separate check_runtime.py container jobs verify installation and imports:
 
     check_requirements.py              the minimum in hacs.json and the latest release
     check_requirements.py 2026.10.4    the versions given
@@ -40,7 +40,7 @@ HACS = ROOT / "hacs.json"
 CONSTRAINTS = (
     "https://raw.githubusercontent.com/home-assistant/core/{}/homeassistant/package_constraints.txt"
 )
-PLATFORM = "x86_64-unknown-linux-musl"
+PLATFORMS = ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl")
 
 
 def _read(request: urllib.request.Request) -> bytes:
@@ -86,7 +86,7 @@ def python_floor(requires_python: str) -> str:
     raise ValueError(f"No minimum Python in {requires_python!r}")
 
 
-def check(version: str, wanted: list[str]) -> tuple[bool, str]:
+def check(version: str, wanted: list[str], platform: str) -> tuple[bool, str]:
     """Resolve `wanted` as Home Assistant `version` would install it; (ok, uv's output)."""
     python = python_floor(release_info(version)["requires_python"])
     constraints = fetch(CONSTRAINTS.format(version)).decode()
@@ -106,7 +106,7 @@ def check(version: str, wanted: list[str]) -> tuple[bool, str]:
                 "--python-version",
                 python,
                 "--python-platform",
-                PLATFORM,
+                platform,
                 "--no-header",
                 "--no-annotate",
                 "--quiet",
@@ -118,31 +118,59 @@ def check(version: str, wanted: list[str]) -> tuple[bool, str]:
     return result.returncode == 0, f"Python {python}\n{result.stdout}{result.stderr}".strip()
 
 
+def workflow_versions() -> dict[str, str]:
+    """Select one stable release for every compatibility job in this workflow run."""
+    latest = release_info()
+    current = latest["version"]
+    minimum = json.loads(HACS.read_text())["homeassistant"]
+    for version in (minimum, current):
+        if not re.fullmatch(r"\d{4}\.\d{1,2}\.\d+", version):
+            raise ValueError(f"Expected a stable Home Assistant release, got {version!r}")
+    return {
+        "versions": json.dumps(list(dict.fromkeys((minimum, current)))),
+        "current": current,
+        "python": python_floor(latest["requires_python"]),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("versions", nargs="*", help="Home Assistant versions (default: see top)")
-    versions = parser.parse_args(argv).versions or default_versions()
+    parser.add_argument("--platform", action="append", choices=PLATFORMS)
+    parser.add_argument(
+        "--github-output", type=Path, help="Write workflow versions instead of resolving"
+    )
+    args = parser.parse_args(argv)
+    if args.github_output is not None:
+        with args.github_output.open("a") as output:
+            for name, value in workflow_versions().items():
+                output.write(f"{name}={value}\n")
+        return 0
+    versions = args.versions or default_versions()
     wanted = requirements()
     annotate = os.environ.get("GITHUB_ACTIONS") == "true"
     failed = []
     for version in versions:
-        try:
-            ok, output = check(version, wanted)
-            verdict = "installs" if ok else "CANNOT be installed"
-        except urllib.error.URLError as err:
-            ok, output = False, f"Could not read this version's metadata: {err}"
-            verdict = "could not be checked"
-        print(f"Home Assistant {version}: {', '.join(wanted)} {verdict}")
-        print("    " + output.replace("\n", "\n    "))
-        if not ok:
-            failed.append(version)
-            if annotate:
-                print(
-                    f"::error title=Home Assistant {version}::Could not show that it can install"
-                    f" {', '.join(wanted)}. When it can't, adding the integration fails with a"
-                    " 500 error. This job's log has the reason."
-                )
+        for platform in args.platform or PLATFORMS:
+            if not report(version, wanted, platform, annotate=annotate):
+                failed.append((version, platform))
     return 1 if failed else 0
+
+
+def report(version: str, wanted: list[str], platform: str, *, annotate: bool) -> bool:
+    """Report one resolution without claiming wheels were installed or imported."""
+    label = f"Home Assistant {version} ({platform})"
+    try:
+        ok, output = check(version, wanted, platform)
+        verdict = "resolves" if ok else "CANNOT be resolved"
+    except urllib.error.URLError as err:
+        ok, output = False, f"Could not read this version's metadata: {err}"
+        verdict = "could not be checked"
+    print(f"{label}: {', '.join(wanted)} {verdict}")
+    print("    " + output.replace("\n", "\n    "))
+    if not ok and annotate:
+        print(f"::error title={label}::Dependency resolution failed. {', '.join(wanted)}")
+    return ok
 
 
 if __name__ == "__main__":

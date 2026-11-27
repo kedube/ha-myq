@@ -27,7 +27,7 @@ from .errors import (
     AppCheckNotConfigured,
     AppCheckUnavailable,
 )
-from .http import HttpTransport
+from .http import HttpTransport, check_status
 
 REGISTRATION_FILE = "myq_app_check.json"
 FIREBASE_BASE = "https://firebaseappcheck.googleapis.com/v1"
@@ -148,6 +148,8 @@ class FirebaseDebugAppCheckProvider(CachedAppCheckProvider):
                 },
                 json={"debugToken": profile.debug_token},
             )
+            if response.status == 429:
+                check_status(response)
             if response.status in {401, 403}:
                 raise AppCheckIntegrityError()
             if response.status != 200:

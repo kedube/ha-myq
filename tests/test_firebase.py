@@ -20,6 +20,7 @@ from custom_components.myq.api.errors import (
     AppCheckInvalid,
     AppCheckNotConfigured,
     AppCheckUnavailable,
+    RateLimited,
 )
 from custom_components.myq.api.firebase import (
     MAX_REGISTRATION_BYTES,
@@ -185,6 +186,18 @@ async def test_rejections_do_not_disclose_server_body_or_replay(http, registrati
     with pytest.raises((AppCheckUnavailable, AppCheckIntegrityError)) as error:
         await FirebaseDebugAppCheckProvider(http, registration).acquire()
     assert "private-" not in str(error.value)
+    http.request.assert_awaited_once()
+
+
+async def test_firebase_429_keeps_retry_after_from_injected_transport(http, registration):
+    response = json_response({"error": "private-debug"}, 429)
+    response.headers["Retry-After"] = "600"
+    http.request.return_value = response
+    with pytest.raises(RateLimited) as caught:
+        await FirebaseDebugAppCheckProvider(http, registration).acquire()
+    assert caught.value.retry_after == 600
+    assert caught.value.server_retry_after
+    assert "private-debug" not in str(caught.value)
     http.request.assert_awaited_once()
 
 

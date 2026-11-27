@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api import camera_commands
 from custom_components.myq.api.account_access import AccountAccess
@@ -22,6 +21,8 @@ from custom_components.myq.api.live import LiveSession
 from custom_components.myq.api.models import Device
 from custom_components.myq.api.recordings import Recording
 from custom_components.myq.const import DOMAIN
+
+from .ha import MockConfigEntry, registry_device
 
 OWNER = AccountAccess("test-account", "owner", {"devices": frozenset({"All"})})
 
@@ -175,8 +176,8 @@ async def loaded(hass, enable_custom_integrations, tokens, camera_device):
 
 async def test_camera_device_is_linked_to_its_opener(hass, loaded, camera_device):
     registry = hass.data["device_registry"]
-    camera = registry.async_get_device(identifiers={(DOMAIN, camera_device.key)})
-    garage = registry.async_get_device(identifiers={(DOMAIN, loaded.door.key)})
+    camera = registry_device(registry, loaded.entry.entry_id, (DOMAIN, camera_device.key))
+    garage = registry_device(registry, loaded.entry.entry_id, (DOMAIN, loaded.door.key))
     assert camera.via_device_id == garage.id
 
 

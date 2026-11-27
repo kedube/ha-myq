@@ -13,6 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .api.auth import Challenge, Login
+from .api.backoff import ServiceBackoff
 from .api.client import Client
 from .api.errors import (
     AccessDenied,
@@ -46,6 +47,7 @@ from .const import (
 from .panel_options import panel_options
 
 SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+AUTH_BACKOFF = "auth_backoff"
 
 
 def error_key(error: MyQError) -> str:
@@ -83,6 +85,12 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
     def _locale(self) -> str:
         return ui_locale(self.hass.config.language, self.hass.config.country)
 
+    @property
+    def _backoff(self) -> ServiceBackoff:
+        # Origins and deadlines only: keep Retry-After across clients and even a
+        # cancelled/restarted flow without retaining any sign-in credentials.
+        return self.hass.data.setdefault(DOMAIN, {}).setdefault(AUTH_BACKOFF, ServiceBackoff())
+
     def _signed_in(self) -> bool:
         """A session was issued; account checks can be retried without signing in again."""
         tokens = self._client.auth.tokens if self._client is not None else None
@@ -90,7 +98,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     def _error(self, error: MyQError) -> str:
         if isinstance(error, RateLimited):
-            self._cooldown_until = time.monotonic() + error.retry_after
+            self._cooldown_until = max(self._cooldown_until, time.monotonic() + error.retry_after)
         return error_key(error)
 
     @callback
@@ -118,7 +126,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         self._session = async_create_clientsession(
             self.hass, auto_cleanup=False, cookie_jar=aiohttp.CookieJar()
         )
-        self._client = Client(self._session)
+        self._client = Client(self._session, backoff=self._backoff)
         return self._client
 
     async def _registration(self, debug_token: str) -> FirebaseRegistration | Path:
@@ -141,6 +149,8 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_user()
         if user_input is None:
             return self._finish_form()
+        if time.monotonic() < self._cooldown_until:
+            return self._finish_form({"base": "rate_limited"})
         try:
             return await self._finish()
         except AuthenticationError as err:
@@ -172,10 +182,15 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 self._proof_session = async_create_clientsession(
                     self.hass, auto_cleanup=False, cookie_jar=aiohttp.DummyCookieJar()
                 )
-                provider = FirebaseDebugAppCheckProvider(Http(self._proof_session), registration)
+                provider = FirebaseDebugAppCheckProvider(
+                    Http(self._proof_session, self._backoff), registration
+                )
                 self._login = Login(
                     client.http, client.auth, locale=self._locale, app_check_provider=provider
                 )
+                # Fail before sending a password or requesting MFA. complete()
+                # reuses this proof, refreshing it if a long sign-in outlives it.
+                await provider.acquire()
                 result = await self._login.start(self._email, user_input["password"])
                 if isinstance(result, Challenge):
                     return await self.async_step_mfa()
@@ -204,7 +219,9 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         if self._login is None or self._login.challenge is None:
             return await self.async_step_user()
         errors = {}
-        if user_input is not None:
+        if user_input is not None and time.monotonic() < self._cooldown_until:
+            errors["base"] = "rate_limited"
+        elif user_input is not None:
             try:
                 previous_kind = self._login.challenge.kind
                 result = await self._login.respond(user_input["response"])
@@ -216,7 +233,10 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
-                if isinstance(err, (AuthenticationError, AppCheckError)) or self._login.oauth.used:
+                if (
+                    isinstance(err, (AuthenticationError, AppCheckError, RateLimited))
+                    or self._login.oauth.used
+                ):
                     self._close()
         challenge = self._login.challenge if self._login else None
         if challenge is None:

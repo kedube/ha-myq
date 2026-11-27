@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.myq.api import alerts as alerts_api
 from custom_components.myq.api.account_access import AccountAccess
@@ -35,6 +34,7 @@ from custom_components.myq.coordinator import Snapshot
 from custom_components.myq.sensor import parse_timestamp
 
 from .conftest import json_response
+from .ha import MockConfigEntry, registry_device
 
 OWNER = AccountAccess(
     "test-account",
@@ -260,7 +260,9 @@ async def test_camera_status_sensors_firmware_and_mac(hass, entry, camera_device
     assert firmware.attributes["latest_version"] == "2.1.0"
     # Cameras use the update domain's MDI icon rather than the brand image.
     assert "entity_picture" not in firmware.attributes
-    device = next(iter(hass.data["device_registry"].devices.values()))
+    device = registry_device(
+        hass.data["device_registry"], entry.entry_id, (DOMAIN, camera_device.key)
+    )
     assert device.sw_version == "2.0.1"
     assert ("mac", "aa:bb:cc:00:11:22") in device.connections
 
