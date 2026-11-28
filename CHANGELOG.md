@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.21] - 2026-11-28
+
 ### Changed
 
 - Setup and **Reconnect MyQ** open on the email, password and debug token form
