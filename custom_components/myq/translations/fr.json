@@ -4,38 +4,16 @@
     "step": {
       "user": {
         "title": "Connecter MyQ",
-        "description": "Choisissez comment vous connecter. Les deux méthodes nécessitent votre jeton de débogage ou un fichier myq_app_check.json installé.",
-        "menu_options": {
-          "password": "Se connecter avec l’adresse courriel et le mot de passe",
-          "browser_start": "Se connecter avec un navigateur"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant vous connecte sur les pages de MyQ. Si MyQ affiche une vérification que seul un navigateur peut réussir, vous terminez dans un navigateur.",
-          "browser_start": "Connectez-vous sur la page de MyQ dans votre navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre mot de passe n’est saisi que sur la page de MyQ."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Reconnecter MyQ",
-        "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte.",
-        "menu_options": {
-          "password": "Se connecter avec l’adresse courriel et le mot de passe",
-          "browser_start": "Se connecter avec un navigateur"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant vous connecte sur les pages de MyQ. Si MyQ affiche une vérification que seul un navigateur peut réussir, vous terminez dans un navigateur.",
-          "browser_start": "Connectez-vous sur la page de MyQ dans votre navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre mot de passe n’est saisi que sur la page de MyQ."
-        }
-      },
-      "password": {
-        "title": "Se connecter avec l’adresse courriel et le mot de passe",
-        "description": "Saisissez votre adresse courriel MyQ, votre mot de passe et votre jeton de débogage. Si MyQ demande un code de vérification, vous serez invité à le saisir à l’étape suivante. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
+        "description": "Saisissez votre adresse courriel MyQ, votre mot de passe et votre jeton de débogage. Si MyQ demande un code de vérification, vous serez invité à le saisir à l’étape suivante. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.\n\nPour vous connecter plutôt sur la page de MyQ dans un navigateur, activez **Se connecter avec un navigateur**. Seul le jeton de débogage est alors nécessaire.",
         "data": {
           "username": "Adresse courriel",
           "password": "Mot de passe",
-          "debug_token": "Jeton de débogage"
+          "debug_token": "Jeton de débogage",
+          "browser": "Se connecter avec un navigateur"
         },
         "data_description": {
-          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
+          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé.",
+          "browser": "Connectez-vous plutôt sur la page de MyQ dans votre navigateur. L’adresse courriel et le mot de passe ne sont ni nécessaires ni envoyés."
         }
       },
       "mfa": {
@@ -43,16 +21,6 @@
         "description": "{instruction}",
         "data": {
           "response": "Réponse de vérification"
-        }
-      },
-      "browser_start": {
-        "title": "Se connecter avec un navigateur",
-        "description": "Saisissez votre jeton de débogage. L’écran suivant donne un lien vers la page de connexion MyQ : connectez-vous-y dans un navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre jeton de débogage n’est pas enregistré.",
-        "data": {
-          "debug_token": "Jeton de débogage"
-        },
-        "data_description": {
-          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
         }
       },
       "browser": {
@@ -65,6 +33,20 @@
           "callback": "L’adresse complète com.myqops://android, ou le message de la console entier qui la contient."
         }
       },
+      "reauth_confirm": {
+        "title": "Reconnecter MyQ",
+        "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.\n\nPour vous connecter plutôt sur la page de MyQ dans un navigateur, activez **Se connecter avec un navigateur**. Seul le jeton de débogage est alors nécessaire.",
+        "data": {
+          "username": "Adresse courriel",
+          "password": "Mot de passe",
+          "debug_token": "Jeton de débogage",
+          "browser": "Se connecter avec un navigateur"
+        },
+        "data_description": {
+          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé.",
+          "browser": "Connectez-vous plutôt sur la page de MyQ dans votre navigateur. L’adresse courriel et le mot de passe ne sont ni nécessaires ni envoyés."
+        }
+      },
       "finish": {
         "title": "Terminer la connexion de MyQ",
         "description": "Connexion réussie, mais la découverte du compte ou des appareils a échoué. Validez pour relancer la découverte avec la même session."
@@ -72,6 +54,7 @@
     },
     "error": {
       "invalid_auth": "MyQ a refusé les identifiants ou la session. Vérifiez les informations de votre compte et recommencez si la session de vérification a expiré.",
+      "credentials_required": "Saisissez votre adresse courriel et votre mot de passe MyQ, ou activez Se connecter avec un navigateur.",
       "invalid_code": "La vérification n'a pas été effectuée. Vérifiez le code et réessayez.",
       "cannot_connect": "Impossible de se connecter à MyQ. Réessayez plus tard.",
       "access_denied": "MyQ a refusé cette requête. Une vérification de l'application ou des autorisations de compte supplémentaires peuvent être nécessaires.",

@@ -4,38 +4,16 @@
     "step": {
       "user": {
         "title": "连接 MyQ",
-        "description": "请选择登录方式。两种方式都需要调试令牌或已安装的 myq_app_check.json 文件。",
-        "menu_options": {
-          "password": "使用邮箱和密码登录",
-          "browser_start": "使用浏览器登录"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant 会替您在 MyQ 页面上登录。如果 MyQ 显示只有浏览器才能通过的验证，您需要在浏览器中完成登录。",
-          "browser_start": "在浏览器中登录 MyQ 页面，然后粘贴浏览器尝试打开的地址。密码只在 MyQ 页面上输入。"
-        }
-      },
-      "reauth_confirm": {
-        "title": "重新连接 MyQ",
-        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。",
-        "menu_options": {
-          "password": "使用邮箱和密码登录",
-          "browser_start": "使用浏览器登录"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant 会替您在 MyQ 页面上登录。如果 MyQ 显示只有浏览器才能通过的验证，您需要在浏览器中完成登录。",
-          "browser_start": "在浏览器中登录 MyQ 页面，然后粘贴浏览器尝试打开的地址。密码只在 MyQ 页面上输入。"
-        }
-      },
-      "password": {
-        "title": "使用邮箱和密码登录",
-        "description": "请输入 MyQ 邮箱、密码和调试令牌。如果 MyQ 要求验证码，下一步将提示您输入。密码和调试令牌不会被保存。",
+        "description": "请输入 MyQ 邮箱、密码和调试令牌。如果 MyQ 要求验证码，下一步将提示您输入。密码和调试令牌不会被保存。\n\n如需改为在浏览器中登录 MyQ 页面，请打开**使用浏览器登录**。只需提供调试令牌。",
         "data": {
           "username": "电子邮箱",
           "password": "密码",
-          "debug_token": "调试令牌"
+          "debug_token": "调试令牌",
+          "browser": "使用浏览器登录"
         },
         "data_description": {
-          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。"
+          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。",
+          "browser": "改为在浏览器中登录 MyQ 页面。无需填写邮箱和密码，也不会发送它们。"
         }
       },
       "mfa": {
@@ -43,16 +21,6 @@
         "description": "{instruction}",
         "data": {
           "response": "验证响应"
-        }
-      },
-      "browser_start": {
-        "title": "使用浏览器登录",
-        "description": "请输入调试令牌。下一步会提供 MyQ 登录页面的链接：在浏览器中登录该页面，然后粘贴浏览器尝试打开的地址。调试令牌不会被保存。",
-        "data": {
-          "debug_token": "调试令牌"
-        },
-        "data_description": {
-          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。"
         }
       },
       "browser": {
@@ -65,6 +33,20 @@
           "callback": "完整的 com.myqops://android 地址，或包含该地址的整条控制台消息。"
         }
       },
+      "reauth_confirm": {
+        "title": "重新连接 MyQ",
+        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。密码和调试令牌不会被保存。\n\n如需改为在浏览器中登录 MyQ 页面，请打开**使用浏览器登录**。只需提供调试令牌。",
+        "data": {
+          "username": "电子邮箱",
+          "password": "密码",
+          "debug_token": "调试令牌",
+          "browser": "使用浏览器登录"
+        },
+        "data_description": {
+          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。",
+          "browser": "改为在浏览器中登录 MyQ 页面。无需填写邮箱和密码，也不会发送它们。"
+        }
+      },
       "finish": {
         "title": "完成 MyQ 连接",
         "description": "登录已完成，但账户或设备发现失败。提交即可使用同一会话重试发现。"
@@ -72,6 +54,7 @@
     },
     "error": {
       "invalid_auth": "MyQ 拒绝了凭据或会话。请检查您的账户信息；如果验证会话已过期，请重新开始。",
+      "credentials_required": "请输入 MyQ 邮箱和密码，或打开“使用浏览器登录”。",
       "invalid_code": "验证未完成。请检查验证码后重试。",
       "cannot_connect": "无法连接到 MyQ。请稍后重试。",
       "access_denied": "MyQ 拒绝了此请求。可能需要应用验证或额外的账户权限。",

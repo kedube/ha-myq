@@ -24,7 +24,7 @@ from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
-from .conftest import choose, json_response, start_sign_in
+from .conftest import json_response
 from .ha import MockConfigEntry
 
 
@@ -386,7 +386,7 @@ async def test_config_flow_saves_only_tokens_and_verified_identity(
         patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value={})),
         patch("custom_components.myq.async_setup_entry", AsyncMock(return_value=True)),
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         # Mock Login.start must mimic the real token manager update.
         flow = hass.config_entries.flow._progress[result["flow_id"]]
         original_new = flow._new_client
@@ -458,7 +458,7 @@ async def test_config_flow_requires_mfa_before_creating_entry(
         patch("custom_components.myq.api.client.Client.discover", AsyncMock(return_value={})),
         patch("custom_components.myq.async_setup_entry", AsyncMock(return_value=True)),
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -513,7 +513,6 @@ async def test_reauth_preserves_account_identity(
             },
             data=entry.data,
         )
-        result = await choose(hass, result)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -552,7 +551,7 @@ async def test_flow_rate_limit_survives_another_login_attempt(
         "custom_components.myq.api.auth.Login.start",
         AsyncMock(side_effect=RateLimited(120, server_retry_after=True)),
     ) as start:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         for _ in range(2):
             result = await hass.config_entries.flow.async_configure(
                 result["flow_id"],
@@ -561,7 +560,7 @@ async def test_flow_rate_limit_survives_another_login_attempt(
                     "password": "private-password",
                 },
             )
-            assert result["step_id"] == "password"
+            assert result["step_id"] == "user"
             assert result["errors"]["base"] == "rate_limited"
         start.assert_awaited_once()
         hass.config_entries.flow.async_abort(result["flow_id"])

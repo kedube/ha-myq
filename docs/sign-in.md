@@ -75,18 +75,16 @@ saved by the integration, and you need it again to reconnect.
 ## Connect your account
 
 1. Open **Settings → Devices & services → Add integration → MyQ**.
-2. Choose how to sign in:
-   - **Sign in with email and password**: Home Assistant signs in on MyQ's
-     pages for you. Enter your MyQ email, password and debug token, then the
-     verification code if MyQ asks for one. Email is chosen when MyQ offers it.
-     The integration checks the debug token with Firebase before sending your
-     password to MyQ.
-   - **Sign in with a browser**: you sign in on MyQ's own page in a browser.
-     See [browser sign-in](#browser-sign-in).
+2. Enter your MyQ email, password and debug token. The integration checks the
+   debug token with Firebase before sending your password to MyQ.
+3. Enter the verification code if MyQ asks for one. Email is chosen when MyQ
+   offers it.
 
-If email and password sign-in meets a check or screen that only a web browser
-can complete, Home Assistant continues with [browser sign-in](#browser-sign-in)
-instead. **Reconnect MyQ** offers the same two choices.
+To sign in on MyQ's own page in a browser instead, turn on **Sign in with a
+browser** and enter only the debug token; see
+[browser sign-in](#browser-sign-in). If MyQ shows a check or screen that only a
+web browser can complete, Home Assistant also continues with browser sign-in.
+**Reconnect MyQ** has the same form.
 
 The **Debug token** field accepts the token on its own, in quotes, as the
 `"debug_token":"…"` entry, or as the whole registration file. If
@@ -95,8 +93,9 @@ field blank to use it; see [the registration file](#the-registration-file).
 
 If Firebase or MyQ limits requests, wait for its cooldown before trying again.
 Retrying or restarting setup does not reset that wait. A wait from MyQ applies to
-that account's sign-in. A browser sign-in chosen at setup has no account until
-it finishes, so its wait applies to every such sign-in. A wait from Firebase
+that account's sign-in. A browser sign-in started without an email has no
+account until it finishes, so its wait applies to every such sign-in. A wait
+from Firebase
 applies to every account. If MyQ
 limits requests while you enter a verification code, enter the same code again
 once the wait is over. Retrying after a mistyped password reuses the debug
@@ -112,10 +111,12 @@ for that sign-in only and are not saved.
 
 ## Browser sign-in
 
-**Sign in with a browser** signs in on MyQ's own page, as the MyQ app does,
-so your password is entered only there. Enter your debug token, or leave the
-field blank to use an installed `myq_app_check.json`. Home Assistant checks it
-with Firebase, then shows a link to MyQ's sign-in page.
+Browser sign-in happens on MyQ's own page, as in the MyQ app, so your
+password is entered only there. On the **Connect MyQ** or **Reconnect MyQ**
+form, turn on **Sign in with a browser** and enter your debug token, or leave
+it blank to use an installed `myq_app_check.json`. Email and password aren't
+needed, and anything typed in them is not sent. Home Assistant checks the debug
+token with Firebase, then shows a link to MyQ's sign-in page.
 
 The same link appears when email and password sign-in meets a browser check
 that only a real web browser can pass, or a screen this integration does not
@@ -166,12 +167,13 @@ The phone app and other sign-ins stay signed in.
 | The debug token, app verification configuration, or returned token is invalid | Check the debug token or the registration file |
 | Firebase rejected the debug token or app registration | The token is not registered for the project and app above, or has been revoked |
 | Could not obtain app verification from Firebase | Check that Home Assistant can reach `firebaseappcheck.googleapis.com`, then try again |
+| Enter your MyQ email and password, or turn on Sign in with a browser | Fill in both, or turn on **Sign in with a browser** |
 | MyQ rejected the credentials or session | Wrong password or code, or a sign-in that took too long; try again |
 | Verification was not completed | The verification code was not accepted; enter it again |
 | MyQ rejected verification of the application (401.122) | MyQ refused the app proof; check the debug token and start a new sign-in |
 | MyQ requires a browser verification step that this integration cannot complete | MyQ showed a browser check after the sign-in pages, where a browser cannot help; try again later |
 | MyQ showed a check or screen that only a web browser can complete | Sign in with the link shown; see [browser sign-in](#browser-sign-in) |
-| MyQ presented a sign-in or verification screen this integration does not yet support | Start again and choose **Sign in with a browser** |
+| MyQ presented a sign-in or verification screen this integration does not yet support | Start again with **Sign in with a browser** turned on |
 | This isn't the address from the sign-in link shown here | Paste the complete `com.myqops://android` address from the link currently shown |
 | The sign-in link expired | Open the new link and sign in again |
 | MyQ did not accept this sign-in | Open the new link and sign in again |

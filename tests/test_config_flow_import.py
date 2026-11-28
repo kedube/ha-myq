@@ -34,12 +34,11 @@ async def check():
     flow.hass = hass
     flow.context = {"source": "user"}
     result = await flow.async_step_user()
-    assert result["type"] == "menu" and result["step_id"] == "user"
-    result = await flow.async_step_password()
-    assert result["type"] == "form" and result["step_id"] == "password"
-    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
-    result = await flow.async_step_browser_start()
-    assert result["type"] == "form" and result["step_id"] == "browser_start"
+    assert result["type"] == "form"
+    assert result["step_id"] == "user"
+    assert list(result["data_schema"].schema) == [
+        "username", "password", "debug_token", "browser"
+    ]
     for profile in ("chrome_android", "chrome"):
         async with CurlHttp(profile):
             pass

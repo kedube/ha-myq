@@ -5,6 +5,14 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Changed
+
+- Setup and **Reconnect MyQ** open on the email, password and debug token form
+  again, instead of a choice of sign-in method. Browser sign-in is a **Sign in
+  with a browser** switch on that form: turn it on and enter only the debug
+  token (or leave it blank to use an installed `myq_app_check.json`). Email and
+  password aren't needed, and anything typed in them is not sent.
+
 ## [0.20] - 2026-11-28
 
 ### Added

@@ -53,8 +53,6 @@ SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 # Cooldowns that outlive a flow: origins and deadlines only, never credentials.
 AUTH_BACKOFF = "auth_backoff"  # Per account (casefolded email): MyQ's services.
 APP_CHECK_BACKOFF = "app_check_backoff"  # Shared: Firebase, for every account.
-# The first screen of setup and reconnect: each option is a step.
-SIGN_IN_CHOICES = ["password", "browser_start"]
 
 
 def error_key(error: MyQError) -> str:
@@ -103,8 +101,8 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         """This account's MyQ cooldowns, kept across clients and restarted flows.
 
         A cooldown one account's sign-in earns does not hold up another account's.
-        A browser sign-in started from the menu has no email until it finishes, so
-        such sign-ins share one entry.
+        A browser sign-in started without an email has no account until it
+        finishes, so such sign-ins share one entry.
         """
         accounts = self.hass.data.setdefault(DOMAIN, {}).setdefault(AUTH_BACKOFF, {})
         return accounts.setdefault(self._email.casefold(), ServiceBackoff())
@@ -198,7 +196,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_finish(self, user_input=None):
         """Retry account checks with the session already issued; never sign in again."""
         if not self._signed_in():
-            return self._menu()
+            return await self.async_step_user()
         if user_input is None:
             return self._finish_form()
         if time.monotonic() < self._cooldown_until:
@@ -211,35 +209,31 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         except MyQError as err:
             return self._finish_form({"base": self._error(err)})
 
-    def _menu(self):
-        """Choose how to sign in: automatically with a password, or in a browser."""
-        return self.async_show_menu(
-            step_id="reauth_confirm" if self.source == SOURCE_REAUTH else "user",
-            menu_options=SIGN_IN_CHOICES,
-        )
-
-    async def async_step_user(self, user_input=None):
-        return self._menu()
-
     def _registration_error(self, debug_token: str, error: MyQError) -> dict[str, str]:
         """An unusable registration: the submitted token's field, or the file's."""
         if debug_token or isinstance(error, AppCheckNotConfigured):
             return {"debug_token": self._error(error)}
         return {"base": self._error(error)}
 
-    async def async_step_password(self, user_input=None):
-        """Sign in on MyQ's hosted pages for the person, with their email and password."""
+    async def async_step_user(self, user_input=None):
+        """Sign in with email and password, or in a browser with the switch turned on."""
         errors = {}
         if user_input is not None and time.monotonic() < self._cooldown_until:
             errors["base"] = "rate_limited"
         elif user_input is not None:
-            self._email = user_input["username"].strip()
+            self._email = user_input.get("username", "").strip()
+            browser = user_input.get("browser", False)
+            password = user_input.get("password", "")
+            if not browser and not (self._email and password):
+                return self._credentials_form({"base": "credentials_required"})
             self._close_login()
             debug_token = user_input.get("debug_token", "").strip()
             try:
                 key, source = await self._registration(debug_token)
             except MyQError as err:
                 return self._credentials_form(self._registration_error(debug_token, err))
+            if browser:
+                return await self._browser_from_form(key, source)
             try:
                 provider = self._app_check(key, source)
                 client = await self._new_client()
@@ -251,7 +245,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 # Fail before sending a password or requesting MFA. complete()
                 # reuses this proof, refreshing it if a long sign-in outlives it.
                 await provider.acquire()
-                result = await self._login.start(self._email, user_input["password"])
+                result = await self._login.start(self._email, password)
                 if isinstance(result, Challenge):
                     return await self.async_step_mfa()
                 return await self._finish()
@@ -276,38 +270,22 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
             and not self._signed_in()
         )
 
-    async def async_step_browser_start(self, user_input=None):
-        """Browser sign-in from the menu: check the debug token before showing a link.
+    async def _browser_from_form(
+        self, key: FirebaseRegistration, source: FirebaseRegistration | Path
+    ):
+        """Browser sign-in chosen on the form; a password typed there is never sent.
 
-        As with a password, an unusable token is reported before the person signs
-        in, and the code exchange reuses the proof obtained here.
+        As with a password, an unusable debug token is reported before the person
+        signs in, and the code exchange reuses the proof obtained here.
         """
-        errors = {}
-        if user_input is not None and time.monotonic() < self._cooldown_until:
-            errors["base"] = "rate_limited"
-        elif user_input is not None:
-            debug_token = user_input.get("debug_token", "").strip()
-            try:
-                key, source = await self._registration(debug_token)
-            except MyQError as err:
-                return self._browser_start_form(self._registration_error(debug_token, err))
-            try:
-                provider = self._app_check(key, source)
-                # A sign-in that is still cooling down fails before Firebase is asked.
-                self._backoff.check(IDENTITY)
-                await provider.acquire()
-            except MyQError as err:
-                errors["base"] = self._error(err)
-            else:
-                return self._start_browser()
-        return self._browser_start_form(errors)
-
-    def _browser_start_form(self, errors=None):
-        return self.async_show_form(
-            step_id="browser_start",
-            data_schema=vol.Schema({vol.Optional("debug_token"): SECRET}),
-            errors=errors or {},
-        )
+        try:
+            provider = self._app_check(key, source)
+            # A sign-in that is still cooling down fails before Firebase is asked.
+            self._backoff.check(IDENTITY)
+            await provider.acquire()
+        except MyQError as err:
+            return self._credentials_form({"base": self._error(err)})
+        return self._start_browser()
 
     def _start_browser(self, errors=None):
         """A new sign-in link, replacing any hosted sign-in in progress."""
@@ -318,7 +296,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_browser(self, user_input=None):
         """Sign in on MyQ's page in the person's own browser, then paste the app address."""
         if self._provider is None:
-            return self._browser_start_form()
+            return await self.async_step_user()
         errors = {}
         if user_input is not None:
             errors = await self._complete_browser(user_input["callback"])
@@ -343,12 +321,14 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     def _credentials_form(self, errors=None):
         return self.async_show_form(
-            step_id="password",
+            step_id="reauth_confirm" if self.source == SOURCE_REAUTH else "user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("username", default=self._email): str,
-                    vol.Required("password"): SECRET,
+                    # Optional, so the form can be sent with only the browser switch on.
+                    vol.Optional("username", default=self._email): str,
+                    vol.Optional("password"): SECRET,
                     vol.Optional("debug_token"): SECRET,
+                    vol.Optional("browser", default=False): bool,
                 }
             ),
             errors=errors or {},
@@ -356,7 +336,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_mfa(self, user_input=None):
         if self._login is None or self._login.challenge is None:
-            return self._menu()
+            return await self.async_step_user()
         errors = {}
         if user_input is not None and time.monotonic() < self._cooldown_until:
             errors["base"] = "rate_limited"
@@ -471,7 +451,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input=None):
-        return self._menu()
+        return await self.async_step_user(user_input)
 
     @staticmethod
     @callback

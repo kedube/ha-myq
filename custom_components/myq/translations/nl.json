@@ -4,38 +4,16 @@
     "step": {
       "user": {
         "title": "MyQ verbinden",
-        "description": "Kies hoe je wilt inloggen. Voor beide manieren heb je je debugtoken of een geïnstalleerd myq_app_check.json-bestand nodig.",
-        "menu_options": {
-          "password": "Inloggen met e-mailadres en wachtwoord",
-          "browser_start": "Inloggen met een browser"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant logt voor je in op de pagina's van MyQ. Toont MyQ een controle die alleen een browser kan doorstaan, dan rond je het inloggen af in een browser.",
-          "browser_start": "Log in op de pagina van MyQ in je browser en plak daarna het adres dat de browser probeert te openen. Je wachtwoord voer je alleen in op de pagina van MyQ."
-        }
-      },
-      "reauth_confirm": {
-        "title": "MyQ opnieuw verbinden",
-        "description": "Je MyQ-sessie kon niet worden vernieuwd. Meld je opnieuw aan bij hetzelfde account.",
-        "menu_options": {
-          "password": "Inloggen met e-mailadres en wachtwoord",
-          "browser_start": "Inloggen met een browser"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant logt voor je in op de pagina's van MyQ. Toont MyQ een controle die alleen een browser kan doorstaan, dan rond je het inloggen af in een browser.",
-          "browser_start": "Log in op de pagina van MyQ in je browser en plak daarna het adres dat de browser probeert te openen. Je wachtwoord voer je alleen in op de pagina van MyQ."
-        }
-      },
-      "password": {
-        "title": "Inloggen met e-mailadres en wachtwoord",
-        "description": "Voer je MyQ-e-mailadres, wachtwoord en debugtoken in. Als MyQ om een verificatiecode vraagt, kun je die in de volgende stap invoeren. Je wachtwoord en debugtoken worden niet opgeslagen.",
+        "description": "Voer je MyQ-e-mailadres, wachtwoord en debugtoken in. Als MyQ om een verificatiecode vraagt, kun je die in de volgende stap invoeren. Je wachtwoord en debugtoken worden niet opgeslagen.\n\nWil je in plaats daarvan inloggen op de pagina van MyQ in een browser, zet dan **Inloggen met een browser** aan. Alleen het debugtoken is dan nodig.",
         "data": {
           "username": "E-mail",
           "password": "Wachtwoord",
-          "debug_token": "Debugtoken"
+          "debug_token": "Debugtoken",
+          "browser": "Inloggen met een browser"
         },
         "data_description": {
-          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken."
+          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken.",
+          "browser": "Log in plaats daarvan in op de pagina van MyQ in je browser. E-mailadres en wachtwoord zijn niet nodig en worden niet verstuurd."
         }
       },
       "mfa": {
@@ -43,16 +21,6 @@
         "description": "{instruction}",
         "data": {
           "response": "Verificatieantwoord"
-        }
-      },
-      "browser_start": {
-        "title": "Inloggen met een browser",
-        "description": "Voer je debugtoken in. Het volgende scherm linkt naar de inlogpagina van MyQ: log daar in een browser in en plak daarna het adres dat de browser probeert te openen. Je debugtoken wordt niet opgeslagen.",
-        "data": {
-          "debug_token": "Debugtoken"
-        },
-        "data_description": {
-          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken."
         }
       },
       "browser": {
@@ -65,6 +33,20 @@
           "callback": "Het volledige adres com.myqops://android, of de hele consolemelding waarin het staat."
         }
       },
+      "reauth_confirm": {
+        "title": "MyQ opnieuw verbinden",
+        "description": "Je MyQ-sessie kon niet worden vernieuwd. Meld je opnieuw aan bij hetzelfde account. Je wachtwoord en debugtoken worden niet opgeslagen.\n\nWil je in plaats daarvan inloggen op de pagina van MyQ in een browser, zet dan **Inloggen met een browser** aan. Alleen het debugtoken is dan nodig.",
+        "data": {
+          "username": "E-mail",
+          "password": "Wachtwoord",
+          "debug_token": "Debugtoken",
+          "browser": "Inloggen met een browser"
+        },
+        "data_description": {
+          "debug_token": "Plak de waarde van het debugtoken of de bijbehorende JSON-regel of het JSON-object. Laat dit leeg om een geïnstalleerd myq_app_check.json-bestand te gebruiken.",
+          "browser": "Log in plaats daarvan in op de pagina van MyQ in je browser. E-mailadres en wachtwoord zijn niet nodig en worden niet verstuurd."
+        }
+      },
       "finish": {
         "title": "Verbinden met MyQ voltooien",
         "description": "Inloggen is gelukt, maar het detecteren van het account of de apparaten is mislukt. Verzend het formulier om de detectie opnieuw te proberen met dezelfde sessie."
@@ -72,6 +54,7 @@
     },
     "error": {
       "invalid_auth": "MyQ heeft de inloggegevens of de sessie geweigerd. Controleer je accountgegevens en begin opnieuw als de verificatiesessie is verlopen.",
+      "credentials_required": "Voer je MyQ-e-mailadres en wachtwoord in, of zet Inloggen met een browser aan.",
       "invalid_code": "De verificatie is niet voltooid. Controleer de code en probeer het opnieuw.",
       "cannot_connect": "Kan geen verbinding maken met MyQ. Probeer het later opnieuw.",
       "access_denied": "MyQ heeft dit verzoek geweigerd. Mogelijk zijn app-verificatie of extra accountrechten vereist.",

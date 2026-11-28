@@ -79,12 +79,8 @@ async def check(config_dir: str) -> None:
         flow.hass = hass
         flow.context = {"source": "user"}
         result = await flow.async_step_user()
-        if result["type"] != "menu" or result["step_id"] != "user":
-            raise RuntimeError("MyQ setup menu did not load")
-        for step in ("password", "browser_start"):
-            result = await getattr(flow, f"async_step_{step}")()
-            if result["type"] != "form" or result["step_id"] != step:
-                raise RuntimeError(f"MyQ {step} form did not load")
+        if result["type"] != "form" or result["step_id"] != "user":
+            raise RuntimeError("MyQ setup form did not load")
         print(
             f"Home Assistant {version('homeassistant')}, {platform.machine()}: "
             "setup and native imports passed"

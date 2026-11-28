@@ -4,38 +4,16 @@
     "step": {
       "user": {
         "title": "Connect MyQ",
-        "description": "Choose how to sign in. Both ways need your debug token, or an installed myq_app_check.json.",
-        "menu_options": {
-          "password": "Sign in with email and password",
-          "browser_start": "Sign in with a browser"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant signs in on MyQ's pages for you. If MyQ shows a check that only a browser can pass, you finish in a browser.",
-          "browser_start": "Sign in on MyQ's page in your browser, then paste the address it opens. Your password is entered only on MyQ's page."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Reconnect MyQ",
-        "description": "Your MyQ session could not be renewed. Sign in to the same account again.",
-        "menu_options": {
-          "password": "Sign in with email and password",
-          "browser_start": "Sign in with a browser"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant signs in on MyQ's pages for you. If MyQ shows a check that only a browser can pass, you finish in a browser.",
-          "browser_start": "Sign in on MyQ's page in your browser, then paste the address it opens. Your password is entered only on MyQ's page."
-        }
-      },
-      "password": {
-        "title": "Sign in with email and password",
-        "description": "Enter your MyQ email, password, and debug token. If MyQ asks for a verification code, you will be prompted next. Your password and debug token are not saved.",
+        "description": "Enter your MyQ email, password, and debug token. If MyQ asks for a verification code, you will be prompted next. Your password and debug token are not saved.\n\nTo sign in on MyQ's page in a browser instead, turn on **Sign in with a browser**. Only the debug token is needed.",
         "data": {
           "username": "Email",
           "password": "Password",
-          "debug_token": "Debug token"
+          "debug_token": "Debug token",
+          "browser": "Sign in with a browser"
         },
         "data_description": {
-          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json."
+          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json.",
+          "browser": "Sign in on MyQ's page in your browser instead. Email and password aren't needed and aren't sent."
         }
       },
       "mfa": {
@@ -43,16 +21,6 @@
         "description": "{instruction}",
         "data": {
           "response": "Verification response"
-        }
-      },
-      "browser_start": {
-        "title": "Sign in with a browser",
-        "description": "Enter your debug token. The next screen links to MyQ's sign-in page: sign in there in a browser, then paste the address it opens. Your debug token is not saved.",
-        "data": {
-          "debug_token": "Debug token"
-        },
-        "data_description": {
-          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json."
         }
       },
       "browser": {
@@ -65,6 +33,20 @@
           "callback": "The complete com.myqops://android address, or the whole Console message that contains it."
         }
       },
+      "reauth_confirm": {
+        "title": "Reconnect MyQ",
+        "description": "Your MyQ session could not be renewed. Sign in to the same account again. Your password and debug token are not saved.\n\nTo sign in on MyQ's page in a browser instead, turn on **Sign in with a browser**. Only the debug token is needed.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "debug_token": "Debug token",
+          "browser": "Sign in with a browser"
+        },
+        "data_description": {
+          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json.",
+          "browser": "Sign in on MyQ's page in your browser instead. Email and password aren't needed and aren't sent."
+        }
+      },
       "finish": {
         "title": "Finish connecting MyQ",
         "description": "Sign-in completed, but account or device discovery failed. Submit to retry discovery using the same session."
@@ -72,6 +54,7 @@
     },
     "error": {
       "invalid_auth": "MyQ rejected the credentials or session. Check your account details and start again if the verification session expired.",
+      "credentials_required": "Enter your MyQ email and password, or turn on Sign in with a browser.",
       "invalid_code": "Verification was not completed. Check the code and try again.",
       "cannot_connect": "Could not connect to MyQ. Try again later.",
       "access_denied": "MyQ denied this request. App verification or additional account permissions may be required.",

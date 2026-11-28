@@ -4,38 +4,16 @@
     "step": {
       "user": {
         "title": "Conectar MyQ",
-        "description": "Elige cómo iniciar sesión. Las dos opciones necesitan tu token de depuración o un archivo myq_app_check.json instalado.",
-        "menu_options": {
-          "password": "Iniciar sesión con correo electrónico y contraseña",
-          "browser_start": "Iniciar sesión con un navegador"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant inicia sesión por ti en las páginas de MyQ. Si MyQ muestra una comprobación que solo un navegador puede superar, terminas en un navegador.",
-          "browser_start": "Inicia sesión en la página de MyQ en tu navegador y pega la dirección que intenta abrir. La contraseña solo se introduce en la página de MyQ."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Volver a conectar MyQ",
-        "description": "No se pudo renovar tu sesión de MyQ. Vuelve a iniciar sesión en la misma cuenta.",
-        "menu_options": {
-          "password": "Iniciar sesión con correo electrónico y contraseña",
-          "browser_start": "Iniciar sesión con un navegador"
-        },
-        "menu_option_descriptions": {
-          "password": "Home Assistant inicia sesión por ti en las páginas de MyQ. Si MyQ muestra una comprobación que solo un navegador puede superar, terminas en un navegador.",
-          "browser_start": "Inicia sesión en la página de MyQ en tu navegador y pega la dirección que intenta abrir. La contraseña solo se introduce en la página de MyQ."
-        }
-      },
-      "password": {
-        "title": "Iniciar sesión con correo electrónico y contraseña",
-        "description": "Introduce tu correo electrónico de MyQ, contraseña y token de depuración. Si MyQ solicita un código de verificación, se te pedirá en el siguiente paso. La contraseña y el token de depuración no se guardan.",
+        "description": "Introduce tu correo electrónico de MyQ, contraseña y token de depuración. Si MyQ solicita un código de verificación, se te pedirá en el siguiente paso. La contraseña y el token de depuración no se guardan.\n\nPara iniciar sesión en la página de MyQ en un navegador, activa **Iniciar sesión con un navegador**. Solo se necesita el token de depuración.",
         "data": {
           "username": "Correo electrónico",
           "password": "Contraseña",
-          "debug_token": "Token de depuración"
+          "debug_token": "Token de depuración",
+          "browser": "Iniciar sesión con un navegador"
         },
         "data_description": {
-          "debug_token": "Pegue el valor del token de depuración o su línea u objeto JSON. Déjelo en blanco para usar un archivo myq_app_check.json ya instalado."
+          "debug_token": "Pegue el valor del token de depuración o su línea u objeto JSON. Déjelo en blanco para usar un archivo myq_app_check.json ya instalado.",
+          "browser": "Inicia sesión en la página de MyQ en tu navegador. El correo electrónico y la contraseña no son necesarios y no se envían."
         }
       },
       "mfa": {
@@ -43,16 +21,6 @@
         "description": "{instruction}",
         "data": {
           "response": "Respuesta de verificación"
-        }
-      },
-      "browser_start": {
-        "title": "Iniciar sesión con un navegador",
-        "description": "Introduce tu token de depuración. La siguiente pantalla enlaza a la página de inicio de sesión de MyQ: inicia sesión allí en un navegador y pega la dirección que intenta abrir. El token de depuración no se guarda.",
-        "data": {
-          "debug_token": "Token de depuración"
-        },
-        "data_description": {
-          "debug_token": "Pegue el valor del token de depuración o su línea u objeto JSON. Déjelo en blanco para usar un archivo myq_app_check.json ya instalado."
         }
       },
       "browser": {
@@ -65,6 +33,20 @@
           "callback": "La dirección completa com.myqops://android o el mensaje completo de la consola que la contiene."
         }
       },
+      "reauth_confirm": {
+        "title": "Volver a conectar MyQ",
+        "description": "No se pudo renovar tu sesión de MyQ. Vuelve a iniciar sesión en la misma cuenta. La contraseña y el token de depuración no se guardan.\n\nPara iniciar sesión en la página de MyQ en un navegador, activa **Iniciar sesión con un navegador**. Solo se necesita el token de depuración.",
+        "data": {
+          "username": "Correo electrónico",
+          "password": "Contraseña",
+          "debug_token": "Token de depuración",
+          "browser": "Iniciar sesión con un navegador"
+        },
+        "data_description": {
+          "debug_token": "Pegue el valor del token de depuración o su línea u objeto JSON. Déjelo en blanco para usar un archivo myq_app_check.json ya instalado.",
+          "browser": "Inicia sesión en la página de MyQ en tu navegador. El correo electrónico y la contraseña no son necesarios y no se envían."
+        }
+      },
       "finish": {
         "title": "Terminar de conectar MyQ",
         "description": "Se inició sesión, pero falló el descubrimiento de la cuenta o de los dispositivos. Pulsa Enviar para volver a intentar el descubrimiento con la misma sesión."
@@ -72,6 +54,7 @@
     },
     "error": {
       "invalid_auth": "MyQ rechazó las credenciales o la sesión. Comprueba los datos de tu cuenta y vuelve a empezar si la sesión de verificación ha caducado.",
+      "credentials_required": "Introduce tu correo electrónico y contraseña de MyQ, o activa Iniciar sesión con un navegador.",
       "invalid_code": "No se completó la verificación. Comprueba el código e inténtalo de nuevo.",
       "cannot_connect": "No se pudo conectar con MyQ. Inténtalo de nuevo más tarde.",
       "access_denied": "MyQ denegó esta solicitud. Puede que se requiera la verificación de la aplicación o permisos adicionales de la cuenta.",

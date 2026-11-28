@@ -24,13 +24,14 @@ from custom_components.myq.api.firebase import MAX_REGISTRATION_BYTES, FirebaseR
 from custom_components.myq.api.http import Response
 from custom_components.myq.const import CONF_ENABLE_CAMERAS, CONF_POLL_INTERVAL, DOMAIN
 
-from .conftest import SIGN_IN_CHOICES, choose, json_response, start_sign_in
+from .conftest import json_response
 from .ha import MockConfigEntry
 from .test_auth import MFA_PAGE, PASSWORD_PAGE
 from .test_firebase import firebase_token
 
 PROFILE = {"user_id": "verified-user", "email": "test@example.invalid"}
 CREDENTIALS = {"username": "test@example.invalid", "password": "private-password"}
+FIELDS = ["username", "password", "debug_token", "browser"]
 
 
 @pytest.fixture(autouse=True)
@@ -53,50 +54,40 @@ def cloud(firebase_exchange):
         yield discover
 
 
-def assert_masked(selector):
-    assert isinstance(selector, TextSelector)
-    assert selector.config["type"] == "password"
-
-
-async def test_connect_offers_password_or_browser_sign_in_without_network(hass):
+async def test_connect_opens_email_password_debug_token_and_browser_switch_without_network(
+    hass,
+):
     with patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as http:
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-        assert result["type"] == "menu" and result["step_id"] == "user"
-        assert result["menu_options"] == SIGN_IN_CHOICES
-        password = await choose(hass, result, "password")
-        assert password["type"] == "form" and password["step_id"] == "password"
-        assert list(password["data_schema"].schema) == ["username", "password", "debug_token"]
-        assert_masked(password["data_schema"].schema["debug_token"])
-        assert "debug_token" not in password["data_schema"](CREDENTIALS)
-        hass.config_entries.flow.async_abort(password["flow_id"])
-        browser = await start_sign_in(hass, "browser_start")
-        assert browser["type"] == "form" and browser["step_id"] == "browser_start"
-        assert list(browser["data_schema"].schema) == ["debug_token"]
-        assert_masked(browser["data_schema"].schema["debug_token"])
-        assert browser["data_schema"]({}) == {}
-        hass.config_entries.flow.async_abort(browser["flow_id"])
+    assert result["type"] == "form" and result["step_id"] == "user"
+    assert "menu_options" not in result
+    assert list(result["data_schema"].schema) == FIELDS
+    selector = result["data_schema"].schema["debug_token"]
+    assert isinstance(selector, TextSelector)
+    assert selector.config["type"] == "password"
+    assert "debug_token" not in result["data_schema"](CREDENTIALS)
+    # Email and password sign-in is the default; the browser switch starts off.
+    assert result["data_schema"]({}) == {"username": "", "browser": False}
     http.assert_not_awaited()
 
 
-async def test_reauth_offers_both_and_prefills_the_existing_email(hass):
+async def test_reauth_opens_credentials_and_prefills_the_existing_email(hass):
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id="verified-user", data={"username": "saved@example.invalid"}
     )
     entry.add_to_hass(hass)
     result = await entry.start_reauth_flow(hass)
-    assert result["type"] == "menu" and result["step_id"] == "reauth_confirm"
-    result = await choose(hass, result, "password")
-    assert result["step_id"] == "password"
-    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
+    assert result["type"] == "form" and result["step_id"] == "reauth_confirm"
+    assert "menu_options" not in result
+    assert list(result["data_schema"].schema) == FIELDS
     assert result["data_schema"]({"password": "private"})["username"] == "saved@example.invalid"
-    hass.config_entries.flow.async_abort(result["flow_id"])
 
 
 @pytest.mark.parametrize(
     "removed_field", ["next_step_id", "handoff", "refresh_token", "app_check_token"]
 )
 async def test_removed_setup_inputs_cannot_select_another_route(hass, removed_field):
-    result = await start_sign_in(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     with pytest.raises(InvalidData):
         await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, removed_field: "removed"}
@@ -104,7 +95,7 @@ async def test_removed_setup_inputs_cannot_select_another_route(hass, removed_fi
 
 
 async def _login_with_tokens(hass, tokens, discover_error):
-    result = await start_sign_in(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     calls = []
 
     async def start(login, username, password):
@@ -155,11 +146,11 @@ async def test_sign_in_errors_return_to_credentials_and_create_nothing(
     hass, error, key, firebase_exchange
 ):
     with patch("custom_components.myq.api.auth.Login.start", AsyncMock(side_effect=error)):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
-    assert result["step_id"] == "password"
+    assert result["step_id"] == "user"
     assert result["errors"] == {"base": key}
-    assert list(result["data_schema"].schema) == ["username", "password", "debug_token"]
+    assert list(result["data_schema"].schema) == FIELDS
     assert "private-password" not in str(result)
     assert not hass.config_entries.async_entries(DOMAIN)
 
@@ -197,7 +188,7 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(
             return_value=registration,
         ),
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "mfa"
         flow = hass.config_entries.flow._progress[result["flow_id"]]
@@ -207,7 +198,7 @@ async def test_mfa_exchange_rejection_returns_to_credentials_without_replaying(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"response": "123456"}
         )
-        assert result["step_id"] == "password"
+        assert result["step_id"] == "user"
         assert result["errors"] == {"base": "app_verification"}
         assert len(proof_requests) == (2 if proof_expires else 1)
         flow = hass.config_entries.flow._progress[result["flow_id"]]
@@ -231,7 +222,7 @@ async def test_revoked_debug_token_stops_before_hosted_login(hass, status):
             AsyncMock(return_value=json_response({"error": "private-debug"}, status)),
         ) as firebase,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
     assert result["errors"] == {"base": "app_check_integrity"}
     assert "private-debug" not in str(result)
@@ -291,7 +282,7 @@ async def test_code_form_rate_limit_keeps_the_code_for_after_the_cooldown(
         code_form=lambda _state: Response(429, {"Retry-After": "120"}, b"") if limited else None,
     )
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "mfa"
         for _ in range(2):
@@ -321,7 +312,7 @@ async def test_app_check_rate_limit_after_the_code_returns_to_credentials(hass, 
         firebase=lambda count: Response(429, {"Retry-After": "600"}, b"") if count > 1 else None,
     )
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "mfa"
         flow = hass.config_entries.flow._progress[result["flow_id"]]
@@ -331,7 +322,7 @@ async def test_app_check_rate_limit_after_the_code_returns_to_credentials(hass, 
             result["flow_id"], {"response": "123456"}
         )
         # MyQ accepted the code, so there is no challenge left to answer.
-        assert result["step_id"] == "password"
+        assert result["step_id"] == "user"
         assert result["errors"] == {"base": "rate_limited"}
         assert flow._login is None
     assert len(seen["proofs"]) == 2 and not seen["exchanges"]
@@ -344,7 +335,7 @@ async def test_password_retries_reuse_the_firebase_proof(hass, firebase_exchange
         "custom_components.myq.api.auth.Login.start",
         AsyncMock(side_effect=AuthenticationError("synthetic wrong password")),
     ) as start:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         for _ in range(3):
             result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
             assert result["errors"] == {"base": "invalid_auth"}
@@ -373,13 +364,13 @@ async def test_sign_in_cooldown_skips_firebase_and_stays_with_its_account(hass, 
         raise AuthenticationError("synthetic refusal")
 
     with patch("custom_components.myq.api.auth.Login.start", start):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["errors"] == {"base": "rate_limited"}
         hass.config_entries.flow.async_abort(result["flow_id"])
         # Restarting setup for that account waits out MyQ's cooldown without
         # spending a Firebase exchange first.
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, "username": CREDENTIALS["username"].upper()}
         )
@@ -387,7 +378,7 @@ async def test_sign_in_cooldown_skips_firebase_and_stays_with_its_account(hass, 
         firebase_exchange.assert_awaited_once()
         hass.config_entries.flow.async_abort(result["flow_id"])
         # Another account's sign-in is not held up.
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, "username": other}
         )
@@ -418,12 +409,12 @@ async def test_firebase_cooldown_survives_retries_and_restarting_setup(hass, reg
             AsyncMock(side_effect=AuthenticationError("synthetic login refusal")),
         ) as start,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         for _ in range(2):
             result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
             assert result["errors"] == {"base": "rate_limited"}
         hass.config_entries.flow.async_abort(result["flow_id"])
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["errors"] == {"base": "rate_limited"}
         session.request.assert_called_once()
@@ -522,7 +513,7 @@ async def test_default_form_gets_firebase_proof_and_persists_only_session(
             ),
         ) as read,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], credentials)
         assert result["step_id"] == "mfa"
         result = await hass.config_entries.flow.async_configure(
@@ -572,9 +563,9 @@ async def test_registration_preflight_stops_before_sign_in(
             "custom_components.myq.api.android_http.AndroidHttp.request", new_callable=AsyncMock
         ) as myq,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
-    assert result["step_id"] == "password"
+    assert result["step_id"] == "user"
     field = "debug_token" if failure == "missing" else "base"
     assert result["errors"] == {field: error_key}
     assert "private-" not in str(result)
@@ -591,7 +582,7 @@ async def test_registration_can_be_installed_then_same_flow_retried(
 ):
     app_check_registration_file.unlink()
     with patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["errors"] == {"debug_token": "app_check_not_configured"}
         start.assert_not_awaited()
@@ -648,7 +639,7 @@ async def test_submitted_debug_token_takes_priority_over_registration_file(
             ),
         ) as firebase,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
         )
@@ -665,7 +656,7 @@ async def test_empty_debug_token_without_file_stops_before_password_or_mfa(
 ):
     app_check_registration_file.unlink()
     with patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
         )
@@ -703,11 +694,11 @@ async def test_invalid_debug_token_is_not_sent_saved_or_echoed(hass, submitted, 
         patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as firebase,
         patch("custom_components.myq.api.firebase.FirebaseRegistration.read") as read,
     ):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {**CREDENTIALS, "debug_token": submitted}
         )
-    assert result["step_id"] == "password"
+    assert result["step_id"] == "user"
     assert result["errors"] == {"debug_token": "app_check_invalid"}
     assert "debug_token" not in result["data_schema"](CREDENTIALS)
     assert submitted not in str(result) + caplog.text
@@ -729,7 +720,7 @@ async def test_reauth_accepts_debug_token_without_file_and_does_not_persist_it(
         data={"username": PROFILE["email"], "tokens": {"access_token": "old-session"}},
     )
     entry.add_to_hass(hass)
-    result = await choose(hass, await entry.start_reauth_flow(hass))
+    result = await entry.start_reauth_flow(hass)
 
     async def start(login, username, password):
         assert (username, password) == (CREDENTIALS["username"], CREDENTIALS["password"])
@@ -767,7 +758,7 @@ async def test_form_authorization_uses_home_assistant_language(hass, firebase_ex
         raise AuthenticationError("stop before network")
 
     with patch("custom_components.myq.api.auth.Login.start", start):
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
     assert parse_qs(urlsplit(urls[0]).query)["ui_locales"] == ["fr-CA"]
 
@@ -843,7 +834,7 @@ async def test_browser_check_switches_to_browser_sign_in_and_creates_the_entry(
 ):
     seen, proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "browser"
         assert result["errors"] == {"base": "browser_required"}
@@ -869,13 +860,16 @@ async def test_browser_check_switches_to_browser_sign_in_and_creates_the_entry(
     assert len(seen["proofs"]) == 1  # The proof from before the sign-in pages is reused.
 
 
-async def test_browser_sign_in_from_the_menu_checks_the_token_first_and_creates_the_entry(
-    hass, cloud, registration
+@pytest.mark.parametrize(
+    "entered", [{"browser": True}, {**CREDENTIALS, "browser": True}], ids=["blank", "typed"]
+)
+async def test_browser_switch_checks_the_token_first_and_never_sends_a_password(
+    hass, cloud, registration, entered
 ):
     seen, proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass, "browser_start")
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], entered)
         assert result["step_id"] == "browser" and result["errors"] == {}
         # Firebase accepted the token before the link was shown; MyQ was not contacted.
         assert len(seen["proofs"]) == 1 and seen["pages"] == []
@@ -885,12 +879,13 @@ async def test_browser_sign_in_from_the_menu_checks_the_token_first_and_creates_
             result["flow_id"], {"callback": app_address(link_state(result))}
         )
     assert result["type"] == "create_entry"
-    # The account comes from MyQ's profile: no email was entered.
+    # The account comes from MyQ's profile, whether or not an email was typed.
     assert result["title"] == result["data"]["username"] == PROFILE["email"]
     assert result["data"]["tokens"]["access_token"] == "browser-access"
     (exchange,) = seen["exchanges"]
     assert exchange["headers"]["Firebase-AppCheck-Token"] == proof
     assert len(seen["proofs"]) == 1 and seen["pages"] == []
+    assert "private-password" not in str(seen) + str(result)
 
 
 @pytest.mark.parametrize(
@@ -902,7 +897,7 @@ async def test_browser_sign_in_from_the_menu_checks_the_token_first_and_creates_
     ],
     ids=["no-token-or-file", "invalid-token", "refused-token"],
 )
-async def test_browser_sign_in_from_the_menu_shows_no_link_until_the_token_works(
+async def test_browser_switch_shows_no_link_until_the_token_works(
     hass, app_check_registration_file, submitted, firebase_status, errors, caplog
 ):
     app_check_registration_file.unlink()
@@ -915,11 +910,11 @@ async def test_browser_sign_in_from_the_menu_shows_no_link_until_the_token_works
             "custom_components.myq.api.android_http.AndroidHttp.request", new_callable=AsyncMock
         ) as myq,
     ):
-        result = await start_sign_in(hass, "browser_start")
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"debug_token": submitted}
+            result["flow_id"], {"browser": True, "debug_token": submitted}
         )
-    assert result["step_id"] == "browser_start"
+    assert result["step_id"] == "user"
     assert result["errors"] == errors
     assert "private" not in str(result) + caplog.text
     assert firebase.await_count == (1 if firebase_status else 0)
@@ -930,10 +925,37 @@ async def test_browser_sign_in_from_the_menu_shows_no_link_until_the_token_works
 
 
 @pytest.mark.parametrize(
+    "entered",
+    [
+        {"username": CREDENTIALS["username"]},
+        {"password": CREDENTIALS["password"]},
+        {"username": " \t", "password": CREDENTIALS["password"]},
+        {**CREDENTIALS, "password": ""},
+    ],
+    ids=["no-password", "no-email", "blank-email", "empty-password"],
+)
+async def test_email_and_password_are_needed_without_the_browser_switch(hass, entered):
+    with (
+        patch("custom_components.myq.api.auth.Login.start", new_callable=AsyncMock) as start,
+        patch("custom_components.myq.api.http.Http.request", new_callable=AsyncMock) as firebase,
+        patch("custom_components.myq.api.firebase.FirebaseRegistration.read") as read,
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], entered)
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"base": "credentials_required"}
+    # A typed email stays in the form.
+    assert result["data_schema"]({})["username"] == entered.get("username", "").strip()
+    start.assert_not_awaited()
+    firebase.assert_not_awaited()
+    read.assert_not_called()
+
+
+@pytest.mark.parametrize(
     "unique_id,reason",
     [("verified-user", "reauth_successful"), ("other-user", "unique_id_mismatch")],
 )
-async def test_browser_sign_in_from_the_reconnect_menu_keeps_the_account(
+async def test_browser_switch_on_reconnect_keeps_the_account(
     hass, cloud, registration, unique_id, reason
 ):
     entry = MockConfigEntry(
@@ -944,8 +966,12 @@ async def test_browser_sign_in_from_the_reconnect_menu_keeps_the_account(
     entry.add_to_hass(hass)
     _seen, _proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await choose(hass, await entry.start_reauth_flow(hass), "browser_start")
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        result = await entry.start_reauth_flow(hass)
+        assert result["step_id"] == "reauth_confirm"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"browser": True}
+        )
+        assert result["step_id"] == "browser"
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"callback": app_address(link_state(result))}
         )
@@ -961,7 +987,7 @@ async def test_browser_sign_in_reconnects_the_same_account(hass, cloud, registra
     entry.add_to_hass(hass)
     seen, _proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await choose(hass, await entry.start_reauth_flow(hass))
+        result = await entry.start_reauth_flow(hass)
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"password": "private-password"}
         )
@@ -985,7 +1011,7 @@ async def test_browser_sign_in_reconnects_the_same_account(hass, cloud, registra
 async def test_browser_sign_in_refuses_other_text_and_keeps_the_link(hass, registration, pasted):
     seen, _proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         state = link_state(result)
         result = await hass.config_entries.flow.async_configure(
@@ -1002,7 +1028,7 @@ async def test_browser_sign_in_refuses_other_text_and_keeps_the_link(hass, regis
 async def test_expired_browser_link_is_replaced_without_an_exchange(hass, registration):
     seen, _proof, patches = browser_cloud(registration)
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         state = link_state(result)
         flow = hass.config_entries.flow._progress[result["flow_id"]]
@@ -1021,7 +1047,7 @@ async def test_refused_browser_sign_in_needs_a_new_link(hass, registration):
     refused = json_response({"error": "invalid_grant"}, 400)
     seen, _proof, patches = browser_cloud(registration, exchange=refused)
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         first = link_state(result)
         # MyQ ended the sign-in itself: no code to send.
@@ -1054,7 +1080,7 @@ async def test_browser_check_at_the_code_switches_to_browser_sign_in(hass, regis
         code_form=lambda _state: Response(403, {"cf-mitigated": "challenge"}, b""),
     )
     with patches[0], patches[1], patches[2]:
-        result = await start_sign_in(hass)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
         assert result["step_id"] == "mfa"
         result = await hass.config_entries.flow.async_configure(
@@ -1070,9 +1096,8 @@ async def test_browser_check_at_the_code_switches_to_browser_sign_in(hass, regis
     await hass.async_block_till_done()
 
 
-async def test_browser_step_without_a_debug_token_asks_for_one(hass):
-    result = await start_sign_in(hass)
+async def test_browser_step_without_a_debug_token_returns_to_credentials(hass):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     flow = hass.config_entries.flow._progress[result["flow_id"]]
     result = await flow.async_step_browser()
-    assert result["step_id"] == "browser_start"
-    hass.config_entries.flow.async_abort(result["flow_id"])
+    assert result["step_id"] == "user"
