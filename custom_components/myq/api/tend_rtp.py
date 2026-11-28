@@ -208,6 +208,13 @@ class TendRtp:
         return self._ended.is_set()
 
     @property
+    def lost(self) -> int:
+        """Camera packets missing from the RTP sequence, as the receiver reports count."""
+        if self._remote_ssrc is None:
+            return 0
+        return max(0, self._highest_sequence - self._first_sequence + 1 - self._received)
+
+    @property
     def path(self) -> str | None:
         """How media reaches this host: the camera's network, Tend's relay, or elsewhere."""
         peer = self._ports[0].peer if self._ports and self._ports[0].ready else None

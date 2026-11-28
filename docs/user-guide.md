@@ -184,6 +184,14 @@ the load on the Home Assistant host is small.
   Where UDP is blocked it falls back, as the MyQ app does, to MyQ's encrypted
   TLS video channel. Each fallback adds some seconds before the picture
   appears.
+- While video is playing, the camera's diagnostics show which way it comes,
+  under `live_video_source`. `media_path` is `local` (straight from the camera
+  on your network), `remote` (from the camera's public address), `relay`
+  (through MyQ's relay) or `tcp_relay` (the TLS video channel).
+  `transport.modes_tried` lists the video modes tried, in order: 9 or 8 straight
+  to the camera, 10 or 11 through the relay, 0 the TLS channel.
+  `camera_packets`, `lost_packets` and `unreadable_packets` count the video
+  packets received, missing and damaged on the way.
 - Home Assistant's stream features work, including `camera.record` and
   **Preload camera stream**. Preloading keeps the camera streaming all the time;
   leave it off unless you want that.
@@ -438,7 +446,8 @@ installation and Bluetooth-only lock operations are done in the MyQ app.
   speaker capabilities (talkback, codecs, stored sounds, and whether it has a
   Speaker), the result of the last live-video wake-up, the account's live-video
   feature flags, which video and audio modes a TC camera tried and which ones it
-  used, the codec of its sound, how much of it was served and how long it took
+  used, which way its video comes and how many video packets went missing or
+  arrived damaged, the codec of its sound, how much of it was served and how long it took
   to begin, how many players were told of the sound when they started, and the
   last live-video error. They leave out tokens, names, serial numbers, account IDs,
   addresses and camera payloads.

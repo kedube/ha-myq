@@ -249,10 +249,11 @@ async def test_receiver_report_sequence_wrap_loss_and_sender_report():
     receiver, _, _ = prepared_receiver(key=b"", confirmed=True)
     control = receiver._ports[1]
     control.peer = CAMERA
-    assert receiver._report() is None
+    assert receiver._report() is None and receiver.lost == 0
     for group, sequence in enumerate((65534, 65535, 1), start=1):
         receiver._fragment(fragment(group, 0, rtp(envelope(IDR), sequence=sequence)))
     receiver._fragment(fragment(9, 0, b"flush-it"))
+    assert receiver.lost == 1  # For diagnostics, as the report counts it.
     sender_report = struct.pack("!BBHIIIIII", 0x80, 200, 6, 42, 0x11223344, 0x55667788, 0, 0, 0)
     receiver._receive(control, sender_report, CAMERA)
     report = receiver._report()
@@ -264,6 +265,19 @@ async def test_receiver_report_sequence_wrap_loss_and_sender_report():
     assert struct.unpack_from("!I", report, 24)[0] == 0x33445566
     await receiver.close()
     assert sent(control)[-1] == (struct.pack("!BBHI", 0x81, 203, 1, receiver._ssrc), CAMERA)
+
+
+def test_lost_packets_are_the_gaps_in_the_cameras_numbering_and_never_negative():
+    receiver, _, _ = prepared_receiver(key=b"", confirmed=True)
+    for group, sequence in enumerate((10, 11, 14), start=1):  # 12 and 13 never came.
+        receiver._fragment(fragment(group, 0, rtp(envelope(IDR), sequence=sequence)))
+    receiver._fragment(fragment(9, 0, b"flush-it"))
+    assert receiver.lost == 2
+    repeated, _, _ = prepared_receiver(key=b"", confirmed=True)
+    for group in (1, 2, 3):  # The same packet three times: more received than numbered.
+        repeated._fragment(fragment(group, 0, rtp(envelope(IDR), sequence=5)))
+    repeated._fragment(fragment(9, 0, b"flush-it"))
+    assert repeated.packets == 3 and repeated.lost == 0
 
 
 async def test_silence_ends_the_receiver_and_reports_why(monkeypatch):

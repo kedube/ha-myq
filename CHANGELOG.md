@@ -5,6 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- A TC camera's diagnostics count the video packets that never arrived
+  (`lost_packets`), beside those received and those that arrived damaged. The
+  user guide explains how to read which way the video comes.
+
+### Changed
+
+- A TC camera's stream keeps one clock across camera sessions. When a session
+  ends and the next one starts, players that stayed connected through Home
+  Assistant's go2rtc, such as Frigate, see the stream's time carry on instead of
+  starting again.
+
 ## [0.22] - 2026-11-28
 
 ### Added

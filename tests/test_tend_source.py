@@ -544,6 +544,7 @@ async def test_status_reports_counts_and_no_addresses(source):
         "audio_started_after": None,
         "media_path": None,
         "camera_packets": None,
+        "lost_packets": None,
         "unreadable_packets": None,
         "transport": None,
         "last_error": None,
@@ -551,13 +552,14 @@ async def test_status_reports_counts_and_no_addresses(source):
     url = await served.url()
     async with http.get(url):
         await until(lambda: served.readers == 1)
-        media = {"path": "local", "packets": 9, "unreadable": 1}
+        media = {"path": "local", "packets": 9, "lost": 2, "unreadable": 1}
         camera.sessions[0].media = type("Media", (), media)
         status = served.status()
         assert status["address_served"] and status["session_open"] and status["readers"] == 1
-        assert (status["media_path"], status["camera_packets"], status["unreadable_packets"]) == (
-            "local",
+        assert status["media_path"] == "local"
+        assert (status["camera_packets"], status["lost_packets"], status["unreadable_packets"]) == (
             9,
+            2,
             1,
         )
         assert urlsplit(url).path not in str(status) and str(urlsplit(url).port) not in str(status)
@@ -660,6 +662,23 @@ async def test_served_stream_meets_home_assistants_webrtc_player_rules(source):
     # Each keyframe is marked as a place to start, behind the tables.
     assert stream.random_access == len(pes[::5])
     assert all(pcr < pts for pcr, (pts, _) in zip(stream.pcr, pes, strict=True))
+
+
+async def test_next_camera_session_continues_the_streams_clock(source):
+    """go2rtc passes MPEG-TS times on as they are (pkg/mpegts), and its viewers stay
+    connected while it reconnects, so the next session's times follow on in real time."""
+    served, camera, http = source
+    url = await served.url()
+    times = []
+    for _ in range(2):
+        async with http.get(url) as response:
+            camera.send(record(SPS, PPS, IDR))
+            stream = await read_until(response, lambda stream: stream.pes.get(VIDEO_PID))
+            times.append(stream.pes[VIDEO_PID][0][0])
+            await served.stop()
+        await asyncio.sleep(0.2)
+    assert len(camera.sessions) == 2
+    assert times[1] - times[0] >= 0.2 * 90000
 
 
 @pytest.mark.parametrize("codec", [4, 2])

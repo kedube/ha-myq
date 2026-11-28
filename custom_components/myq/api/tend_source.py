@@ -164,8 +164,9 @@ class TendSource:
         # Parameter sets by their own identifier: a camera may use more than one.
         self._sps: dict[int, bytes] = {}
         self._pps: dict[int, bytes] = {}
-        # The session's transport stream: one clock, one writer, the audio it carries.
+        # The stream's clock runs from here, across camera sessions (_clock).
         self._origin = time.monotonic()
+        # The session's transport stream: one writer, the audio it carries.
         self._mux = TsMuxer()
         self._audio = LiveAudio()
         self._opened = 0.0  # When the session opened, to time the start of its sound.
@@ -223,6 +224,8 @@ class TendSource:
             "audio_started_after": self.audio_started_after,
             "media_path": getattr(media, "path", None),
             "camera_packets": getattr(media, "packets", None),
+            # Packets the camera numbered that never arrived (UDP only).
+            "lost_packets": getattr(media, "lost", None),
             "unreadable_packets": getattr(media, "unreadable", None),
             "transport": transport if isinstance(transport, dict) else self.last_transport,
             "last_error": self.last_error,
@@ -310,8 +313,7 @@ class TendSource:
         """Open the camera session and take ownership of it, or record why not."""
         try:
             async with self._session_lock:
-                # A new session's stream: its clock, continuity counters and audio.
-                self._origin = time.monotonic()
+                # A new session's stream: its continuity counters and audio.
                 self._mux, self._audio, self.audio_started_after = TsMuxer(), LiveAudio(), None
                 self._video_pts, self._picture_sliced = None, False
                 try:
@@ -370,7 +372,13 @@ class TendSource:
                 await self._close_session()
 
     def _clock(self) -> int:
-        """The session's 90 kHz clock, from one second, so no time is ever negative."""
+        """The stream's 90 kHz clock, from one second, so no time is ever negative.
+
+        It runs on from one camera session to the next. go2rtc passes these times on
+        as they are, and its viewers stay connected while it reconnects here, so a new
+        session continues their timeline instead of starting it again. The muxer wraps
+        the clock at 33 bits, as transport stream times do.
+        """
         return int((time.monotonic() - self._origin) * CLOCK) + CLOCK
 
     def _audio_pending(self) -> bool:
