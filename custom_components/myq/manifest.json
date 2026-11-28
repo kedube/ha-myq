@@ -23,5 +23,5 @@
     "aiortc==1.16.0",
     "curl_cffi==0.15.0"
   ],
-  "version": "0.22"
+  "version": "0.23"
 }

@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.23] - 2026-11-28
+
 ### Added
 
 - A TC camera's diagnostics count the video packets that never arrived
