@@ -21,6 +21,16 @@
           "response": "Verifizierungsantwort"
         }
       },
+      "browser": {
+        "title": "Mit einem Browser anmelden",
+        "description": "MyQ verlangt, dass diese Anmeldung in einem Webbrowser abgeschlossen wird.\n\n1. [Öffne die MyQ-Anmeldeseite]({authorize_url}) in einem Browser auf einem Computer und melde dich mit {email} an. Auf einem Telefon mit der MyQ-App öffnet sich möglicherweise stattdessen die App.\n2. Nach der Anmeldung versucht der Browser, eine Adresse zu öffnen, die mit `com.myqops://android` beginnt. Kopiere die vollständige Adresse und füge sie unten ein.\n\nWird die Adresse nicht angezeigt, öffne die Entwicklertools des Browsers (F12 in Chrome oder Edge) und kopiere sie aus der Konsolenmeldung, die mit `Failed to launch 'com.myqops://android?` beginnt. Der Link funktioniert einmal und läuft nach 10 Minuten ab.",
+        "data": {
+          "callback": "Adresse aus dem Browser"
+        },
+        "data_description": {
+          "callback": "Die vollständige Adresse com.myqops://android oder die ganze Konsolenmeldung, die sie enthält."
+        }
+      },
       "reauth_confirm": {
         "title": "MyQ erneut verbinden",
         "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an. Passwort und Debug-Token werden nicht gespeichert.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ hat die Anfragen begrenzt. Warte, bevor du es erneut versuchst.",
       "protocol_error": "MyQ hat eine unerwartete Antwort zurückgegeben. Sieh in den Protokollnotizen der Integration nach. Es wurde kein Konto hinzugefügt.",
       "browser_verification": "MyQ verlangt eine Browser-Verifizierung, die diese Integration nicht abschließen kann.",
+      "invalid_callback": "Das ist nicht die Adresse aus dem hier angezeigten Anmeldelink. Füge die vollständige Adresse ein, die mit com.myqops://android beginnt.",
+      "browser_expired": "Der Anmeldelink ist abgelaufen. Öffne den neuen Link und melde dich erneut an.",
+      "browser_auth_failed": "MyQ hat diese Anmeldung nicht akzeptiert. Öffne den neuen Link und melde dich erneut an.",
       "app_check_unavailable": "Die App-Verifizierung konnte nicht von Firebase abgerufen werden. Prüfen Sie die Verbindung und Registrierung und versuchen Sie es erneut.",
       "app_check_expired": "Der Anbieter der App-Verifizierung hat ein bald ablaufendes Token zurückgegeben. Versuche es erneut.",
       "app_check_invalid": "Das Debug-Token, die Konfiguration der App-Verifizierung oder das zurückgegebene Token ist ungültig.",

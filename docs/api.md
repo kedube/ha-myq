@@ -88,10 +88,17 @@ are `/api/v6.1/...`. Use the routes exactly as given here.
 
 ## Authentication
 
-Sign-in is OAuth 2.0 with PKCE. The user signs in on MyQ's hosted pages, which
-return an authorization code to the app's redirect URI. The app exchanges that
-code for tokens, attaching a Firebase App Check token that proves the request
-comes from the genuine app.
+Sign-in is OAuth 2.0 with PKCE. The Android app opens the authorization URL in
+a Chrome Custom Tab, where the user signs in on MyQ's hosted pages. The pages
+end by redirecting to the app's redirect URI with an authorization code, which
+the app receives through its `com.myqops://android` intent filter. The app
+exchanges that code for tokens, attaching a Firebase App Check token that
+proves the request comes from the genuine app.
+
+The integration completes the hosted pages in one of two ways. Automatic
+sign-in submits their forms itself, which the app does not do.
+[Browser sign-in](sign-in.md#browser-sign-in) has the user complete them in a
+browser, as the app does, and paste the redirect address.
 
 ```mermaid
 sequenceDiagram
@@ -123,14 +130,29 @@ sequenceDiagram
 | `acr_values` | `unified_flow:v1  brand:myq` (two spaces) |
 | `prompt` | `login` |
 
-The app sends no `state`. The integration adds one and checks the callback's
-scheme, path, `state` and single `code`.
+The app builds `acr_values` as flow, sign-up flag and brand separated by
+spaces. The sign-up flag is empty when signing in, which leaves the two spaces.
+Unlike the iOS app, the Android app sends no app version there.
+
+The app sends no `state`, and accepts any redirect with its scheme and host and
+a `code`. The integration adds a `state` and checks the redirect's scheme, path,
+`state`, issuer when present, and single `code`.
 
 ### Hosted sign-in pages
 
 The pages are ordinary HTML forms on the identity host. Each form carries
 hidden fields, including `__RequestVerificationToken`, that must be sent back
 with it, together with the cookies set during the sign-in.
+
+Cloudflare protects the identity host and may answer with a browser check
+instead of a page (see [request conventions](#request-conventions)). The
+integration requests these pages with Chrome's TLS and HTTP/2 profile, matching
+the Chrome identity in its headers.
+
+The app also contains an older flow that fills these forms in a hidden WebView,
+with `acr_values` set to `  brand:myq` (no flow version). Its login screen does
+not start that flow: it supplies no email or password, so the app renews the
+saved session instead. New sign-ins use the Custom Tab.
 
 | Step | Request | Fields |
 | --- | --- | --- |
@@ -145,7 +167,8 @@ with it, together with the cookies set during the sign-in.
 
 The code exchange carries a Firebase App Check token in the
 `Firebase-AppCheck-Token` header. Without an accepted token, MyQ refuses the
-exchange with code `401.122`.
+exchange with code `401.122`. The app uses an ordinary App Check token, not a
+limited-use one, and reuses it until it expires.
 
 The Android app obtains the token from Google Play Integrity through Firebase's
 `generatePlayIntegrityChallenge` and `exchangePlayIntegrityToken` calls. The

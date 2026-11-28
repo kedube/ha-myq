@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from custom_components.myq.api.errors import AuthenticationError, ProtocolError
-from custom_components.myq.api.oauth import OAuthSession, ui_locale
+from custom_components.myq.api.oauth import OAuthSession, find_callback, ui_locale
 from custom_components.myq.api.tokens import TokenManager
 
 from .conftest import json_response
@@ -97,3 +97,31 @@ def test_authorize_url_carries_the_locale_and_refuses_an_unsafe_one():
     assert query["ui_locales"] == ["fr-CA"]
     query = parse_qs(urlsplit(OAuthSession(locale="x&prompt=none").authorize_url).query)
     assert query["ui_locales"] == ["en-US"] and query["prompt"] == ["login"]
+
+
+CALLBACK = "com.myqops://android?code=abc&scope=openid&state=s-1&iss=https%3A%2F%2Fpartner"
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        CALLBACK,
+        f"  {CALLBACK}\n",
+        f'"{CALLBACK}"',
+        f"Failed to launch '{CALLBACK}' because the scheme does not have a registered handler.",
+        f"Failed to launch '{CALLBACK}' because …\nFailed to launch '{CALLBACK}' because …",
+    ],
+    ids=["bare", "spaces", "quoted", "console", "repeated"],
+)
+def test_find_callback_takes_the_address_from_pasted_text(pasted):
+    assert find_callback(pasted) == CALLBACK
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    ["", "https://partner-identity.myq-cloud.com/", f"{CALLBACK} {CALLBACK}x", "x" * 16385],
+    ids=["empty", "other-address", "two-addresses", "too-long"],
+)
+def test_find_callback_refuses_text_without_one_address(pasted):
+    with pytest.raises(ProtocolError):
+        find_callback(pasted)

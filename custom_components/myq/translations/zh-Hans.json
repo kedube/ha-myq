@@ -21,6 +21,16 @@
           "response": "验证响应"
         }
       },
+      "browser": {
+        "title": "使用浏览器登录",
+        "description": "MyQ 要求在网页浏览器中完成此次登录。\n\n1. 在电脑的浏览器中[打开 MyQ 登录页面]({authorize_url})，并使用 {email} 登录。在安装了 MyQ 应用的手机上，可能会改为打开该应用。\n2. 登录完成后，浏览器会尝试打开一个以 `com.myqops://android` 开头的地址。请复制完整地址并粘贴到下方。\n\n如果没有显示该地址，请打开浏览器的开发者工具（Chrome 或 Edge 中按 F12），从以 `Failed to launch 'com.myqops://android?` 开头的控制台消息中复制。该链接只能使用一次，10 分钟后失效。",
+        "data": {
+          "callback": "浏览器中的地址"
+        },
+        "data_description": {
+          "callback": "完整的 com.myqops://android 地址，或包含该地址的整条控制台消息。"
+        }
+      },
       "reauth_confirm": {
         "title": "重新连接 MyQ",
         "description": "无法续期您的 MyQ 会话。请重新登录同一账户。密码和调试令牌不会被保存。",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ 已限制请求。请稍候再试。",
       "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
       "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
+      "invalid_callback": "这不是此处所示登录链接的地址。请粘贴以 com.myqops://android 开头的完整地址。",
+      "browser_expired": "登录链接已过期。请打开新链接并重新登录。",
+      "browser_auth_failed": "MyQ 未接受此次登录。请打开新链接并重新登录。",
       "app_check_unavailable": "无法从 Firebase 获取应用验证。请检查连接和注册配置，然后重试。",
       "app_check_expired": "应用验证服务返回了即将过期的令牌。请重试。",
       "app_check_invalid": "调试令牌、应用验证配置或返回的令牌无效。",

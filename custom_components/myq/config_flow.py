@@ -4,6 +4,7 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 import voluptuous as vol
@@ -25,13 +26,14 @@ from .api.errors import (
     BrowserVerificationRequired,
     CannotConnect,
     MyQError,
+    ProtocolError,
     RateLimited,
     SessionRenewalFailed,
     UnsupportedAuthStep,
 )
 from .api.firebase import REGISTRATION_FILE, FirebaseDebugAppCheckProvider, FirebaseRegistration
 from .api.http import Http
-from .api.oauth import ui_locale
+from .api.oauth import OAuthSession, find_callback, ui_locale
 from .api.tokens import Tokens
 from .const import (
     CONF_ENABLE_CAMERAS,
@@ -85,6 +87,8 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
         # spend another Firebase exchange. Replaced when the registration changes.
         self._provider: FirebaseDebugAppCheckProvider | None = None
         self._provider_key: FirebaseRegistration | None = None
+        # The sign-in link shown for browser sign-in; replaced once used or expired.
+        self._browser: OAuthSession | None = None
         self._email = ""
         self._cooldown_until = 0.0
 
@@ -132,6 +136,7 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
     def _close(self) -> None:
         """End the sign-in and drop the flow's App Check proof."""
         self._close_login()
+        self._browser = None
         if self._provider is not None:
             self._provider.invalidate()
             self._provider = self._provider_key = None
@@ -235,11 +240,56 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                     return await self.async_step_mfa()
                 return await self._finish()
             except MyQError as err:
+                if self._needs_browser(err):
+                    return await self._start_browser()
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
                 self._close_login()
         return self._credentials_form(errors)
+
+    def _needs_browser(self, error: MyQError) -> bool:
+        """MyQ showed a browser check or a screen only a browser can complete.
+
+        The debug token was accepted before any MyQ page was opened, so the
+        browser sign-in's code exchange can be proved with it.
+        """
+        return (
+            isinstance(error, UnsupportedAuthStep)
+            and self._provider is not None
+            and not self._signed_in()
+        )
+
+    async def _start_browser(self):
+        self._close_login()
+        self._browser = None
+        return await self.async_step_browser()
+
+    async def async_step_browser(self, user_input=None):
+        """Sign in on MyQ's page in the person's own browser, then paste the app address."""
+        if self._provider is None:
+            return await self.async_step_user()
+        errors = {}
+        if user_input is not None:
+            errors = await self._complete_browser(user_input["callback"])
+            if errors is None:
+                try:
+                    return await self._finish()
+                except MyQError as err:
+                    errors = {"base": self._error(err)}
+            if self._signed_in():
+                return self._finish_form(errors)
+        if self._browser is None:
+            self._browser = OAuthSession(locale=self._locale)
+        return self.async_show_form(
+            step_id="browser",
+            data_schema=vol.Schema({vol.Required("callback"): str}),
+            errors=errors,
+            description_placeholders={
+                "authorize_url": self._browser.authorize_url,
+                "email": self._email,
+            },
+        )
 
     def _credentials_form(self, errors=None):
         return self.async_show_form(
@@ -269,6 +319,8 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 if previous_kind == "code" and result.kind == "code":
                     errors["base"] = "invalid_code"
             except MyQError as err:
+                if self._needs_browser(err):
+                    return await self._start_browser()
                 errors["base"] = self._error(err)
                 if self._signed_in():
                     return self._finish_form(errors)
@@ -305,6 +357,49 @@ class MyQFlow(ConfigFlow, domain=DOMAIN):
                 else "Enter the verification code supplied by MyQ.",
             },
         )
+
+    async def _complete_browser(self, pasted: str) -> dict[str, str] | None:
+        """Exchange the pasted app address for a session; the form's errors if not.
+
+        The link is replaced when it has expired or MyQ has used or refused it.
+        """
+        oauth = self._browser
+        if time.monotonic() < self._cooldown_until:
+            return {"base": "rate_limited"}
+        try:
+            if oauth is None:
+                raise AuthenticationError("No browser sign-in link")
+            oauth.check_active()
+        except AuthenticationError:
+            self._browser = None
+            return {"base": "browser_expired"}
+        try:
+            callback_url = find_callback(pasted)
+            if parse_qs(urlsplit(callback_url).query).get("state") != [oauth.state]:
+                raise ProtocolError("The address is from a different sign-in link")
+            oauth.callback_code(callback_url)
+        except AuthenticationError:
+            # The address is this link's, but MyQ ended the sign-in (an error=…).
+            self._browser = None
+            return {"base": "browser_auth_failed"}
+        except MyQError:
+            return {"callback": "invalid_callback"}
+        try:
+            client = await self._new_client()
+            # A sign-in that is still cooling down fails before Firebase is asked.
+            self._backoff.check(IDENTITY)
+            await oauth.complete(callback_url, client.auth, app_check_provider=self._provider)
+            return None
+        except MyQError as err:
+            if self._signed_in():
+                return {"base": self._error(err)}
+            self._close_login()
+            if oauth.used or isinstance(err, AuthenticationError):
+                # A code that was sent is spent: only a new sign-in can follow.
+                self._browser = None
+            if isinstance(err, AuthenticationError):
+                return {"base": "browser_auth_failed"}
+            return {"base": self._error(err)}
 
     async def _finish(self):
         profile = await self._client.profile()

@@ -21,6 +21,16 @@
           "response": "Resposta de verificação"
         }
       },
+      "browser": {
+        "title": "Entrar com um navegador",
+        "description": "O MyQ exige que este login seja concluído em um navegador.\n\n1. [Abra a página de login do MyQ]({authorize_url}) em um navegador no computador e entre com {email}. Em um celular com o app MyQ, o app pode abrir no lugar.\n2. Ao terminar, o navegador tenta abrir um endereço que começa com `com.myqops://android`. Copie o endereço completo e cole-o abaixo.\n\nSe o endereço não aparecer, abra as ferramentas de desenvolvedor do navegador (F12 no Chrome ou no Edge) e copie-o da mensagem do console que começa com `Failed to launch 'com.myqops://android?`. O link funciona uma vez e expira após 10 minutos.",
+        "data": {
+          "callback": "Endereço do navegador"
+        },
+        "data_description": {
+          "callback": "O endereço completo com.myqops://android ou a mensagem inteira do console que o contém."
+        }
+      },
       "reauth_confirm": {
         "title": "Reconectar o MyQ",
         "description": "Não foi possível renovar sua sessão do MyQ. Entre novamente na mesma conta. Sua senha e seu token de depuração não são salvos.",
@@ -48,6 +58,9 @@
       "rate_limited": "O MyQ limitou as solicitações. Aguarde antes de tentar novamente.",
       "protocol_error": "O MyQ retornou uma resposta inesperada. Consulte as notas de protocolo da integração. Nenhuma conta foi adicionada.",
       "browser_verification": "O MyQ exige uma verificação no navegador que esta integração não consegue concluir.",
+      "invalid_callback": "Este não é o endereço do link de login mostrado aqui. Cole o endereço completo que começa com com.myqops://android.",
+      "browser_expired": "O link de login expirou. Abra o novo link e entre novamente.",
+      "browser_auth_failed": "O MyQ não aceitou este login. Abra o novo link e entre novamente.",
       "app_check_unavailable": "Não foi possível obter a verificação do aplicativo do Firebase. Verifique a conexão e o registro e tente novamente.",
       "app_check_expired": "O serviço de verificação retornou um token próximo do vencimento. Tente novamente.",
       "app_check_invalid": "O token de depuração, a configuração de verificação do aplicativo ou o token recebido é inválido.",

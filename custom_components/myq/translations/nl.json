@@ -21,6 +21,16 @@
           "response": "Verificatieantwoord"
         }
       },
+      "browser": {
+        "title": "Inloggen met een browser",
+        "description": "MyQ vereist dat deze aanmelding in een webbrowser wordt afgerond.\n\n1. [Open de MyQ-inlogpagina]({authorize_url}) in een browser op een computer en log in met {email}. Op een telefoon met de MyQ-app kan in plaats daarvan de app openen.\n2. Na het inloggen probeert de browser een adres te openen dat begint met `com.myqops://android`. Kopieer het volledige adres en plak het hieronder.\n\nAls het adres niet wordt getoond, open dan de ontwikkelaarstools van de browser (F12 in Chrome of Edge) en kopieer het uit de consolemelding die begint met `Failed to launch 'com.myqops://android?`. De link werkt één keer en verloopt na 10 minuten.",
+        "data": {
+          "callback": "Adres uit de browser"
+        },
+        "data_description": {
+          "callback": "Het volledige adres com.myqops://android, of de hele consolemelding waarin het staat."
+        }
+      },
       "reauth_confirm": {
         "title": "MyQ opnieuw verbinden",
         "description": "Je MyQ-sessie kon niet worden vernieuwd. Meld je opnieuw aan bij hetzelfde account. Je wachtwoord en debugtoken worden niet opgeslagen.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ heeft het aantal verzoeken beperkt. Wacht voordat je het opnieuw probeert.",
       "protocol_error": "MyQ gaf een onverwacht antwoord. Raadpleeg de protocolnotities van de integratie. Er is geen account toegevoegd.",
       "browser_verification": "MyQ vereist een browserverificatie die deze integratie niet kan voltooien.",
+      "invalid_callback": "Dit is niet het adres van de inloglink die hier staat. Plak het volledige adres dat begint met com.myqops://android.",
+      "browser_expired": "De inloglink is verlopen. Open de nieuwe link en log opnieuw in.",
+      "browser_auth_failed": "MyQ heeft deze aanmelding niet geaccepteerd. Open de nieuwe link en log opnieuw in.",
       "app_check_unavailable": "De appverificatie kon niet worden opgehaald bij Firebase. Controleer de verbinding en registratie en probeer het opnieuw.",
       "app_check_expired": "De verificatiedienst heeft een bijna verlopen token teruggestuurd. Probeer het opnieuw.",
       "app_check_invalid": "Het debugtoken, de configuratie voor appverificatie of het ontvangen token is ongeldig.",

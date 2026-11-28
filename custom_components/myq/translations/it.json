@@ -21,6 +21,16 @@
           "response": "Risposta di verifica"
         }
       },
+      "browser": {
+        "title": "Accedi con un browser",
+        "description": "MyQ richiede che questo accesso venga completato in un browser web.\n\n1. [Apri la pagina di accesso di MyQ]({authorize_url}) in un browser su un computer e accedi con {email}. Su un telefono con l’app MyQ potrebbe aprirsi invece l’app.\n2. Al termine dell’accesso, il browser prova ad aprire un indirizzo che inizia con `com.myqops://android`. Copia l’indirizzo completo e incollalo qui sotto.\n\nSe l’indirizzo non viene mostrato, apri gli strumenti per sviluppatori del browser (F12 in Chrome o Edge) e copialo dal messaggio della console che inizia con `Failed to launch 'com.myqops://android?`. Il link funziona una sola volta e scade dopo 10 minuti.",
+        "data": {
+          "callback": "Indirizzo dal browser"
+        },
+        "data_description": {
+          "callback": "L’indirizzo completo com.myqops://android, oppure l’intero messaggio della console che lo contiene."
+        }
+      },
       "reauth_confirm": {
         "title": "Riconnetti MyQ",
         "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi nuovamente allo stesso account. La password e il token di debug non vengono salvati.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ ha limitato le richieste. Attendi prima di riprovare.",
       "protocol_error": "MyQ ha restituito una risposta imprevista. Consulta le note sul protocollo dell'integrazione. Nessun account è stato aggiunto.",
       "browser_verification": "MyQ richiede una verifica nel browser che questa integrazione non può completare.",
+      "invalid_callback": "Questo non è l’indirizzo del link di accesso mostrato qui. Incolla l’indirizzo completo che inizia con com.myqops://android.",
+      "browser_expired": "Il link di accesso è scaduto. Apri il nuovo link e accedi di nuovo.",
+      "browser_auth_failed": "MyQ non ha accettato questo accesso. Apri il nuovo link e accedi di nuovo.",
       "app_check_unavailable": "Impossibile ottenere la verifica dell’app da Firebase. Controlla la connessione e la registrazione, quindi riprova.",
       "app_check_expired": "Il servizio di verifica ha restituito un token in scadenza. Riprova.",
       "app_check_invalid": "Il token di debug, la configurazione di verifica dell’app o il token ricevuto non è valido.",

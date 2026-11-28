@@ -21,6 +21,16 @@
           "response": "Réponse de vérification"
         }
       },
+      "browser": {
+        "title": "Se connecter avec un navigateur",
+        "description": "MyQ demande que cette connexion soit terminée dans un navigateur web.\n\n1. [Ouvrez la page de connexion MyQ]({authorize_url}) dans un navigateur sur un ordinateur et connectez-vous avec {email}. Sur un téléphone où l’app MyQ est installée, l’app peut s’ouvrir à la place.\n2. À la fin de la connexion, le navigateur tente d’ouvrir une adresse qui commence par `com.myqops://android`. Copiez l’adresse complète et collez-la ci-dessous.\n\nSi l’adresse n’est pas affichée, ouvrez les outils de développement du navigateur (F12 dans Chrome ou Edge) et copiez-la depuis le message de la console qui commence par `Failed to launch 'com.myqops://android?`. Le lien ne fonctionne qu’une fois et expire au bout de 10 minutes.",
+        "data": {
+          "callback": "Adresse du navigateur"
+        },
+        "data_description": {
+          "callback": "L’adresse complète com.myqops://android, ou le message de la console entier qui la contient."
+        }
+      },
       "reauth_confirm": {
         "title": "Reconnecter MyQ",
         "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ a limité les requêtes. Patientez avant de réessayer.",
       "protocol_error": "MyQ a renvoyé une réponse inattendue. Consultez les notes sur le protocole de l'intégration. Aucun compte n'a été ajouté.",
       "browser_verification": "MyQ exige une vérification dans un navigateur que cette intégration ne peut pas effectuer.",
+      "invalid_callback": "Ce n’est pas l’adresse du lien de connexion affiché ici. Collez l’adresse complète qui commence par com.myqops://android.",
+      "browser_expired": "Le lien de connexion a expiré. Ouvrez le nouveau lien et reconnectez-vous.",
+      "browser_auth_failed": "MyQ n’a pas accepté cette connexion. Ouvrez le nouveau lien et reconnectez-vous.",
       "app_check_unavailable": "Impossible d’obtenir la vérification de l’application auprès de Firebase. Vérifiez la connexion et l’enregistrement, puis réessayez.",
       "app_check_expired": "Le fournisseur de vérification a renvoyé un jeton sur le point d’expirer. Réessayez.",
       "app_check_invalid": "Le jeton de débogage, la configuration de vérification de l’application ou le jeton reçu est invalide.",

@@ -21,6 +21,16 @@
           "response": "Odpowiedź weryfikacyjna"
         }
       },
+      "browser": {
+        "title": "Zaloguj się w przeglądarce",
+        "description": "Usługa MyQ wymaga dokończenia tego logowania w przeglądarce internetowej.\n\n1. [Otwórz stronę logowania MyQ]({authorize_url}) w przeglądarce na komputerze i zaloguj się jako {email}. Na telefonie z aplikacją MyQ zamiast tego może otworzyć się aplikacja.\n2. Po zalogowaniu przeglądarka próbuje otworzyć adres zaczynający się od `com.myqops://android`. Skopiuj cały adres i wklej go poniżej.\n\nJeśli adres się nie wyświetla, otwórz narzędzia deweloperskie przeglądarki (F12 w Chrome lub Edge) i skopiuj go z komunikatu w konsoli zaczynającego się od `Failed to launch 'com.myqops://android?`. Link działa jeden raz i wygasa po 10 minutach.",
+        "data": {
+          "callback": "Adres z przeglądarki"
+        },
+        "data_description": {
+          "callback": "Cały adres com.myqops://android albo cały komunikat z konsoli, który go zawiera."
+        }
+      },
       "reauth_confirm": {
         "title": "Połącz ponownie z MyQ",
         "description": "Nie udało się odnowić sesji MyQ. Zaloguj się ponownie na to samo konto. Hasło i token debugowania nie są zapisywane.",
@@ -48,6 +58,9 @@
       "rate_limited": "Usługa MyQ ograniczyła liczbę żądań. Odczekaj przed ponowną próbą.",
       "protocol_error": "Usługa MyQ zwróciła nieoczekiwaną odpowiedź. Sprawdź notatki integracji dotyczące protokołu. Nie dodano żadnego konta.",
       "browser_verification": "MyQ wymaga weryfikacji w przeglądarce, której ta integracja nie może ukończyć.",
+      "invalid_callback": "To nie jest adres z pokazanego tutaj linku logowania. Wklej cały adres zaczynający się od com.myqops://android.",
+      "browser_expired": "Link logowania wygasł. Otwórz nowy link i zaloguj się ponownie.",
+      "browser_auth_failed": "Usługa MyQ nie zaakceptowała tego logowania. Otwórz nowy link i zaloguj się ponownie.",
       "app_check_unavailable": "Nie udało się uzyskać weryfikacji aplikacji z Firebase. Sprawdź połączenie i rejestrację, a następnie spróbuj ponownie.",
       "app_check_expired": "Usługa weryfikacji zwróciła token, który wkrótce wygaśnie. Spróbuj ponownie.",
       "app_check_invalid": "Token debugowania, konfiguracja weryfikacji aplikacji lub otrzymany token jest nieprawidłowy.",

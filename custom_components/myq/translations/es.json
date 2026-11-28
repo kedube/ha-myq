@@ -21,6 +21,16 @@
           "response": "Respuesta de verificación"
         }
       },
+      "browser": {
+        "title": "Iniciar sesión con un navegador",
+        "description": "MyQ requiere que este inicio de sesión se complete en un navegador web.\n\n1. [Abre la página de inicio de sesión de MyQ]({authorize_url}) en un navegador de un ordenador e inicia sesión con {email}. En un teléfono con la app MyQ, es posible que se abra la app en su lugar.\n2. Al terminar, el navegador intenta abrir una dirección que empieza por `com.myqops://android`. Copia la dirección completa y pégala abajo.\n\nSi no se muestra la dirección, abre las herramientas de desarrollo del navegador (F12 en Chrome o Edge) y cópiala del mensaje de la consola que empieza por `Failed to launch 'com.myqops://android?`. El enlace funciona una sola vez y caduca a los 10 minutos.",
+        "data": {
+          "callback": "Dirección del navegador"
+        },
+        "data_description": {
+          "callback": "La dirección completa com.myqops://android o el mensaje completo de la consola que la contiene."
+        }
+      },
       "reauth_confirm": {
         "title": "Volver a conectar MyQ",
         "description": "No se pudo renovar tu sesión de MyQ. Vuelve a iniciar sesión en la misma cuenta. La contraseña y el token de depuración no se guardan.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ ha limitado las solicitudes. Espera antes de volver a intentarlo.",
       "protocol_error": "MyQ devolvió una respuesta inesperada. Consulta las notas del protocolo de la integración. No se añadió ninguna cuenta.",
       "browser_verification": "MyQ requiere un paso de verificación en el navegador que esta integración no puede completar.",
+      "invalid_callback": "Esta no es la dirección del enlace de inicio de sesión que se muestra aquí. Pega la dirección completa que empieza por com.myqops://android.",
+      "browser_expired": "El enlace de inicio de sesión caducó. Abre el nuevo enlace e inicia sesión de nuevo.",
+      "browser_auth_failed": "MyQ no aceptó este inicio de sesión. Abre el nuevo enlace e inicia sesión de nuevo.",
       "app_check_unavailable": "No se pudo obtener la verificación de la aplicación de Firebase. Compruebe la conexión y el registro y vuelva a intentarlo.",
       "app_check_expired": "El proveedor de verificación devolvió un token próximo a caducar. Inténtalo de nuevo.",
       "app_check_invalid": "El token de depuración, la configuración de verificación de la aplicación o el token recibido no es válido.",

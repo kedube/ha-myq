@@ -6,7 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from unittest.mock import AsyncMock, MagicMock, patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import pytest
 from homeassistant.data_entry_flow import InvalidData
@@ -17,7 +17,6 @@ from custom_components.myq.api.const import IDENTITY
 from custom_components.myq.api.errors import (
     ApplicationVerificationError,
     AuthenticationError,
-    BrowserVerificationRequired,
     CannotConnect,
     RateLimited,
 )
@@ -135,7 +134,6 @@ async def test_form_finish_aborts_when_the_session_is_rejected(hass, cloud, toke
     "error,key",
     [
         (ApplicationVerificationError(), "app_verification"),
-        (BrowserVerificationRequired(), "browser_verification"),
         (AuthenticationError("rejected"), "invalid_auth"),
     ],
 )
@@ -781,3 +779,198 @@ async def test_options_save_and_bounds(hass, tokens):
         "panel_icon": "mdi:garage-variant",
         "panel_require_admin": False,
     }
+
+
+# --- Browser sign-in -------------------------------------------------------------------
+
+CHALLENGE = Response(403, {"cf-mitigated": "challenge"}, b"<title>Just a moment...</title>")
+
+
+def browser_cloud(registration, *, exchange=None, first_page=CHALLENGE):
+    """Offline sign-in whose hosted pages only a browser can pass; counts what is sent."""
+    proof = firebase_token(registration)
+    seen = {"pages": [], "proofs": [], "exchanges": []}
+
+    async def request(_self, method, url, **kwargs):
+        if url.startswith("https://firebaseappcheck.googleapis.com/"):
+            seen["proofs"].append(url)
+            return json_response({"token": proof, "ttl": "3600s"})
+        if url == IDENTITY + "/connect/token":
+            seen["exchanges"].append(kwargs)
+            return exchange or json_response(
+                {"access_token": "browser-access", "refresh_token": "browser-refresh"}
+                | {"expires_in": 3600}
+            )
+        seen["pages"].append((method, kwargs.get("data")))
+        return first_page
+
+    patches = (
+        patch("custom_components.myq.api.http.Http.request", request),
+        patch("custom_components.myq.api.android_http.AndroidHttp.request", request),
+        patch(
+            "custom_components.myq.api.firebase.FirebaseRegistration.read",
+            return_value=registration,
+        ),
+    )
+    return seen, proof, patches
+
+
+def link_state(result):
+    return parse_qs(urlsplit(result["description_placeholders"]["authorize_url"]).query)["state"][0]
+
+
+def app_address(state, **extra):
+    query = {"code": "browser-code", "scope": "openid", "state": state, "iss": IDENTITY, **extra}
+    return "com.myqops://android?" + "&".join(f"{k}={quote(v, safe='')}" for k, v in query.items())
+
+
+async def test_browser_check_switches_to_browser_sign_in_and_creates_the_entry(
+    hass, cloud, registration
+):
+    seen, proof, patches = browser_cloud(registration)
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["step_id"] == "browser" and result["errors"] == {}
+        assert list(result["data_schema"].schema) == ["callback"]
+        assert result["description_placeholders"]["email"] == CREDENTIALS["username"]
+        link = urlsplit(result["description_placeholders"]["authorize_url"])
+        assert f"{link.scheme}://{link.netloc}{link.path}" == IDENTITY + "/connect/authorize"
+        # Only the first page was asked for: the password never left Home Assistant.
+        assert seen["pages"] == [("GET", None)]
+        message = (
+            f"Failed to launch '{app_address(link_state(result))}' because the scheme does "
+            "not have a registered handler."
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": message}
+        )
+    assert result["type"] == "create_entry"
+    assert result["data"]["tokens"]["access_token"] == "browser-access"
+    assert "private-password" not in str(result)
+    (exchange,) = seen["exchanges"]
+    assert exchange["headers"]["Firebase-AppCheck-Token"] == proof
+    assert b"code=browser-code" in exchange["data"]
+    assert len(seen["proofs"]) == 1  # The proof from before the sign-in pages is reused.
+
+
+async def test_browser_sign_in_reconnects_the_same_account(hass, cloud, registration):
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id="verified-user", data={"username": PROFILE["email"]}
+    )
+    entry.add_to_hass(hass)
+    seen, _proof, patches = browser_cloud(registration)
+    with patches[0], patches[1], patches[2]:
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"password": "private-password"}
+        )
+        assert result["step_id"] == "browser"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": app_address(link_state(result))}
+        )
+    assert result["type"] == "abort" and result["reason"] == "reauth_successful"
+    assert entry.data["tokens"]["access_token"] == "browser-access"
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        "the address was not copied",
+        app_address("another-links-state"),
+        "https://partner-identity.myq-cloud.com/connect/authorize/callback",
+    ],
+    ids=["no-address", "other-link", "web-address"],
+)
+async def test_browser_sign_in_refuses_other_text_and_keeps_the_link(hass, registration, pasted):
+    seen, _proof, patches = browser_cloud(registration)
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        state = link_state(result)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": pasted}
+        )
+    assert result["step_id"] == "browser"
+    assert result["errors"] == {"callback": "invalid_callback"}
+    assert link_state(result) == state
+    assert not seen["exchanges"]
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_expired_browser_link_is_replaced_without_an_exchange(hass, registration):
+    seen, _proof, patches = browser_cloud(registration)
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        state = link_state(result)
+        flow = hass.config_entries.flow._progress[result["flow_id"]]
+        flow._browser.expires = time.monotonic() - 1
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": app_address(state)}
+        )
+    assert result["errors"] == {"base": "browser_expired"}
+    assert link_state(result) != state
+    assert not seen["exchanges"]
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_refused_browser_sign_in_needs_a_new_link(hass, registration):
+    refused = json_response({"error": "invalid_grant"}, 400)
+    seen, _proof, patches = browser_cloud(registration, exchange=refused)
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        first = link_state(result)
+        # MyQ ended the sign-in itself: no code to send.
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": app_address(first, error="access_denied")}
+        )
+        assert result["errors"] == {"base": "browser_auth_failed"}
+        assert not seen["exchanges"]
+        second = link_state(result)
+        assert second != first
+        # The code is refused once sent, and is not sent again.
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": app_address(second)}
+        )
+        assert result["errors"] == {"base": "browser_auth_failed"}
+        assert link_state(result) not in {first, second}
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"callback": app_address(second)}
+        )
+        assert result["errors"] == {"callback": "invalid_callback"}
+    assert len(seen["exchanges"]) == 1
+    assert not hass.config_entries.async_entries(DOMAIN)
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_browser_check_at_the_code_switches_to_browser_sign_in(hass, registration):
+    seen, _proof, patches = mfa_cloud(
+        registration,
+        code_form=lambda _state: Response(403, {"cf-mitigated": "challenge"}, b""),
+    )
+    with patches[0], patches[1], patches[2]:
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], CREDENTIALS)
+        assert result["step_id"] == "mfa"
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"response": "123456"}
+        )
+    assert result["step_id"] == "browser" and result["errors"] == {}
+    # A fresh link: the hosted sign-in's own state is not reused.
+    assert link_state(result) not in seen["states"]
+    flow = hass.config_entries.flow._progress[result["flow_id"]]
+    assert flow._login is None
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.async_block_till_done()
+
+
+async def test_browser_step_without_a_debug_token_returns_to_credentials(hass):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    flow = hass.config_entries.flow._progress[result["flow_id"]]
+    result = await flow.async_step_browser()
+    assert result["step_id"] == "user"

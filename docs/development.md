@@ -158,7 +158,7 @@ The client in `api/`:
 | Area | Modules |
 | --- | --- |
 | Sign-in and sessions | `auth.py` (hosted pages), `oauth.py` (PKCE), `tokens.py` (exchange, renewal, revocation), `firebase.py` and `app_check.py` (App Check) |
-| Transport | `http.py`, `curl_http.py` and `android_tls.py` (native requests with Android's TLS profile), `backoff.py` |
+| Transport | `http.py`, `android_http.py` (routes each request), `curl_http.py` and `android_tls.py` (native requests with Android's TLS profile, hosted sign-in pages with Chrome's), `backoff.py` |
 | Accounts and devices | `client.py` (discovery and commands), `models.py`, `garage.py`, `locks.py`, `climate.py`, `account_access.py`, `associations.py` |
 | Management | `management.py`, `alerts.py`, `history.py` |
 | Cameras | `video.py` (REST, snapshots, wake-up), `camera_settings.py`, `camera_commands.py`, `recordings.py` |

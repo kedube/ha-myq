@@ -27,10 +27,10 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 
 class CurlHttp:
-    """Own verified TLS pools; the HA adapter uses the native pools only.
+    """Own verified TLS pools: Chrome's for hosted sign-in pages, Android's for native calls.
 
-    A pool is created when it is first used: Home Assistant never uses the browser
-    one, and closing a pool that was never used would start it only to stop it.
+    A pool is created when it is first used: a running integration never opens the
+    browser one, and closing a pool that was never used would start it only to stop it.
     """
 
     def __init__(self, profile: str = "chrome_android") -> None:

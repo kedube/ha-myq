@@ -204,3 +204,39 @@ async def test_concurrent_unload_and_shutdown_close_pools_once():
         assert not session.closed
         with pytest.raises(CannotConnect, match="transport is closed"):
             await client.http.request("GET", PROFILES, headers=NATIVE_HEADERS)
+
+
+async def test_ha_transport_sends_hosted_sign_in_pages_with_the_chrome_profile(monkeypatch):
+    """Cloudflare checks MyQ's sign-in pages for a browser: they go through curl's Chrome
+    profile, native calls through its Android profile, and anything else through aiohttp."""
+    from unittest.mock import AsyncMock
+
+    from custom_components.myq.api.android_http import AndroidHttp
+    from custom_components.myq.api.const import HOSTED_NAVIGATION_HEADERS, IDENTITY
+    from custom_components.myq.api.http import Response
+
+    curl = AsyncMock(return_value=Response(200, {}, b""))
+    aio = AsyncMock(return_value=Response(200, {}, b""))
+    monkeypatch.setattr("custom_components.myq.api.curl_http.CurlHttp.request", curl)
+    monkeypatch.setattr("custom_components.myq.api.http.Http.request", aio)
+    async with aiohttp.ClientSession() as session:
+        http = AndroidHttp(session)
+        await http.request(
+            "GET", IDENTITY + "/connect/authorize?a=1", headers=HOSTED_NAVIGATION_HEADERS
+        )
+        await http.request(
+            "POST", IDENTITY + "/Account/Login", data={}, headers=HOSTED_NAVIGATION_HEADERS
+        )
+        await http.request("POST", IDENTITY + "/connect/token", headers=NATIVE_HEADERS)
+        await http.request("GET", "https://example.invalid/clip", headers={})
+        await http.request("GET", "http://partner-identity.myq-cloud.com/", headers={})
+        await http.close()
+    assert [(call.args[0], call.args[1]) for call in curl.await_args_list] == [
+        ("GET", IDENTITY + "/connect/authorize?a=1"),
+        ("POST", IDENTITY + "/Account/Login"),
+        ("POST", IDENTITY + "/connect/token"),
+    ]
+    assert [call.args[1] for call in aio.await_args_list] == [
+        "https://example.invalid/clip",
+        "http://partner-identity.myq-cloud.com/",
+    ]

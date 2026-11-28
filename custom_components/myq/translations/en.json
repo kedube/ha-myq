@@ -21,6 +21,16 @@
           "response": "Verification response"
         }
       },
+      "browser": {
+        "title": "Sign in with a browser",
+        "description": "MyQ needs this sign-in to be completed in a web browser.\n\n1. [Open the MyQ sign-in page]({authorize_url}) in a browser on a computer and sign in with {email}. On a phone with the MyQ app, the app may open instead.\n2. When sign-in finishes, the browser tries to open an address that starts with `com.myqops://android`. Copy the complete address and paste it below.\n\nIf the address isn't shown, open the browser's developer tools (F12 in Chrome or Edge) and copy it from the Console message that starts with `Failed to launch 'com.myqops://android?`. The link works once and expires after 10 minutes.",
+        "data": {
+          "callback": "Address from the browser"
+        },
+        "data_description": {
+          "callback": "The complete com.myqops://android address, or the whole Console message that contains it."
+        }
+      },
       "reauth_confirm": {
         "title": "Reconnect MyQ",
         "description": "Your MyQ session could not be renewed. Sign in to the same account again. Your password and debug token are not saved.",
@@ -48,6 +58,9 @@
       "rate_limited": "MyQ has limited requests. Wait before trying again.",
       "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
       "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
+      "invalid_callback": "This isn't the address from the sign-in link shown here. Paste the complete address that starts with com.myqops://android.",
+      "browser_expired": "The sign-in link expired. Open the new link and sign in again.",
+      "browser_auth_failed": "MyQ did not accept this sign-in. Open the new link and sign in again.",
       "app_check_unavailable": "Could not obtain app verification from Firebase. Check the connection and registration, then try again.",
       "app_check_expired": "The app verification provider returned an expiring token. Try again.",
       "app_check_invalid": "The debug token, app verification configuration, or returned token is invalid.",

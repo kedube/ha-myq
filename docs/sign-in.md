@@ -6,6 +6,7 @@ integration and to reconnect it.
 
 - [Before you start: the debug token](#before-you-start-the-debug-token)
 - [Connect your account](#connect-your-account)
+- [Browser sign-in](#browser-sign-in)
 - [Staying signed in](#staying-signed-in)
 - [Removing the integration](#removing-the-integration)
 - [Error messages](#error-messages)
@@ -79,6 +80,9 @@ saved by the integration, and you need it again to reconnect.
 3. Enter the verification code if MyQ asks for one. Email is chosen when MyQ
    offers it.
 
+If MyQ shows a check or screen that only a web browser can complete, Home
+Assistant continues with [browser sign-in](#browser-sign-in) instead.
+
 The **Debug token** field accepts the token on its own, in quotes, as the
 `"debug_token":"…"` entry, or as the whole registration file. If
 `myq_app_check.json` is installed beside `configuration.yaml`, you can leave the
@@ -98,6 +102,33 @@ a **Finish connecting MyQ** step lets you retry without signing in again.
 Each MyQ account can be added once. MyQ's sign-in pages use Home Assistant's
 language and country. Your password, debug token and verification code are used
 for that sign-in only and are not saved.
+
+## Browser sign-in
+
+MyQ's sign-in pages sometimes show a browser check that only a real web browser
+can pass, or a screen this integration does not handle, such as single sign-on.
+Home Assistant then shows **Sign in with a browser**, with a link to MyQ's
+sign-in page:
+
+1. Open the link in a browser on a computer and sign in there, including any
+   verification code. On a phone with the MyQ app, the app may open instead.
+2. When sign-in finishes, the browser tries to open an address that starts
+   with `com.myqops://android`.
+3. Copy the complete address and paste it into **Address from the browser**.
+
+If the browser does not show the address, open its developer tools (F12 in
+Chrome or Edge) and look in **Console** for this message:
+
+```text
+Failed to launch 'com.myqops://android?code=…&state=…' because the scheme does not have a registered handler.
+```
+
+You can paste the whole message; the address is taken from it.
+
+The link can be used once and expires after 10 minutes. Home Assistant shows a
+new link when the old one has expired or MyQ did not accept the sign-in. The
+debug token you entered proves the app when the address is exchanged for a
+session, and your password is entered only on MyQ's page.
 
 ## Staying signed in
 
@@ -127,8 +158,11 @@ The phone app and other sign-ins stay signed in.
 | MyQ rejected the credentials or session | Wrong password or code, or a sign-in that took too long; try again |
 | Verification was not completed | The verification code was not accepted; enter it again |
 | MyQ rejected verification of the application (401.122) | MyQ refused the app proof; check the debug token and start a new sign-in |
-| MyQ requires a browser verification step that this integration cannot complete | MyQ showed a browser check; try again later |
-| MyQ presented a sign-in or verification screen this integration does not yet support | For example single sign-on, or an unknown verification screen |
+| MyQ requires a browser verification step that this integration cannot complete | MyQ showed a browser check after the sign-in pages, where a browser cannot help; try again later |
+| MyQ presented a sign-in or verification screen this integration does not yet support | Start again; such screens normally continue with [browser sign-in](#browser-sign-in) |
+| This isn't the address from the sign-in link shown here | Paste the complete `com.myqops://android` address from the link currently shown |
+| The sign-in link expired | Open the new link and sign in again |
+| MyQ did not accept this sign-in | Open the new link and sign in again |
 | MyQ denied this request | MyQ refused the sign-in for this account or app; check the debug token |
 | MyQ returned an unexpected response | MyQ's sign-in pages or answers were not in the expected form; nothing was saved. The [API reference](api.md#authentication) describes what is expected |
 | MyQ has limited requests | Wait before trying again |

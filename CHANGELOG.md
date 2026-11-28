@@ -5,6 +5,22 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- Browser sign-in. When MyQ's sign-in pages show a browser check, or a screen
+  the integration does not handle such as single sign-on, setup and reconnect
+  continue with **Sign in with a browser** instead of stopping. Sign in on
+  MyQ's page in a browser on a computer, then paste the `com.myqops://android`
+  address it tries to open, or the browser console message containing it. The
+  debug token already entered proves the app for the code exchange. See
+  [browser sign-in](https://github.com/kedube/ha-myq/blob/main/docs/sign-in.md#browser-sign-in).
+
+### Changed
+
+- MyQ's sign-in pages are requested with Chrome's TLS and HTTP/2 profile,
+  matching the Chrome identity they already sent, instead of Python's. This
+  makes MyQ's browser check less likely to appear.
+
 ## [0.18] - 2026-11-27
 
 ### Fixed

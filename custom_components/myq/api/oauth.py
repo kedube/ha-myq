@@ -1,7 +1,8 @@
 """OAuth transaction independent of the browser or diagnostic form transport.
 
 Parameters follow sp0/b -> cp0/d -> ip0/j.c -> ip0/n.h -> AuthUrlParams.
-The legacy hidden-WebView flow uses ip0/j.j0 instead (unifiedFlow=false).
+The older hidden-WebView flow uses ip0/j.j0 instead (unifiedFlow=false); the
+app's login screen does not start it, as it passes no credentials (gp0/f.e).
 """
 
 import asyncio
@@ -45,6 +46,20 @@ def ui_locale(language: str | None, country: str | None = None) -> str:
 def is_callback(url: str) -> bool:
     parsed = urlsplit(url)
     return parsed.scheme == "com.myqops" and parsed.netloc == "android"
+
+
+# An address ends at whitespace or a quote: Chrome's console wraps it in '…'.
+_CALLBACK_IN_TEXT = re.compile(r"com\.myqops://android[^\s'\"<>]*")
+
+
+def find_callback(text: str) -> str:
+    """The callback address in pasted text: on its own, quoted, or in a browser message."""
+    if not isinstance(text, str) or len(text) > 16384:
+        raise ProtocolError("Unexpected MyQ authorization callback")
+    found = set(_CALLBACK_IN_TEXT.findall(text))
+    if len(found) != 1:
+        raise ProtocolError("Unexpected MyQ authorization callback")
+    return found.pop()
 
 
 def validate_callback(url: str, state: str) -> str:

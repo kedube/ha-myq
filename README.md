@@ -97,7 +97,9 @@ Both install the latest **release**, not the latest commit.
 
 Go to **Settings → Devices & services → Add integration → MyQ**, enter your MyQ
 email, password and debug token, and enter the verification code if MyQ asks
-for one. The [sign-in guide](docs/sign-in.md) covers the details.
+for one. If MyQ shows a check that only a web browser can complete, you finish
+signing in on MyQ's page in a browser instead. The
+[sign-in guide](docs/sign-in.md) covers the details.
 
 **Options** (**Configure** on the integration): the poll interval (60–900
 seconds, default 60), whether cameras are discovered (on by default), and the
