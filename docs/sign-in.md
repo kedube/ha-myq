@@ -31,8 +31,24 @@ another Firebase app, a token from your own Firebase project, or a random UUID
 does not work. A MyQ account gives no access to this Firebase project, and the
 integration cannot register a token for you.
 
+A debug token is a UUID: 36 characters in five groups separated by hyphens.
+It has this form, where each `X` is a digit `0`–`9` or a letter `A`–`F`:
+
+```text
+XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+```
+
+Copy it exactly as shown. This is the only value you enter.
+
 **If you already have a registration file**, open your private
-`myq_app_check.json` and copy the value of `debug_token`.
+`myq_app_check.json` and copy the value of `debug_token`, without the quotes.
+In the file it appears as:
+
+```text
+"debug_token":"XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+```
+
+A complete file is shown under [the registration file](#the-registration-file).
 
 **If someone with access to the Firebase project is creating a token:**
 
@@ -64,7 +80,7 @@ saved by the integration, and you need it again to reconnect.
    offers it.
 
 The **Debug token** field accepts the token on its own, in quotes, as the
-`"debug_token": "…"` line, or as the whole registration file. If
+`"debug_token":"…"` entry, or as the whole registration file. If
 `myq_app_check.json` is installed beside `configuration.yaml`, you can leave the
 field blank to use it; see [the registration file](#the-registration-file).
 
@@ -130,9 +146,17 @@ JSON object with:
 | `project` | Firebase project |
 | `application` | Firebase Android app ID |
 | `api_key` | Firebase API key |
+| `debug_token` | The registered debug token |
 | `package` | `com.chamberlain.android.liftmaster.myq` |
 | `certificate` | Signing certificate SHA-1, 40 hexadecimal characters |
-| `debug_token` | The registered debug token |
+
+For the registration built into the integration, the file contains this line,
+with your debug token in place of the `X` placeholder; every other value is
+exactly as shown:
+
+```json
+{"project":"myq-transition-test","application":"1:169499880894:android:120796f2b5e44ca7","api_key":"AIzaSyDYwdJBRp6H3UhrCp5LGY8XTPJG7hTeCgw","debug_token":"XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX","package":"com.chamberlain.android.liftmaster.myq","certificate":"DA2BDA70EE8A9062D076BABE65924CAF9A8B98E9"}
+```
 
 A file can describe a different Firebase registration from the one built into
 the integration. A token entered in the form always uses the built-in app
@@ -141,8 +165,3 @@ settings, and takes precedence over the file.
 The file is read at each sign-in, so changing it needs no restart. Keep it
 private and out of public repositories. It stays outside the integration's
 folder, so updates keep it.
-
-A private install ZIP (`myq-install-private.zip`) contains both
-`custom_components/myq/` and `myq_app_check.json`. Extract it into Home
-Assistant's configuration directory (usually `/config/`), keeping its folders,
-and restart. Keep it private: it contains the debug token.

@@ -7,6 +7,8 @@
 ![Home Assistant 2026.2+](https://img.shields.io/badge/Home%20Assistant-2026.2%2B-41BDF5.svg)
 [![License](https://img.shields.io/github/license/kedube/ha-myq)](LICENSE)
 
+![The MyQ garage panel in Home Assistant's sidebar, with a drawn garage door and a camera view, each with Open and Close buttons](https://raw.githubusercontent.com/kedube/ha-myq/main/docs/images/panel.png)
+
 A Home Assistant integration for Chamberlain and LiftMaster **MyQ** garage door
 openers, gates, lamps, cameras, locks and linked thermostats. It is an
 independent client written from the MyQ Android app's protocol and MyQ's hosted
@@ -17,7 +19,8 @@ app code. The sidebar panel, dashboard door card and door artwork are my own UI 
 > owns the MyQ, Chamberlain and LiftMaster brands. MyQ's API is private and can
 > change without notice.
 
-[Features](#features) · [Requirements](#requirements) · [Install](#install) ·
+[Features](#features) · [Screenshots](#screenshots) ·
+[Requirements](#requirements) · [Install](#install) ·
 [Set up](#set-up) · [Documentation](#documentation)
 
 ## Features
@@ -39,6 +42,12 @@ app code. The sidebar panel, dashboard door card and door artwork are my own UI 
 **Not supported:** stopping or positioning a door, Bluetooth-only lock
 operations, device pairing and setup, firmware installation, and push updates
 for doors and locks (their state is polled).
+
+## Screenshots
+
+| Integration | Garage door opener | Camera |
+| --- | --- | --- |
+| ![The MyQ integration page listing two garage door openers and their cameras](https://raw.githubusercontent.com/kedube/ha-myq/main/docs/images/integration.png) | ![A garage door opener's device page with its controls, alerts, Disable remotes and backup battery](https://raw.githubusercontent.com/kedube/ha-myq/main/docs/images/door.png) | ![A camera's device page with microphone, motion detection, night vision and speaker volume settings](https://raw.githubusercontent.com/kedube/ha-myq/main/docs/images/camera.png) |
 
 ## Requirements
 
@@ -82,9 +91,7 @@ Both install the latest **release**, not the latest commit.
 **Manually.** Extract a release's `myq.zip` into
 `config/custom_components/myq/` (or copy this repository's
 `custom_components/myq/` folder there), so that
-`config/custom_components/myq/manifest.json` exists, and restart. A private
-install ZIP is extracted into the configuration directory instead; see
-[the registration file](docs/sign-in.md#the-registration-file).
+`config/custom_components/myq/manifest.json` exists, and restart.
 
 ## Set up
 
