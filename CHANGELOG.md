@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.22] - 2026-11-28
+
 ### Added
 
 - Device pages show the device's serial number under **Device info**.
