@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.20] - 2026-11-28
+
 ### Added
 
 - Setup and **Reconnect MyQ** open with a choice: **Sign in with email and
