@@ -268,7 +268,9 @@ async def test_top_level_parent_pairs_merge_duplicate_names_and_keep_cameras_sep
         row = registry_device(registry, entry.entry_id, (DOMAIN, opener.key))
         assert registry_device(registry, entry.entry_id, (DOMAIN, gateway.key)).id == row.id
         assert row.sw_version == gateway.state["firmware_version"]
+        assert row.serial_number == opener.serial  # The merged device shows the opener's.
         camera_row = registry_device(registry, entry.entry_id, (DOMAIN, camera.key))
+        assert camera_row.serial_number == camera.serial
         assert camera_row.id != row.id and camera_row.via_device_id == row.id
         if upgrade:
             assert row.id == old_devices[opener.key]
@@ -278,7 +280,10 @@ async def test_top_level_parent_pairs_merge_duplicate_names_and_keep_cameras_sep
                 original = old_entities[device.key]
                 current = entities.async_get(original.entity_id)
                 assert current is not None
-                assert current.unique_id == original.unique_id
+                # A camera moves to its serial's ID (camera_unique_id); the rest keep theirs.
+                assert current.unique_id == (
+                    f"{device.serial}_camera" if device is camera else original.unique_id
+                )
                 assert current.name == original.name and current.icon == original.icon
                 assert current.device_id == (camera_row.id if device is camera else row.id)
     assert await hass.config_entries.async_unload(entry.entry_id)

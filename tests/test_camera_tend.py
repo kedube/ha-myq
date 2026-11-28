@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import string
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -14,13 +15,17 @@ from homeassistant.components.camera import (
     StreamType,
     get_camera_from_entity_id,
 )
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.myq.api import tend_source
 from custom_components.myq.api.errors import AuthenticationError, CannotConnect
 from custom_components.myq.camera import MyQCamera, MyQTendCamera, _live_route
 from custom_components.myq.const import DOMAIN
 from custom_components.myq.coordinator import Snapshot
+from custom_components.myq.device_registry import find_device
 from custom_components.myq.diagnostics import async_get_config_entry_diagnostics
 
 from .ha import MockConfigEntry
@@ -105,6 +110,75 @@ async def until(condition):
     async with asyncio.timeout(2):
         while not condition():  # noqa: ASYNC110
             await asyncio.sleep(0.005)
+
+
+async def test_unique_id_is_the_serial_so_go2rtc_can_read_the_stream_by_name(hass, tend_camera):
+    camera = tend_camera.camera
+    assert camera.unique_id == "TC-TEST-CAMERA_camera"
+    # The serial the name is built from is shown under the camera's Device info.
+    row = find_device(dr.async_get(hass), tend_camera.entry.entry_id, tend_camera.device.key)
+    assert row is not None and row.serial_number == "TC-TEST-CAMERA"
+    # Home Assistant 2026.5 and later name the go2rtc stream after the unique ID,
+    # percent-encoding other characters; go2rtc decodes RTSP paths, so none may need it.
+    assert f"myq_{camera.unique_id}".strip(string.ascii_letters + string.digits + "._-") == ""
+
+
+async def load_camera(hass, tokens, device, details, entry):
+    with (
+        patch(
+            "custom_components.myq.api.client.Client.discover",
+            AsyncMock(return_value={device.key: device}),
+        ),
+        patch("custom_components.myq.api.video.Video.details", AsyncMock(return_value=details)),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize("kind", ["TC-TEST-CAMERA", None])
+async def test_registered_camera_moves_to_its_serial_id_and_keeps_its_entity_id(
+    hass, enable_custom_integrations, tokens, camera_device, camera_details, kind
+):
+    device = replace(camera_device, serial=kind) if kind else camera_device
+    camera_details["alias"] = "owner:camera"
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="owner", data={"tokens": tokens.as_dict()})
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create(
+        "camera",
+        DOMAIN,
+        f"{device.key}:recent_image",
+        config_entry=entry,
+        suggested_object_id="saved_camera",
+    )
+    registry.async_update_entity(old.entity_id, name="Driveway")
+    await load_camera(hass, tokens, device, camera_details, entry)
+    moved = registry.async_get(old.entity_id)
+    assert moved is not None and moved.unique_id == f"{device.serial}_camera"
+    assert moved.name == "Driveway"
+    assert [state.entity_id for state in hass.states.async_all("camera")] == [old.entity_id]
+    assert registry.async_get_entity_id("camera", DOMAIN, f"{device.key}:recent_image") is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_migration_leaves_an_id_already_in_use_and_setup_still_succeeds(
+    hass, enable_custom_integrations, tokens, camera_device, camera_details
+):
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="owner", data={"tokens": tokens.as_dict()})
+    other = MockConfigEntry(domain=DOMAIN, unique_id="other", data={"tokens": tokens.as_dict()})
+    entry.add_to_hass(hass)
+    other.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "camera", DOMAIN, f"{camera_device.serial}_camera", config_entry=other
+    )
+    old = registry.async_get_or_create(
+        "camera", DOMAIN, f"{camera_device.key}:recent_image", config_entry=entry
+    )
+    await load_camera(hass, tokens, camera_device, camera_details, entry)
+    assert entry.state is ConfigEntryState.LOADED
+    assert registry.async_get(old.entity_id).unique_id == f"{camera_device.key}:recent_image"
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 def test_tc_serial_always_uses_the_stream_source_route(camera_device):
@@ -216,6 +290,33 @@ async def test_coordinator_ends_video_when_the_camera_may_no_longer_stream(
     await until(lambda: tend_camera.sessions[0].closed and not camera.coordinator._live_owners)
 
 
+async def test_session_that_ends_on_its_own_is_logged_once_per_reason(
+    tend_camera, socket_enabled, caplog
+):
+    camera = tend_camera.camera
+    caplog.set_level(logging.DEBUG, logger="custom_components.myq.camera")
+    url = await camera.stream_source()
+    with patch.object(
+        camera.coordinator.video, "wake_best_effort", AsyncMock(return_value=tend_camera.details)
+    ):
+        async with aiohttp.ClientSession() as http:
+            for number in range(2):
+                async with http.get(url) as response:
+                    session = tend_camera.sessions[number]
+                    session.on_video(KEYFRAME)
+                    assert await read_video(response, len(KEYFRAME)) == KEYFRAME
+                    session.ended.set_exception(CannotConnect("Tend camera stopped sending video"))
+                    async with asyncio.timeout(2):
+                        await response.content.read()  # The stream ends.
+                # Lift the pause that would refuse the player's retry.
+                camera._source._retry_at = 0
+    reports = [r for r in caplog.records if "live video stopped" in r.getMessage()]
+    # A camera that keeps ending sessions is reported at warning level once per reason.
+    assert [r.levelno for r in reports] == [logging.WARNING, logging.DEBUG]
+    message = reports[0].getMessage()
+    assert camera.entity_id in message and "Tend camera stopped sending video" in message
+
+
 @pytest.mark.parametrize("failure", ["unavailable", "route", "start"])
 async def test_failed_start_answers_the_player_and_releases_everything(
     hass, tend_camera, socket_enabled, failure, caplog
@@ -251,6 +352,7 @@ async def test_failed_start_answers_the_player_and_releases_everything(
     reports = [r for r in caplog.records if "live video could not start" in r.getMessage()]
     # The first failure is a warning; the same failure again is not repeated at that level.
     assert [r.levelno for r in reports] == [logging.WARNING, logging.DEBUG]
+    assert camera.entity_id in reports[0].getMessage()
     data = await async_get_config_entry_diagnostics(hass, tend_camera.entry)
     assert data["devices"][0]["live_video_source"]["last_error"]
 

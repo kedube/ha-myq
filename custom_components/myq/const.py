@@ -3,6 +3,8 @@
 from homeassistant.const import Platform
 
 DOMAIN = "myq"
+# A camera entity's unique ID is its serial and this (entity.camera_unique_id).
+CAMERA_SUFFIX = "_camera"
 PLATFORMS = [
     Platform.COVER,
     Platform.CAMERA,

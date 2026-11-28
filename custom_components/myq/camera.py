@@ -23,6 +23,7 @@ from homeassistant.components.camera.prefs import DynamicStreamSettings
 from homeassistant.components.web_rtc import async_get_ice_servers
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from webrtc_models import RTCIceCandidateInit
 
@@ -41,14 +42,15 @@ from .api.video import (
     override_modes,
     wakeable,
 )
-from .const import CONF_ENABLE_CAMERAS
-from .entity import MyQEntity, discover_entities
+from .const import CAMERA_SUFFIX, CONF_ENABLE_CAMERAS, DOMAIN
+from .entity import MyQEntity, camera_unique_id, discover_entities
 from .exceptions import myq_error
 
 _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 LIVE_IMAGE_SECONDS = 2  # Reuse an encoded live frame briefly; frames keep arriving.
+LEGACY_SUFFIX = ":recent_image"  # The camera's earlier ID: account:serial:recent_image.
 
 
 def _tend_camera(device: Device | None) -> bool:
@@ -72,7 +74,29 @@ def _live_route(device: Device | None, details: dict) -> str | None:
     return None
 
 
+async def _migrate_unique_ids(hass, entry) -> None:
+    """Give cameras registered as ``account:serial:recent_image`` their serial's ID.
+
+    The entity keeps its entity ID, name and history. An ID already in use stays as it
+    was, so setup never fails over it.
+    """
+    registry = er.async_get(hass)
+
+    @callback
+    def migrate(entity: er.RegistryEntry) -> dict[str, str] | None:
+        if entity.domain != "camera" or not entity.unique_id.endswith(LEGACY_SUFFIX):
+            return None
+        serial = entity.unique_id.removesuffix(LEGACY_SUFFIX).partition(":")[2]
+        new = f"{serial}{CAMERA_SUFFIX}"
+        if not serial or registry.async_get_entity_id("camera", DOMAIN, new) is not None:
+            return None
+        return {"new_unique_id": new}
+
+    await er.async_migrate_entries(hass, entry.entry_id, migrate)
+
+
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
+    await _migrate_unique_ids(hass, entry)
     if entry.options.get(CONF_ENABLE_CAMERAS, True):
         coordinator = entry.runtime_data
 
@@ -95,6 +119,7 @@ class MyQCameraBase(MyQEntity, Camera):
     def __init__(self, coordinator, device) -> None:
         Camera.__init__(self)
         MyQEntity.__init__(self, coordinator, device, "recent_image")
+        self._attr_unique_id = camera_unique_id(device)
         self._image: bytes | None = None
         self._image_time = 0.0
         self._image_lock = asyncio.Lock()
@@ -510,9 +535,10 @@ class MyQTendCamera(MyQCameraBase):
         # The source's timestamps are arrival times; the stream worker reads them by its
         # own clock, as it did when the source was bare H.264.
         self.stream_options = {"use_wallclock_as_timestamps": True}
-        self._source = TendSource(self._open_video, self._video_closed)
+        self._source = TendSource(self._open_video, self._video_closed, self._video_stopped)
         self._stopping: set[asyncio.Task] = set()
         self._reported: str | None = None
+        self._stopped_reported: str | None = None
 
     @property
     def _can_stream(self) -> bool:
@@ -589,7 +615,9 @@ class MyQTendCamera(MyQCameraBase):
             if isinstance(err, MyQError):
                 # Players retry on their own; report each distinct failure once.
                 level = logging.DEBUG if str(err) == self._reported else logging.WARNING
-                _LOGGER.log(level, "MyQ camera live video could not start: %s", err)
+                _LOGGER.log(
+                    level, "MyQ camera live video could not start (%s): %s", self.entity_id, err
+                )
                 self._reported = str(err)
             raise
         self._reported = None
@@ -601,6 +629,14 @@ class MyQTendCamera(MyQCameraBase):
             await session.close()
         finally:
             await self.coordinator.async_release_live(session)
+
+    @callback
+    def _video_stopped(self, reason: str) -> None:
+        """A session that had started ended on its own; players will start another."""
+        # Reported once per reason: a camera that keeps ending sessions does so each time.
+        level = logging.DEBUG if reason == self._stopped_reported else logging.WARNING
+        _LOGGER.log(level, "MyQ camera live video stopped (%s): %s", self.entity_id, reason)
+        self._stopped_reported = reason
 
     async def _video_closed(self, session: LegacyTendSession) -> None:
         # Kept for diagnostics: the audio connection is opened after the video starts.

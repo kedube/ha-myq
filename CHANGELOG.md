@@ -5,6 +5,22 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- Device pages show the device's serial number under **Device info**.
+- The user guide explains how to record a TC camera in Frigate, through Home
+  Assistant's go2rtc.
+
+### Changed
+
+- A camera's unique ID is now its serial number, without the MyQ account ID.
+  In Home Assistant 2026.5 and later, Home Assistant's go2rtc names the stream
+  after it: `myq_<serial>_camera`. The previous name held the account ID and
+  percent-encoded colons, so go2rtc couldn't serve the stream by name over RTSP.
+  Existing cameras keep their entity ID, name and history.
+- When a TC camera's live video ends by itself, the reason is written to the log
+  once. Live video log lines name the camera's entity ID.
+
 ## [0.21] - 2026-11-28
 
 ### Changed

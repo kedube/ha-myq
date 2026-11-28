@@ -12,9 +12,20 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api.models import Device, nested
-from .const import DOMAIN
+from .const import CAMERA_SUFFIX, DOMAIN
 from .coordinator import MyQCoordinator
 from .device_registry import GATEWAY_SHARED, find_device
+
+
+def camera_unique_id(device: Device) -> str:
+    """A camera entity's unique ID: its serial, without the account.
+
+    Home Assistant 2026.5 and later name a camera's go2rtc stream
+    ``<integration>_<unique ID>``, percent-encoding anything but letters, digits,
+    ``.``, ``_`` and ``-``. go2rtc decodes RTSP paths, so a name holding an encoded
+    character can't be read by name. This one stays readable: ``myq_<serial>_camera``.
+    """
+    return f"{device.serial}{CAMERA_SUFFIX}"
 
 
 def _text(value: Any) -> str | None:
@@ -65,6 +76,8 @@ def device_info(coordinator: MyQCoordinator, device: Device) -> DeviceInfo:
         name=device.name,
         manufacturer=device.state.get("brand_name") or "Chamberlain Group",
         model=device.model or _text(device.state.get("lock_model")) or device.device_type,
+        # Shown under Device info; a camera's go2rtc stream is named after it.
+        serial_number=device.serial,
         # The camera settings "F/W" row reads the Tend hardware version.
         sw_version=_text(nested(details, "hw", "firmwareVer")) or firmware,
     )

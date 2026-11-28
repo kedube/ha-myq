@@ -47,6 +47,7 @@ class Camera:
     def __init__(self):
         self.sessions = []
         self.released = []
+        self.stopped = []  # Why sessions that had started ended on their own.
         self.error = None
         self.gate = None
         self.send = None
@@ -68,7 +69,7 @@ class Camera:
 @pytest.fixture
 async def source(socket_enabled):
     camera = Camera()
-    served = TendSource(camera.open, camera.closed)
+    served = TendSource(camera.open, camera.closed, camera.stopped.append)
     async with aiohttp.ClientSession() as http:
         yield served, camera, http
     await served.close()
@@ -168,6 +169,7 @@ async def test_session_outlives_a_brief_gap_then_closes_when_idle(source, monkey
     await until(lambda: camera.sessions[0].closed)
     await until(lambda: camera.released == camera.sessions)
     assert served.session is None and served.last_error is None
+    assert camera.stopped == []  # Closed for being idle: nothing went wrong.
     async with http.get(url):
         await until(lambda: len(camera.sessions) == 2)
 
@@ -228,6 +230,7 @@ async def test_camera_session_ending_closes_every_reader_and_pauses_restarts(sou
     await until(lambda: camera.released == camera.sessions)
     assert camera.sessions[0].closed and served.session is None
     assert served.last_error == "Tend camera stopped sending video"
+    assert camera.stopped == ["Tend camera stopped sending video"]
     async with http.get(url) as response:
         assert response.status == 503  # Players reconnect at once; the camera is not re-opened.
     assert len(camera.sessions) == 1
@@ -243,6 +246,7 @@ async def test_stop_ends_video_but_keeps_the_address_and_close_removes_it(source
         async with asyncio.timeout(2):
             await response.content.read()
     assert camera.sessions[0].closed and camera.released == camera.sessions
+    assert camera.stopped == []  # Stopped when asked: not reported as a failure.
     async with http.get(url):
         await until(lambda: len(camera.sessions) == 2)
     async with http.get(url.replace(".ts", ".other")) as response:
@@ -366,6 +370,7 @@ async def test_session_that_never_sends_a_playable_keyframe_ends_and_says_so(sou
             assert await response.content.read() == b""
     await until(lambda: camera.sessions[0].closed)
     assert served.last_error == "The camera sent no playable keyframe"
+    assert camera.stopped == ["The camera sent no playable keyframe"]
     status = served.status()
     assert status["unframed_records"] == 4 and status["records"] == 4
     assert status["keyframes"] == 0

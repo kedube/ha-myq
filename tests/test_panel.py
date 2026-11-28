@@ -62,7 +62,7 @@ async def test_inventory_maps_current_entities_and_associated_camera(hass, inven
     registry = er.async_get(hass)
     for role, domain, key in (
         ("cover", "cover", f"{door.key}:door"),
-        ("camera", "camera", f"{camera.key}:recent_image"),
+        ("camera", "camera", f"{camera.serial}_camera"),
         ("active_fault", "binary_sensor", f"{door.key}:faults"),
         ("absolute_cycle_count", "sensor", f"{door.key}:absolute_cycle_count"),
     ):

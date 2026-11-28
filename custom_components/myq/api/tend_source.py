@@ -147,9 +147,12 @@ class TendSource:
         self,
         open_session: Callable[[Callable[[bytes], None], AudioCallback], Awaitable[Any]],
         session_closed: Callable[[Any], Awaitable[None]],
+        on_stopped: Callable[[str], None] | None = None,
     ) -> None:
         self._open_session = open_session
         self._session_closed = session_closed
+        # Told why a session that had started ended without being asked to.
+        self._on_stopped = on_stopped
         self._runner: web.AppRunner | None = None
         self._url: str | None = None
         self._server_lock = asyncio.Lock()
@@ -492,6 +495,8 @@ class TendSource:
             # (a camera going offline, a second login elsewhere) from re-logging in
             # every second.
             self._failed(message)
+            if self._on_stopped is not None:
+                self._on_stopped(message)
             async with self._session_lock:
                 if self._session is session:
                     await self._close_session(watcher=True)

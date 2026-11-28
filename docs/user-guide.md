@@ -187,11 +187,15 @@ the load on the Home Assistant host is small.
 - Home Assistant's stream features work, including `camera.record` and
   **Preload camera stream**. Preloading keeps the camera streaming all the time;
   leave it off unless you want that.
-- If the camera can't be reached, Home Assistant's player shows an error and may
-  retry. The integration waits 15 seconds between camera sessions after a
-  failure, writes the reason to the log once, and shows the last error in the
-  camera's diagnostics.
-- The video is served on an address only the Home Assistant host can reach.
+- If the camera can't be reached, or a session ends by itself, Home Assistant's
+  player shows an error and may retry. The integration waits 15 seconds before
+  the next camera session, writes each reason to the log once with the camera's
+  entity ID, and shows the last error in the camera's diagnostics.
+- The video is served on an address only the Home Assistant host can reach. Its
+  port and path change when Home Assistant restarts. In Home Assistant 2026.5
+  and later, Home Assistant's go2rtc names the stream `myq_<serial>_camera`,
+  after the camera's serial number; earlier releases name it after the entity
+  ID.
 
 **Cameras with MyQ's WebRTC capability.** Other cameras that advertise MyQ's
 WebRTC capability are relayed to the browser over WebRTC. The integration
@@ -221,6 +225,59 @@ ideally, to the camera on your network; video comes through the relay when the
 camera can't be reached directly. The WebRTC route needs access to the AWS
 servers MyQ supplies for each session. Viewing from outside your network uses
 Home Assistant's normal WebRTC setup.
+
+### Frigate
+
+[Frigate](https://frigate.video) can record a TC camera by reading its stream
+from Home Assistant's go2rtc over RTSP. This needs Home Assistant 2026.8 or
+later.
+
+1. In the camera entity's settings, turn on **Preload camera stream**. Home
+   Assistant then hands the stream to its go2rtc as it starts, so the stream is
+   there whenever Frigate connects. The camera streams all the time.
+2. On the camera's device page, find its serial number under **Device info**.
+   The stream is named `myq_<serial>_camera`.
+3. Make the stream reachable from Frigate. Home Assistant's go2rtc accepts RTSP
+   only on `127.0.0.1:18554` on the Home Assistant host, with no password.
+   - If Frigate shares the host's network, the stream is
+     `rtsp://127.0.0.1:18554/myq_<serial>_camera`.
+   - If Home Assistant runs in Docker with host networking and Frigate is on a
+     Docker bridge network, forward the port to the bridge's address on the
+     host, and start the forward at every boot:
+
+     ```sh
+     socat TCP-LISTEN:18554,bind=172.17.0.1,reuseaddr,fork TCP:127.0.0.1:18554
+     ```
+
+     `172.17.0.1` is the address of Docker's default bridge; use the address of
+     the network Frigate is on. The stream is then
+     `rtsp://172.17.0.1:18554/myq_<serial>_camera`. Anything that can reach
+     that address can read every camera stream in Home Assistant's go2rtc.
+4. Add the camera to Frigate's configuration. Through Frigate's own go2rtc, one
+   connection to Home Assistant serves recording, detection and Frigate's live
+   view:
+
+   ```yaml
+   go2rtc:
+     streams:
+       garage:
+         - rtsp://172.17.0.1:18554/myq_<serial>_camera
+         - "ffmpeg:garage#audio=aac"
+   cameras:
+     garage:
+       ffmpeg:
+         inputs:
+           - path: rtsp://127.0.0.1:8554/garage
+             input_args: preset-rtsp-restream
+             roles:
+               - record
+               - detect
+   ```
+
+The stream carries H.264 video and Opus sound. Frigate's default recording
+settings convert the sound to AAC. The `ffmpeg:garage#audio=aac` line adds an
+AAC copy for Frigate's MSE live player, which needs AAC; its WebRTC player plays
+the Opus sound as it is.
 
 ### Camera controls
 

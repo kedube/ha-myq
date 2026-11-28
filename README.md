@@ -134,7 +134,7 @@ talkback for cameras that support it.
 | Document | Contents |
 | --- | --- |
 | [Sign-in](docs/sign-in.md) | The debug token, signing in, staying signed in, error messages |
-| [User guide](docs/user-guide.md) | Devices and entities, updates, cameras and live video, recordings, actions, diagnostics |
+| [User guide](docs/user-guide.md) | Devices and entities, updates, cameras and live video, Frigate, recordings, actions, diagnostics |
 | [API reference](docs/api.md) | MyQ's cloud API: authentication, devices, commands, management, cameras, live video and recordings |
 | [Development](docs/development.md) | Local setup, tests, packaging, releases, code layout and research tools |
 | [Changelog](CHANGELOG.md) | Changes in each release |

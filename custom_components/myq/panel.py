@@ -40,7 +40,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.storage import Store
 from homeassistant.util.hass_dict import HassKey
 
-from .const import DOMAIN
+from .const import CAMERA_SUFFIX, DOMAIN
 from .panel_options import panel_options
 
 _LOGGER = logging.getLogger(__name__)
@@ -445,19 +445,23 @@ def _add_device(
         for entity in registered
         if entity.domain == "cover" and entity.unique_id.endswith(":door")
     }
+    # A camera is identified by its serial alone (entity.camera_unique_id).
+    cameras_by_id = {f"{key.partition(':')[2]}{CAMERA_SUFFIX}": key for key in device_keys}
     # Prefer the opener's entity for any role a merged gateway also provides, while
     # retaining diagnostics unique to the gateway.
     for entity in sorted(
         registered, key=lambda item: item.unique_id.rpartition(":")[0] not in opener_keys
     ):
+        if entity.domain == "camera" and entity.unique_id in cameras_by_id:
+            entities.setdefault("camera", entity.entity_id)
+            continue
         key, _, suffix = entity.unique_id.rpartition(":")
         if key not in device_keys:
             continue
-        # MyQEntity identifies every entity as account:serial:field. Translate
-        # the three roles whose names differ from the panel's display model.
+        # MyQEntity identifies every other entity as account:serial:field. Translate
+        # the two roles whose names differ from the panel's display model.
         role = {
             ("cover", "door"): "cover",
-            ("camera", "recent_image"): "camera",
             ("binary_sensor", "faults"): "active_fault",
         }.get((entity.domain, suffix), suffix)
         entities.setdefault(role, entity.entity_id)
