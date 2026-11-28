@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+## [0.19] - 2026-11-28
+
 ### Added
 
 - Browser sign-in. When MyQ's sign-in pages show a browser check, or a screen
