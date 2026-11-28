@@ -5,6 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Added
+
+- Setup and **Reconnect MyQ** open with a choice: **Sign in with email and
+  password** or **Sign in with a browser**. Browser sign-in asks only for the
+  debug token (or uses an installed `myq_app_check.json`) and checks it with
+  Firebase before showing MyQ's sign-in link. Your password is entered only on
+  MyQ's page.
+
+### Changed
+
+- When email and password sign-in continues in a browser, the browser sign-in
+  screen shows a notice saying why.
+
 ## [0.19] - 2026-11-28
 
 ### Added

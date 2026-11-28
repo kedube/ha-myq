@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "MyQ verbinden",
+        "description": "Wähle, wie du dich anmelden möchtest. Für beide Wege brauchst du dein Debug-Token oder eine installierte myq_app_check.json.",
+        "menu_options": {
+          "password": "Mit E-Mail und Passwort anmelden",
+          "browser_start": "Mit einem Browser anmelden"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant meldet dich auf den Seiten von MyQ an. Zeigt MyQ eine Prüfung, die nur ein Browser bestehen kann, schließt du die Anmeldung in einem Browser ab.",
+          "browser_start": "Melde dich auf der Seite von MyQ in deinem Browser an und füge dann die Adresse ein, die er öffnen will. Dein Passwort gibst du nur auf der Seite von MyQ ein."
+        }
+      },
+      "reauth_confirm": {
+        "title": "MyQ erneut verbinden",
+        "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an.",
+        "menu_options": {
+          "password": "Mit E-Mail und Passwort anmelden",
+          "browser_start": "Mit einem Browser anmelden"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant meldet dich auf den Seiten von MyQ an. Zeigt MyQ eine Prüfung, die nur ein Browser bestehen kann, schließt du die Anmeldung in einem Browser ab.",
+          "browser_start": "Melde dich auf der Seite von MyQ in deinem Browser an und füge dann die Adresse ein, die er öffnen will. Dein Passwort gibst du nur auf der Seite von MyQ ein."
+        }
+      },
+      "password": {
+        "title": "Mit E-Mail und Passwort anmelden",
         "description": "Gib deine MyQ-E-Mail-Adresse, dein Passwort und dein Debug-Token ein. Falls MyQ einen Bestätigungscode anfordert, wirst du im nächsten Schritt danach gefragt. Passwort und Debug-Token werden nicht gespeichert.",
         "data": {
           "username": "E-Mail",
@@ -21,26 +45,24 @@
           "response": "Verifizierungsantwort"
         }
       },
+      "browser_start": {
+        "title": "Mit einem Browser anmelden",
+        "description": "Gib dein Debug-Token ein. Der nächste Schritt verlinkt die MyQ-Anmeldeseite: Melde dich dort in einem Browser an und füge dann die Adresse ein, die er öffnen will. Dein Debug-Token wird nicht gespeichert.",
+        "data": {
+          "debug_token": "Debug-Token"
+        },
+        "data_description": {
+          "debug_token": "Fügen Sie den Debug-Token-Wert oder seine JSON-Zeile bzw. sein JSON-Objekt ein. Lassen Sie das Feld leer, um eine vorhandene myq_app_check.json zu verwenden."
+        }
+      },
       "browser": {
         "title": "Mit einem Browser anmelden",
-        "description": "MyQ verlangt, dass diese Anmeldung in einem Webbrowser abgeschlossen wird.\n\n1. [Öffne die MyQ-Anmeldeseite]({authorize_url}) in einem Browser auf einem Computer und melde dich mit {email} an. Auf einem Telefon mit der MyQ-App öffnet sich möglicherweise stattdessen die App.\n2. Nach der Anmeldung versucht der Browser, eine Adresse zu öffnen, die mit `com.myqops://android` beginnt. Kopiere die vollständige Adresse und füge sie unten ein.\n\nWird die Adresse nicht angezeigt, öffne die Entwicklertools des Browsers (F12 in Chrome oder Edge) und kopiere sie aus der Konsolenmeldung, die mit `Failed to launch 'com.myqops://android?` beginnt. Der Link funktioniert einmal und läuft nach 10 Minuten ab.",
+        "description": "1. [Öffne die MyQ-Anmeldeseite]({authorize_url}) in einem Browser auf einem Computer und melde dich an. Auf einem Telefon mit der MyQ-App öffnet sich möglicherweise stattdessen die App.\n2. Nach der Anmeldung versucht der Browser, eine Adresse zu öffnen, die mit `com.myqops://android` beginnt. Kopiere die vollständige Adresse und füge sie unten ein.\n\nWird die Adresse nicht angezeigt, öffne die Entwicklertools des Browsers (F12 in Chrome oder Edge) und kopiere sie aus der Konsolenmeldung, die mit `Failed to launch 'com.myqops://android?` beginnt. Der Link funktioniert einmal und läuft nach 10 Minuten ab.",
         "data": {
           "callback": "Adresse aus dem Browser"
         },
         "data_description": {
           "callback": "Die vollständige Adresse com.myqops://android oder die ganze Konsolenmeldung, die sie enthält."
-        }
-      },
-      "reauth_confirm": {
-        "title": "MyQ erneut verbinden",
-        "description": "Deine MyQ-Sitzung konnte nicht erneuert werden. Melde dich erneut beim selben Konto an. Passwort und Debug-Token werden nicht gespeichert.",
-        "data": {
-          "username": "E-Mail",
-          "password": "Passwort",
-          "debug_token": "Debug-Token"
-        },
-        "data_description": {
-          "debug_token": "Fügen Sie den Debug-Token-Wert oder seine JSON-Zeile bzw. sein JSON-Objekt ein. Lassen Sie das Feld leer, um eine vorhandene myq_app_check.json zu verwenden."
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "MyQ hat die Anfragen begrenzt. Warte, bevor du es erneut versuchst.",
       "protocol_error": "MyQ hat eine unerwartete Antwort zurückgegeben. Sieh in den Protokollnotizen der Integration nach. Es wurde kein Konto hinzugefügt.",
       "browser_verification": "MyQ verlangt eine Browser-Verifizierung, die diese Integration nicht abschließen kann.",
+      "browser_required": "MyQ hat eine Prüfung oder einen Bildschirm gezeigt, die nur ein Webbrowser abschließen kann. Schließe die Anmeldung mit einem Browser ab.",
       "invalid_callback": "Das ist nicht die Adresse aus dem hier angezeigten Anmeldelink. Füge die vollständige Adresse ein, die mit com.myqops://android beginnt.",
       "browser_expired": "Der Anmeldelink ist abgelaufen. Öffne den neuen Link und melde dich erneut an.",
       "browser_auth_failed": "MyQ hat diese Anmeldung nicht akzeptiert. Öffne den neuen Link und melde dich erneut an.",

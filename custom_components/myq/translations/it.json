@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "Connetti MyQ",
+        "description": "Scegli come accedere. Entrambi i modi richiedono il token di debug o un file myq_app_check.json installato.",
+        "menu_options": {
+          "password": "Accedi con email e password",
+          "browser_start": "Accedi con un browser"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant accede per te alle pagine di MyQ. Se MyQ mostra una verifica che solo un browser può superare, completi l’accesso in un browser.",
+          "browser_start": "Accedi alla pagina di MyQ nel tuo browser, poi incolla l’indirizzo che prova ad aprire. La password viene inserita solo nella pagina di MyQ."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Riconnetti MyQ",
+        "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi nuovamente allo stesso account.",
+        "menu_options": {
+          "password": "Accedi con email e password",
+          "browser_start": "Accedi con un browser"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant accede per te alle pagine di MyQ. Se MyQ mostra una verifica che solo un browser può superare, completi l’accesso in un browser.",
+          "browser_start": "Accedi alla pagina di MyQ nel tuo browser, poi incolla l’indirizzo che prova ad aprire. La password viene inserita solo nella pagina di MyQ."
+        }
+      },
+      "password": {
+        "title": "Accedi con email e password",
         "description": "Inserisci l’indirizzo email MyQ, la password e il token di debug. Se MyQ richiede un codice di verifica, ti verrà chiesto nel passaggio successivo. La password e il token di debug non vengono salvati.",
         "data": {
           "username": "E-mail",
@@ -21,26 +45,24 @@
           "response": "Risposta di verifica"
         }
       },
+      "browser_start": {
+        "title": "Accedi con un browser",
+        "description": "Inserisci il token di debug. La schermata successiva contiene il link alla pagina di accesso di MyQ: accedi lì in un browser, poi incolla l’indirizzo che prova ad aprire. Il token di debug non viene salvato.",
+        "data": {
+          "debug_token": "Token di debug"
+        },
+        "data_description": {
+          "debug_token": "Incolla il valore del token di debug oppure la relativa riga o il relativo oggetto JSON. Lascia vuoto per usare un file myq_app_check.json già installato."
+        }
+      },
       "browser": {
         "title": "Accedi con un browser",
-        "description": "MyQ richiede che questo accesso venga completato in un browser web.\n\n1. [Apri la pagina di accesso di MyQ]({authorize_url}) in un browser su un computer e accedi con {email}. Su un telefono con l’app MyQ potrebbe aprirsi invece l’app.\n2. Al termine dell’accesso, il browser prova ad aprire un indirizzo che inizia con `com.myqops://android`. Copia l’indirizzo completo e incollalo qui sotto.\n\nSe l’indirizzo non viene mostrato, apri gli strumenti per sviluppatori del browser (F12 in Chrome o Edge) e copialo dal messaggio della console che inizia con `Failed to launch 'com.myqops://android?`. Il link funziona una sola volta e scade dopo 10 minuti.",
+        "description": "1. [Apri la pagina di accesso di MyQ]({authorize_url}) in un browser su un computer e accedi. Su un telefono con l’app MyQ potrebbe aprirsi invece l’app.\n2. Al termine dell’accesso, il browser prova ad aprire un indirizzo che inizia con `com.myqops://android`. Copia l’indirizzo completo e incollalo qui sotto.\n\nSe l’indirizzo non viene mostrato, apri gli strumenti per sviluppatori del browser (F12 in Chrome o Edge) e copialo dal messaggio della console che inizia con `Failed to launch 'com.myqops://android?`. Il link funziona una sola volta e scade dopo 10 minuti.",
         "data": {
           "callback": "Indirizzo dal browser"
         },
         "data_description": {
           "callback": "L’indirizzo completo com.myqops://android, oppure l’intero messaggio della console che lo contiene."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Riconnetti MyQ",
-        "description": "Non è stato possibile rinnovare la sessione MyQ. Accedi nuovamente allo stesso account. La password e il token di debug non vengono salvati.",
-        "data": {
-          "username": "E-mail",
-          "password": "Password",
-          "debug_token": "Token di debug"
-        },
-        "data_description": {
-          "debug_token": "Incolla il valore del token di debug oppure la relativa riga o il relativo oggetto JSON. Lascia vuoto per usare un file myq_app_check.json già installato."
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "MyQ ha limitato le richieste. Attendi prima di riprovare.",
       "protocol_error": "MyQ ha restituito una risposta imprevista. Consulta le note sul protocollo dell'integrazione. Nessun account è stato aggiunto.",
       "browser_verification": "MyQ richiede una verifica nel browser che questa integrazione non può completare.",
+      "browser_required": "MyQ ha mostrato una verifica o una schermata che solo un browser web può completare. Completa l’accesso con un browser.",
       "invalid_callback": "Questo non è l’indirizzo del link di accesso mostrato qui. Incolla l’indirizzo completo che inizia con com.myqops://android.",
       "browser_expired": "Il link di accesso è scaduto. Apri il nuovo link e accedi di nuovo.",
       "browser_auth_failed": "MyQ non ha accettato questo accesso. Apri il nuovo link e accedi di nuovo.",

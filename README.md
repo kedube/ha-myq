@@ -95,11 +95,17 @@ Both install the latest **release**, not the latest commit.
 
 ## Set up
 
-Go to **Settings → Devices & services → Add integration → MyQ**, enter your MyQ
-email, password and debug token, and enter the verification code if MyQ asks
-for one. If MyQ shows a check that only a web browser can complete, you finish
-signing in on MyQ's page in a browser instead. The
-[sign-in guide](docs/sign-in.md) covers the details.
+Go to **Settings → Devices & services → Add integration → MyQ** and choose how
+to sign in. Both ways need your debug token.
+
+- **Sign in with email and password**: Home Assistant signs in on MyQ's pages
+  for you. Enter your MyQ email, password and debug token, and the
+  verification code if MyQ asks for one. If MyQ shows a check that only a web
+  browser can complete, you finish in a browser instead.
+- **Sign in with a browser**: sign in on MyQ's own page in a browser, then
+  paste back the address it opens.
+
+The [sign-in guide](docs/sign-in.md) covers the details.
 
 **Options** (**Configure** on the integration): the poll interval (60–900
 seconds, default 60), whether cameras are discovered (on by default), and the

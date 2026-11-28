@@ -175,6 +175,23 @@ def camera_details():
     }
 
 
+SIGN_IN_CHOICES = ["password", "browser_start"]
+
+
+async def choose(hass, result, choice="password"):
+    """Pick how to sign in from the setup or reconnect menu."""
+    assert result["type"] == "menu" and result["menu_options"] == SIGN_IN_CHOICES
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": choice}
+    )
+
+
+async def start_sign_in(hass, choice="password"):
+    """Start setup and choose how to sign in."""
+    result = await hass.config_entries.flow.async_init("myq", context={"source": "user"})
+    return await choose(hass, result, choice)
+
+
 def json_response(data, status=200):
     import json
 

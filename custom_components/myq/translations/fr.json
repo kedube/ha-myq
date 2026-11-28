@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "Connecter MyQ",
+        "description": "Choisissez comment vous connecter. Les deux méthodes nécessitent votre jeton de débogage ou un fichier myq_app_check.json installé.",
+        "menu_options": {
+          "password": "Se connecter avec l’adresse courriel et le mot de passe",
+          "browser_start": "Se connecter avec un navigateur"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant vous connecte sur les pages de MyQ. Si MyQ affiche une vérification que seul un navigateur peut réussir, vous terminez dans un navigateur.",
+          "browser_start": "Connectez-vous sur la page de MyQ dans votre navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre mot de passe n’est saisi que sur la page de MyQ."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnecter MyQ",
+        "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte.",
+        "menu_options": {
+          "password": "Se connecter avec l’adresse courriel et le mot de passe",
+          "browser_start": "Se connecter avec un navigateur"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant vous connecte sur les pages de MyQ. Si MyQ affiche une vérification que seul un navigateur peut réussir, vous terminez dans un navigateur.",
+          "browser_start": "Connectez-vous sur la page de MyQ dans votre navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre mot de passe n’est saisi que sur la page de MyQ."
+        }
+      },
+      "password": {
+        "title": "Se connecter avec l’adresse courriel et le mot de passe",
         "description": "Saisissez votre adresse courriel MyQ, votre mot de passe et votre jeton de débogage. Si MyQ demande un code de vérification, vous serez invité à le saisir à l’étape suivante. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
         "data": {
           "username": "Adresse courriel",
@@ -21,26 +45,24 @@
           "response": "Réponse de vérification"
         }
       },
+      "browser_start": {
+        "title": "Se connecter avec un navigateur",
+        "description": "Saisissez votre jeton de débogage. L’écran suivant donne un lien vers la page de connexion MyQ : connectez-vous-y dans un navigateur, puis collez l’adresse qu’il tente d’ouvrir. Votre jeton de débogage n’est pas enregistré.",
+        "data": {
+          "debug_token": "Jeton de débogage"
+        },
+        "data_description": {
+          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
+        }
+      },
       "browser": {
         "title": "Se connecter avec un navigateur",
-        "description": "MyQ demande que cette connexion soit terminée dans un navigateur web.\n\n1. [Ouvrez la page de connexion MyQ]({authorize_url}) dans un navigateur sur un ordinateur et connectez-vous avec {email}. Sur un téléphone où l’app MyQ est installée, l’app peut s’ouvrir à la place.\n2. À la fin de la connexion, le navigateur tente d’ouvrir une adresse qui commence par `com.myqops://android`. Copiez l’adresse complète et collez-la ci-dessous.\n\nSi l’adresse n’est pas affichée, ouvrez les outils de développement du navigateur (F12 dans Chrome ou Edge) et copiez-la depuis le message de la console qui commence par `Failed to launch 'com.myqops://android?`. Le lien ne fonctionne qu’une fois et expire au bout de 10 minutes.",
+        "description": "1. [Ouvrez la page de connexion MyQ]({authorize_url}) dans un navigateur sur un ordinateur et connectez-vous. Sur un téléphone où l’app MyQ est installée, l’app peut s’ouvrir à la place.\n2. À la fin de la connexion, le navigateur tente d’ouvrir une adresse qui commence par `com.myqops://android`. Copiez l’adresse complète et collez-la ci-dessous.\n\nSi l’adresse n’est pas affichée, ouvrez les outils de développement du navigateur (F12 dans Chrome ou Edge) et copiez-la depuis le message de la console qui commence par `Failed to launch 'com.myqops://android?`. Le lien ne fonctionne qu’une fois et expire au bout de 10 minutes.",
         "data": {
           "callback": "Adresse du navigateur"
         },
         "data_description": {
           "callback": "L’adresse complète com.myqops://android, ou le message de la console entier qui la contient."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Reconnecter MyQ",
-        "description": "Votre session MyQ n’a pas pu être renouvelée. Reconnectez-vous au même compte. Votre mot de passe et votre jeton de débogage ne sont pas enregistrés.",
-        "data": {
-          "username": "Adresse courriel",
-          "password": "Mot de passe",
-          "debug_token": "Jeton de débogage"
-        },
-        "data_description": {
-          "debug_token": "Collez la valeur du jeton de débogage ou sa ligne ou son objet JSON. Laissez vide pour utiliser un fichier myq_app_check.json déjà installé."
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "MyQ a limité les requêtes. Patientez avant de réessayer.",
       "protocol_error": "MyQ a renvoyé une réponse inattendue. Consultez les notes sur le protocole de l'intégration. Aucun compte n'a été ajouté.",
       "browser_verification": "MyQ exige une vérification dans un navigateur que cette intégration ne peut pas effectuer.",
+      "browser_required": "MyQ a affiché une vérification ou un écran que seul un navigateur web peut terminer. Terminez la connexion avec un navigateur.",
       "invalid_callback": "Ce n’est pas l’adresse du lien de connexion affiché ici. Collez l’adresse complète qui commence par com.myqops://android.",
       "browser_expired": "Le lien de connexion a expiré. Ouvrez le nouveau lien et reconnectez-vous.",
       "browser_auth_failed": "MyQ n’a pas accepté cette connexion. Ouvrez le nouveau lien et reconnectez-vous.",

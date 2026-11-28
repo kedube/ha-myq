@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "Połącz z MyQ",
+        "description": "Wybierz sposób logowania. Oba wymagają tokenu debugowania lub zainstalowanego pliku myq_app_check.json.",
+        "menu_options": {
+          "password": "Zaloguj się adresem e-mail i hasłem",
+          "browser_start": "Zaloguj się w przeglądarce"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant loguje się za Ciebie na stronach MyQ. Jeśli MyQ wyświetli weryfikację, którą może przejść tylko przeglądarka, dokończysz logowanie w przeglądarce.",
+          "browser_start": "Zaloguj się na stronie MyQ w przeglądarce, a potem wklej adres, który próbuje ona otworzyć. Hasło wpisujesz tylko na stronie MyQ."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Połącz ponownie z MyQ",
+        "description": "Nie udało się odnowić sesji MyQ. Zaloguj się ponownie na to samo konto.",
+        "menu_options": {
+          "password": "Zaloguj się adresem e-mail i hasłem",
+          "browser_start": "Zaloguj się w przeglądarce"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant loguje się za Ciebie na stronach MyQ. Jeśli MyQ wyświetli weryfikację, którą może przejść tylko przeglądarka, dokończysz logowanie w przeglądarce.",
+          "browser_start": "Zaloguj się na stronie MyQ w przeglądarce, a potem wklej adres, który próbuje ona otworzyć. Hasło wpisujesz tylko na stronie MyQ."
+        }
+      },
+      "password": {
+        "title": "Zaloguj się adresem e-mail i hasłem",
         "description": "Wpisz adres e-mail konta MyQ, hasło i token debugowania. Jeśli MyQ poprosi o kod weryfikacyjny, wpiszesz go w następnym kroku. Hasło i token debugowania nie są zapisywane.",
         "data": {
           "username": "Adres e-mail",
@@ -21,26 +45,24 @@
           "response": "Odpowiedź weryfikacyjna"
         }
       },
+      "browser_start": {
+        "title": "Zaloguj się w przeglądarce",
+        "description": "Wpisz token debugowania. Na następnym ekranie pojawi się link do strony logowania MyQ: zaloguj się tam w przeglądarce, a potem wklej adres, który próbuje ona otworzyć. Token debugowania nie jest zapisywany.",
+        "data": {
+          "debug_token": "Token debugowania"
+        },
+        "data_description": {
+          "debug_token": "Wklej wartość tokenu debugowania albo zawierający ją wiersz lub obiekt JSON. Pozostaw puste, aby użyć zainstalowanego pliku myq_app_check.json."
+        }
+      },
       "browser": {
         "title": "Zaloguj się w przeglądarce",
-        "description": "Usługa MyQ wymaga dokończenia tego logowania w przeglądarce internetowej.\n\n1. [Otwórz stronę logowania MyQ]({authorize_url}) w przeglądarce na komputerze i zaloguj się jako {email}. Na telefonie z aplikacją MyQ zamiast tego może otworzyć się aplikacja.\n2. Po zalogowaniu przeglądarka próbuje otworzyć adres zaczynający się od `com.myqops://android`. Skopiuj cały adres i wklej go poniżej.\n\nJeśli adres się nie wyświetla, otwórz narzędzia deweloperskie przeglądarki (F12 w Chrome lub Edge) i skopiuj go z komunikatu w konsoli zaczynającego się od `Failed to launch 'com.myqops://android?`. Link działa jeden raz i wygasa po 10 minutach.",
+        "description": "1. [Otwórz stronę logowania MyQ]({authorize_url}) w przeglądarce na komputerze i zaloguj się. Na telefonie z aplikacją MyQ zamiast tego może otworzyć się aplikacja.\n2. Po zalogowaniu przeglądarka próbuje otworzyć adres zaczynający się od `com.myqops://android`. Skopiuj cały adres i wklej go poniżej.\n\nJeśli adres się nie wyświetla, otwórz narzędzia deweloperskie przeglądarki (F12 w Chrome lub Edge) i skopiuj go z komunikatu w konsoli zaczynającego się od `Failed to launch 'com.myqops://android?`. Link działa jeden raz i wygasa po 10 minutach.",
         "data": {
           "callback": "Adres z przeglądarki"
         },
         "data_description": {
           "callback": "Cały adres com.myqops://android albo cały komunikat z konsoli, który go zawiera."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Połącz ponownie z MyQ",
-        "description": "Nie udało się odnowić sesji MyQ. Zaloguj się ponownie na to samo konto. Hasło i token debugowania nie są zapisywane.",
-        "data": {
-          "username": "Adres e-mail",
-          "password": "Hasło",
-          "debug_token": "Token debugowania"
-        },
-        "data_description": {
-          "debug_token": "Wklej wartość tokenu debugowania albo zawierający ją wiersz lub obiekt JSON. Pozostaw puste, aby użyć zainstalowanego pliku myq_app_check.json."
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "Usługa MyQ ograniczyła liczbę żądań. Odczekaj przed ponowną próbą.",
       "protocol_error": "Usługa MyQ zwróciła nieoczekiwaną odpowiedź. Sprawdź notatki integracji dotyczące protokołu. Nie dodano żadnego konta.",
       "browser_verification": "MyQ wymaga weryfikacji w przeglądarce, której ta integracja nie może ukończyć.",
+      "browser_required": "MyQ wyświetliło weryfikację lub ekran, które może ukończyć tylko przeglądarka internetowa. Dokończ logowanie w przeglądarce.",
       "invalid_callback": "To nie jest adres z pokazanego tutaj linku logowania. Wklej cały adres zaczynający się od com.myqops://android.",
       "browser_expired": "Link logowania wygasł. Otwórz nowy link i zaloguj się ponownie.",
       "browser_auth_failed": "Usługa MyQ nie zaakceptowała tego logowania. Otwórz nowy link i zaloguj się ponownie.",

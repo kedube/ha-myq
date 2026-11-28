@@ -89,9 +89,9 @@ Resolution alone does not prove a native library will install or load. Separate
 x86-64 and ARM64 jobs run `scripts/check_runtime.py` inside each official HA
 container. That script uses HA's installer, imports every platform, loads the
 camera codecs, sends a loopback request through each native HTTP client with
-the Android TLS and HTTP/2 options applied, and opens the empty setup form. It
-makes no MyQ requests and mounts no registration file or existing HA
-configuration.
+the Android TLS and HTTP/2 options applied, and opens the setup menu and both
+sign-in forms. It makes no MyQ requests and mounts no registration file or
+existing HA configuration.
 Run it only in a disposable environment: it can install dependencies.
 
 ## Packaging and releases

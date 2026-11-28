@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "连接 MyQ",
+        "description": "请选择登录方式。两种方式都需要调试令牌或已安装的 myq_app_check.json 文件。",
+        "menu_options": {
+          "password": "使用邮箱和密码登录",
+          "browser_start": "使用浏览器登录"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant 会替您在 MyQ 页面上登录。如果 MyQ 显示只有浏览器才能通过的验证，您需要在浏览器中完成登录。",
+          "browser_start": "在浏览器中登录 MyQ 页面，然后粘贴浏览器尝试打开的地址。密码只在 MyQ 页面上输入。"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新连接 MyQ",
+        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。",
+        "menu_options": {
+          "password": "使用邮箱和密码登录",
+          "browser_start": "使用浏览器登录"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant 会替您在 MyQ 页面上登录。如果 MyQ 显示只有浏览器才能通过的验证，您需要在浏览器中完成登录。",
+          "browser_start": "在浏览器中登录 MyQ 页面，然后粘贴浏览器尝试打开的地址。密码只在 MyQ 页面上输入。"
+        }
+      },
+      "password": {
+        "title": "使用邮箱和密码登录",
         "description": "请输入 MyQ 邮箱、密码和调试令牌。如果 MyQ 要求验证码，下一步将提示您输入。密码和调试令牌不会被保存。",
         "data": {
           "username": "电子邮箱",
@@ -21,26 +45,24 @@
           "response": "验证响应"
         }
       },
+      "browser_start": {
+        "title": "使用浏览器登录",
+        "description": "请输入调试令牌。下一步会提供 MyQ 登录页面的链接：在浏览器中登录该页面，然后粘贴浏览器尝试打开的地址。调试令牌不会被保存。",
+        "data": {
+          "debug_token": "调试令牌"
+        },
+        "data_description": {
+          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。"
+        }
+      },
       "browser": {
         "title": "使用浏览器登录",
-        "description": "MyQ 要求在网页浏览器中完成此次登录。\n\n1. 在电脑的浏览器中[打开 MyQ 登录页面]({authorize_url})，并使用 {email} 登录。在安装了 MyQ 应用的手机上，可能会改为打开该应用。\n2. 登录完成后，浏览器会尝试打开一个以 `com.myqops://android` 开头的地址。请复制完整地址并粘贴到下方。\n\n如果没有显示该地址，请打开浏览器的开发者工具（Chrome 或 Edge 中按 F12），从以 `Failed to launch 'com.myqops://android?` 开头的控制台消息中复制。该链接只能使用一次，10 分钟后失效。",
+        "description": "1. 在电脑的浏览器中[打开 MyQ 登录页面]({authorize_url})并登录。在安装了 MyQ 应用的手机上，可能会改为打开该应用。\n2. 登录完成后，浏览器会尝试打开一个以 `com.myqops://android` 开头的地址。请复制完整地址并粘贴到下方。\n\n如果没有显示该地址，请打开浏览器的开发者工具（Chrome 或 Edge 中按 F12），从以 `Failed to launch 'com.myqops://android?` 开头的控制台消息中复制。该链接只能使用一次，10 分钟后失效。",
         "data": {
           "callback": "浏览器中的地址"
         },
         "data_description": {
           "callback": "完整的 com.myqops://android 地址，或包含该地址的整条控制台消息。"
-        }
-      },
-      "reauth_confirm": {
-        "title": "重新连接 MyQ",
-        "description": "无法续期您的 MyQ 会话。请重新登录同一账户。密码和调试令牌不会被保存。",
-        "data": {
-          "username": "电子邮箱",
-          "password": "密码",
-          "debug_token": "调试令牌"
-        },
-        "data_description": {
-          "debug_token": "粘贴调试令牌的值，或包含该值的 JSON 行或对象。留空则使用已安装的 myq_app_check.json 文件。"
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "MyQ 已限制请求。请稍候再试。",
       "protocol_error": "MyQ 返回了意外的响应。请查看本集成的协议说明。未添加任何账户。",
       "browser_verification": "MyQ 要求进行浏览器验证，此集成无法完成该步骤。",
+      "browser_required": "MyQ 显示了只有网页浏览器才能完成的验证或页面。请使用浏览器完成登录。",
       "invalid_callback": "这不是此处所示登录链接的地址。请粘贴以 com.myqops://android 开头的完整地址。",
       "browser_expired": "登录链接已过期。请打开新链接并重新登录。",
       "browser_auth_failed": "MyQ 未接受此次登录。请打开新链接并重新登录。",

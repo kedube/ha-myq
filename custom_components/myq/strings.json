@@ -4,6 +4,30 @@
     "step": {
       "user": {
         "title": "Connect MyQ",
+        "description": "Choose how to sign in. Both ways need your debug token, or an installed myq_app_check.json.",
+        "menu_options": {
+          "password": "Sign in with email and password",
+          "browser_start": "Sign in with a browser"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant signs in on MyQ's pages for you. If MyQ shows a check that only a browser can pass, you finish in a browser.",
+          "browser_start": "Sign in on MyQ's page in your browser, then paste the address it opens. Your password is entered only on MyQ's page."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect MyQ",
+        "description": "Your MyQ session could not be renewed. Sign in to the same account again.",
+        "menu_options": {
+          "password": "Sign in with email and password",
+          "browser_start": "Sign in with a browser"
+        },
+        "menu_option_descriptions": {
+          "password": "Home Assistant signs in on MyQ's pages for you. If MyQ shows a check that only a browser can pass, you finish in a browser.",
+          "browser_start": "Sign in on MyQ's page in your browser, then paste the address it opens. Your password is entered only on MyQ's page."
+        }
+      },
+      "password": {
+        "title": "Sign in with email and password",
         "description": "Enter your MyQ email, password, and debug token. If MyQ asks for a verification code, you will be prompted next. Your password and debug token are not saved.",
         "data": {
           "username": "Email",
@@ -21,26 +45,24 @@
           "response": "Verification response"
         }
       },
+      "browser_start": {
+        "title": "Sign in with a browser",
+        "description": "Enter your debug token. The next screen links to MyQ's sign-in page: sign in there in a browser, then paste the address it opens. Your debug token is not saved.",
+        "data": {
+          "debug_token": "Debug token"
+        },
+        "data_description": {
+          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json."
+        }
+      },
       "browser": {
         "title": "Sign in with a browser",
-        "description": "MyQ needs this sign-in to be completed in a web browser.\n\n1. [Open the MyQ sign-in page]({authorize_url}) in a browser on a computer and sign in with {email}. On a phone with the MyQ app, the app may open instead.\n2. When sign-in finishes, the browser tries to open an address that starts with `com.myqops://android`. Copy the complete address and paste it below.\n\nIf the address isn't shown, open the browser's developer tools (F12 in Chrome or Edge) and copy it from the Console message that starts with `Failed to launch 'com.myqops://android?`. The link works once and expires after 10 minutes.",
+        "description": "1. [Open the MyQ sign-in page]({authorize_url}) in a browser on a computer and sign in. On a phone with the MyQ app, the app may open instead.\n2. When sign-in finishes, the browser tries to open an address that starts with `com.myqops://android`. Copy the complete address and paste it below.\n\nIf the address isn't shown, open the browser's developer tools (F12 in Chrome or Edge) and copy it from the Console message that starts with `Failed to launch 'com.myqops://android?`. The link works once and expires after 10 minutes.",
         "data": {
           "callback": "Address from the browser"
         },
         "data_description": {
           "callback": "The complete com.myqops://android address, or the whole Console message that contains it."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Reconnect MyQ",
-        "description": "Your MyQ session could not be renewed. Sign in to the same account again. Your password and debug token are not saved.",
-        "data": {
-          "username": "Email",
-          "password": "Password",
-          "debug_token": "Debug token"
-        },
-        "data_description": {
-          "debug_token": "Paste the debug token value or its JSON line/object. Leave blank to use an installed myq_app_check.json."
         }
       },
       "finish": {
@@ -58,6 +80,7 @@
       "rate_limited": "MyQ has limited requests. Wait before trying again.",
       "protocol_error": "MyQ returned an unexpected response. Check the integration's protocol notes. No account was added.",
       "browser_verification": "MyQ requires a browser verification step that this integration cannot complete.",
+      "browser_required": "MyQ showed a check or screen that only a web browser can complete. Finish signing in with a browser.",
       "invalid_callback": "This isn't the address from the sign-in link shown here. Paste the complete address that starts with com.myqops://android.",
       "browser_expired": "The sign-in link expired. Open the new link and sign in again.",
       "browser_auth_failed": "MyQ did not accept this sign-in. Open the new link and sign in again.",
